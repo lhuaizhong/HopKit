@@ -21,6 +21,7 @@ struct Event {
 struct Task {
     id: String,
     tool: String,
+    action: String,
     target: String,
     status: String,
     started_at: String,
@@ -39,6 +40,7 @@ struct Tasks(
 struct Snapshot {
     id: String,
     tool: String,
+    action: String,
     target: String,
     status: String,
     started_at: String,
@@ -50,6 +52,7 @@ fn snap(t: &Task, after: u64) -> Snapshot {
     Snapshot {
         id: t.id.clone(),
         tool: t.tool.clone(),
+        action: t.action.clone(),
         target: t.target.clone(),
         status: t.status.clone(),
         started_at: t.started_at.clone(),
@@ -96,6 +99,7 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
             Task {
                 id: id.clone(),
                 tool: request.tool.clone(),
+                action: request.action.clone(),
                 target: if matches!(request.action.as_str(), "serve" | "listen") {
                     format!("{}:{}", request.listen, request.port)
                 } else {

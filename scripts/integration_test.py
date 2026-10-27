@@ -98,7 +98,7 @@ def validation():
     assert cli('ping','127.0.0.1','--timeout-ms',0,code=2)['error']['code']=='INVALID_ARGUMENT'
     assert cli('dns','localhost','AAAA',code=2)['error']['code']=='INVALID_ARGUMENT'
     assert cli('ping','127.0.0.1','--nonexistent',code=2)['status']=='failed'
-    assert cli('syslog','listen','--listen','0.0.0.0','--dir',work/'denied',code=2)['error']['code']=='INVALID_ARGUMENT'
+    assert cli('syslog','listen','--listen','0.0.0.0','--allow','invalid-cidr','--dir',work/'denied',code=2)['error']['code']=='INVALID_ARGUMENT'
     assert cli('ping','127.0.0.1','-t',code=2)['error']['code']=='INVALID_ARGUMENT'
 
 def dns(tcp_fallback=False,nxdomain=False):

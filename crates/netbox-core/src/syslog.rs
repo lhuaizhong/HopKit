@@ -15,7 +15,7 @@ pub fn sources(r: &Request) -> Result<Vec<IpNet>, ToolError> {
         .listen
         .parse()
         .map_err(|_| ToolError::new("INVALID_ARGUMENT", "Listen address must be a local IP"))?;
-    let allowed: Vec<IpNet> = r
+    let mut allowed: Vec<IpNet> = r
         .allow
         .split(',')
         .filter(|s| !s.trim().is_empty())
@@ -26,10 +26,13 @@ pub fn sources(r: &Request) -> Result<Vec<IpNet>, ToolError> {
         })
         .collect::<Result<_, _>>()?;
     if !ip.is_loopback() && allowed.is_empty() {
-        return Err(ToolError::new(
-            "INVALID_ARGUMENT",
-            "LAN listening requires --allow CIDR / 局域网监听必须设置来源网段",
-        ));
+        // A non-loopback listener serves devices by default. Explicit CIDRs
+        // still restrict sources; explicit loopback listeners remain local.
+        allowed.push(
+            if ip.is_ipv4() { "0.0.0.0/0" } else { "::/0" }
+                .parse()
+                .expect("valid wildcard source CIDR"),
+        );
     }
     Ok(allowed)
 }
@@ -240,16 +243,46 @@ mod tests {
         assert_eq!(parse_priority(b"garbage"), (None, None));
     }
     #[test]
-    fn lan_requires_explicit_sources() {
+    fn default_listener_accepts_devices_and_explicit_cidrs_restrict_sources() {
         let mut r = Request {
             listen: "0.0.0.0".into(),
             ..Request::default()
         };
-        assert!(sources(&r).is_err());
+        assert_eq!(Request::default().listen, "0.0.0.0");
+        let nets = sources(&r).unwrap();
+        assert!(allowed("192.0.2.7".parse().unwrap(), &nets));
+        assert!(allowed("127.0.0.1".parse().unwrap(), &nets));
+        assert!(!allowed("2001:db8::1".parse().unwrap(), &nets));
         r.allow = "192.0.2.0/24".into();
+        assert!(allowed("192.0.2.7".parse().unwrap(), &sources(&r).unwrap()));
+        assert!(!allowed(
+            "192.0.3.7".parse().unwrap(),
+            &sources(&r).unwrap()
+        ));
         assert!(!allowed(
             "127.0.0.1".parse().unwrap(),
             &sources(&r).unwrap()
         ));
+        r.allow = "not-a-cidr".into();
+        assert_eq!(sources(&r).unwrap_err().code, "INVALID_ARGUMENT");
+    }
+    #[test]
+    fn ipv6_wildcard_and_explicit_loopback_sources() {
+        let mut r = Request {
+            listen: "::".into(),
+            ..Request::default()
+        };
+        let nets = sources(&r).unwrap();
+        assert!(allowed("2001:db8::7".parse().unwrap(), &nets));
+        assert!(!allowed("192.0.2.7".parse().unwrap(), &nets));
+        for (listener, local, remote) in [
+            ("127.0.0.1", "127.0.0.1", "192.0.2.7"),
+            ("::1", "::1", "2001:db8::7"),
+        ] {
+            r.listen = listener.into();
+            let nets = sources(&r).unwrap();
+            assert!(allowed(local.parse().unwrap(), &nets));
+            assert!(!allowed(remote.parse().unwrap(), &nets));
+        }
     }
 }

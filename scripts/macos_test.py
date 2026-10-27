@@ -124,6 +124,55 @@ def services():
             with socket.socket(family,socket.SOCK_DGRAM) as s:s.bind((host,tftp_port))
             with socket.socket(family,socket.SOCK_DGRAM) as s:s.bind((host,syslog_port))
         return dict(ports=ports,ipv4=True,ipv6=True,unicode_paths=True)
+def outward_services():
+    with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as route:
+        route.connect(('192.0.2.1',9))
+        lan=route.getsockname()[0]
+    assert not lan.startswith('127.'),lan
+    observations=[]
+    with tempfile.TemporaryDirectory(prefix='netbox-default-services-') as tmp:
+        rootpath=Path(tmp);files=rootpath/'files';files.mkdir()
+        content=b'netbox wildcard listener test\n'
+        (files/'probe.cfg').write_bytes(content)
+        for family,host,listen in [(socket.AF_INET,lan,None),(socket.AF_INET6,'::1','::')]:
+            wildcard='0.0.0.0' if family==socket.AF_INET else '::'
+            def free_port():
+                with socket.socket(family,socket.SOCK_DGRAM) as s:
+                    s.bind((wildcard,0));return s.getsockname()[1]
+            tftp_port,syslog_port=free_port(),free_port()
+            logs=rootpath/f'logs-{family}'
+            processes=[]
+            def start(args):
+                proc=subprocess.Popen([exe,*map(str,args),*(['--listen',listen] if listen else []),'--duration','15','--format','jsonl'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                processes.append(proc)
+                ready=json.loads(proc.stdout.readline())
+                assert ready['event_type']=='ready',ready
+                assert ready['listen']==(f'0.0.0.0:{args[-1]}' if family==socket.AF_INET else f'[::]:{args[-1]}'),ready
+                return proc
+            try:
+                start(['tftp','serve','--root',files,'--port',tftp_port])
+                start(['syslog','listen','--dir',logs,'--port',syslog_port])
+                # Independent clients address the machine's LAN IP rather than
+                # loopback for IPv4, without passing --listen or --allow.
+                with socket.socket(family,socket.SOCK_DGRAM) as peer:
+                    peer.bind((host,0));peer.settimeout(3)
+                    peer.sendto(b'\0\1probe.cfg\0octet\0',(host,tftp_port))
+                    packet,transfer=peer.recvfrom(1024)
+                    assert packet[:4]==b'\0\3\0\1' and packet[4:]==content,packet
+                    peer.sendto(b'\0\4\0\1',transfer)
+                with socket.socket(family,socket.SOCK_DGRAM) as peer:
+                    peer.bind((host,0));peer.sendto(b'<13>default outward listener',(host,syslog_port))
+                time.sleep(.15)
+            finally:
+                for proc in processes:
+                    if proc.poll() is None:proc.send_signal(signal.SIGINT)
+                    proc.communicate(timeout=3)
+            records=[json.loads(line) for f in (logs/'netbox-syslog').glob('*.jsonl') for line in f.read_text().splitlines()]
+            assert len(records)==1 and 'default outward listener' in records[0]['text'],records
+            for port in [tftp_port,syslog_port]:
+                with socket.socket(family,socket.SOCK_DGRAM) as s:s.bind((wildcard,port))
+            observations.append(dict(listen=wildcard,client_address=host,tftp_bytes=len(content),syslog_records=1,ports_released=True))
+    return dict(observations=observations,ipv4_default_without_flags=True,ipv6_explicit_wildcard=True,scope='Same-host non-loopback IPv4 access; no separate physical device used')
 def standard_ports():
     observations=[]
     with tempfile.TemporaryDirectory(prefix='netbox-standard-ports-') as tmp:
@@ -152,6 +201,7 @@ check('Ping payload sizes 0..65500 with independent IPv4/IPv6 wire observation',
 check('Ctrl+C interrupts a 10 second ICMP receive budget',cancel_probe)
 check('Closed output pipe stops a continuous task',broken_pipe)
 check('High-port TFTP/Syslog IPv4/IPv6 and Chinese paths',services)
+check('Default outward TFTP/Syslog via LAN IP and explicit IPv6 wildcard',outward_services)
 check('Observe actual standard UDP 69/514 access without elevation',standard_ports)
 report=dict(executable=exe,sha256=hashlib.sha256(Path(exe).read_bytes()).hexdigest(),system=platform.platform(),machine=platform.machine(),timestamp=time.strftime('%Y-%m-%dT%H:%M:%S%z'),results=results,passed=sum(r['status']=='passed' for r in results),total=len(results))
 Path(a.output).parent.mkdir(parents=True,exist_ok=True)

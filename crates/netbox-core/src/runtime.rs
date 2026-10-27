@@ -89,7 +89,7 @@ impl Default for Request {
             path: String::new(),
             remote_name: String::new(),
             action: String::new(),
-            listen: "127.0.0.1".into(),
+            listen: "0.0.0.0".into(),
             allow: String::new(),
             writable: false,
             overwrite: false,

@@ -16,7 +16,7 @@
 | 工具 | macOS 测试版功能 |
 | --- | --- |
 | Ping | Darwin 普通用户 ICMP 数据报套接字；IPv4/IPv6、次数/持续、测试包大小、超时、间隔、延迟、丢包；不调用系统 ping 命令 |
-| Traceroute | ICMP 逐跳 TTL / IPv6 hop limit，每跳 3 次；区分回复、超时、TTL 到期及不可达 |
+| Traceroute | ICMP 逐跳 TTL / IPv6 hop limit，每跳一行并列显示 3 次探测；区分回复、超时、TTL 到期及不可达 |
 | TCPing | TCP connect，区分成功、拒绝和超时 |
 | DNS | 系统解析；指定 DNS 的 A/AAAA/CNAME/MX/TXT/NS/PTR/SOA；UDP 截断回退 TCP |
 | NTP | 1～20 次采样，偏差、往返延迟、stratum、KoD；不修改系统时间 |
@@ -24,6 +24,10 @@
 | Syslog | UDP 发送/接收、优先级、采样预览、保留原始字节的 JSONL、按段轮转 |
 
 GUI 提供中文/英文、实时预览、任务中心、取消单任务/全部任务、复制和 JSON 文件导出。最多同时运行 4 个 GUI 任务，保留最近 40 个会话任务。界面展示真实平台及 CPU 架构。文件和日志目录始终由使用者显式选择，不写入 `.app` 内部，不从应用启动位置推断便携数据目录。
+
+TFTP 文件服务、Syslog 接收服务运行或正在停止时，对应“启动服务”按钮禁用；停止完成或启动失败后恢复。切换工具页不解除该状态，可通过“停止”或“停止全部”结束服务。TFTP 下载/上传及 Syslog 发送仍可单独使用。
+
+GUI / CLI 服务默认监听 `0.0.0.0`（所有 IPv4 网卡），对外监听时“允许来源 CIDR”留空允许所有来源，设备使用这台 Mac 的局域网 IP 访问。可指定本机网卡 IP 只在该接口监听，填写 CIDR 限制来源；`::` 表示所有 IPv6 网卡。仅本机测试时可手动填写 `127.0.0.1` / `::1`。
 
 Ping 的“测试包大小 / 字节”可设置为 0～65500 的整数，默认 32。该值仅指 ICMP 数据部分，不包含 IP 头和 8 字节 ICMP 头；结果区与 JSON 的 `payload_size_bytes` 记录本次实际配置。大包能否到达取决于路径 MTU、分片及设备策略，本选项不启用禁止分片或自动探测 MTU。
 
@@ -42,14 +46,14 @@ Ping 的“测试包大小 / 字节”可设置为 0～65500 的整数，默认 
 ./netbox-cli ntp 192.168.1.10 -c 4
 ./netbox-cli tftp get 192.168.1.10 config.cfg -o './配置备份.cfg'
 ./netbox-cli tftp put 192.168.1.10 './配置备份.cfg'
-./netbox-cli tftp serve --root './files' --listen 127.0.0.1 --port 1069
-./netbox-cli syslog listen --listen 127.0.0.1 --port 1514 --dir './logs'
+./netbox-cli tftp serve --root './files' --port 1069
+./netbox-cli syslog listen --port 1514 --dir './logs'
 ./netbox-cli syslog send 127.0.0.1 'netbox 测试' --port 1514
 ./netbox-cli doctor --format json
 ./netbox-cli --help
 ```
 
-示例局域网地址请替换为实际设备地址。TFTP 默认 UDP 69，Syslog 默认 UDP 514。本机普通用户绑定这两个标准端口实测返回 `PERMISSION_DENIED`；请手动使用 1069 / 1514 测试。如确实需要标准端口，可由使用者在确认目标、目录和来源后自行以管理员身份运行独立 CLI；GUI 不提权。错误时不会自动换端口。局域网服务必须选择本机地址并设置 `--allow 192.168.1.0/24`；多个来源 CIDR 用逗号分隔。
+示例局域网地址请替换为实际设备地址。TFTP 默认 UDP 69，Syslog 默认 UDP 514。标准端口是否可用取决于运行环境与端口占用；本次普通用户 UID 501 复测可绑定这两个端口，早期受限环境曾返回 `PERMISSION_DENIED`。遇到权限错误时可手动使用 1069 / 1514 测试；GUI 不提权，错误时不会自动换端口。如需只允许某个局域网段，可设置 `--allow 192.168.1.0/24`；多个来源 CIDR 用逗号分隔。
 
 可选短入口为 `./shortcuts/nb`，它相对调用包内 CLI。加入 PATH 前先运行 `type -a nb` 检查冲突；本包不覆盖已有命令。
 

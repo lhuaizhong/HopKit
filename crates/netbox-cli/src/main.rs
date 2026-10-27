@@ -133,7 +133,7 @@ enum Tftp {
     Serve {
         #[arg(long)]
         root: String,
-        #[arg(long, default_value = "127.0.0.1")]
+        #[arg(long, default_value = "0.0.0.0")]
         listen: String,
         #[arg(long, default_value_t = 69)]
         port: u16,
@@ -148,7 +148,7 @@ enum Tftp {
 #[derive(Subcommand)]
 enum Syslog {
     Listen {
-        #[arg(long, default_value = "127.0.0.1")]
+        #[arg(long, default_value = "0.0.0.0")]
         listen: String,
         #[arg(long, default_value_t = 514)]
         port: u16,
