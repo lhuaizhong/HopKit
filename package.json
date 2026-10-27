@@ -1,0 +1,24 @@
+{
+  "name": "netbox-network-toolkit",
+  "version": "0.1.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vue-tsc --noEmit && vite build",
+    "desktop": "tauri dev",
+    "desktop:build": "tauri build --no-bundle",
+    "test:ui": "node scripts/gui-test.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "vue": "^3"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@vitejs/plugin-vue": "^6",
+    "typescript": "~5.9",
+    "vite": "^7",
+    "vue-tsc": "^3"
+  }
+}
