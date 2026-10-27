@@ -56,6 +56,8 @@ pub struct Request {
     pub count: u32,
     pub timeout_ms: u64,
     pub interval_ms: u64,
+    /// ICMP echo data bytes, excluding IP and the 8-byte ICMP header.
+    pub payload_size_bytes: u32,
     pub ipv6: bool,
     pub max_hops: u8,
     pub record_type: String,
@@ -79,6 +81,7 @@ impl Default for Request {
             count: 4,
             timeout_ms: 1000,
             interval_ms: 1000,
+            payload_size_bytes: 32,
             ipv6: false,
             max_hops: 30,
             record_type: "A".into(),
@@ -203,7 +206,11 @@ pub fn bind_udp(addr: SocketAddr) -> Result<std::net::UdpSocket, ToolError> {
     }
     #[cfg(windows)]
     s.set_reuse_address(false)?;
-    s.bind(&addr.into())?;
+    s.bind(&addr.into()).map_err(|e| {
+        if cfg!(target_os = "macos") && addr.port() < 1024 && e.kind() == std::io::ErrorKind::PermissionDenied {
+            ToolError::new("PERMISSION_DENIED", format!("macOS denied UDP port {}. Select a port >=1024 for ordinary-user testing (TFTP 1069 / Syslog 1514), or explicitly run the independent CLI with administrator privileges for standard ports. / macOS 拒绝标准端口；普通用户可手动改用高端口。OS: {e}", addr.port()))
+        } else { e.into() }
+    })?;
     let s: std::net::UdpSocket = s.into();
     s.set_read_timeout(Some(Duration::from_millis(100)))?;
     Ok(s)
@@ -224,6 +231,12 @@ pub fn is_timeout(e: &std::io::Error) -> bool {
 
 pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
     cancelled(c)?;
+    if req.tool == "ping" && req.payload_size_bytes > 65500 {
+        return Err(ToolError::new(
+            "INVALID_ARGUMENT",
+            "Ping payload must be 0..65500 bytes / Ping 数据大小须为 0–65500 字节",
+        ));
+    }
     if !(100..=10000).contains(&req.timeout_ms)
         || req.interval_ms > 60000
         || req.max_hops == 0
@@ -248,7 +261,7 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
         "syslog" => crate::syslog::run(req, c, emit),
         "tftp" => crate::tftp::run(req, c, emit),
         "doctor" => Ok(
-            json!({"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"version":env!("CARGO_PKG_VERSION"),"gui_required":false,"tools":["ping","trace","tcping","dns","ntp","tftp","syslog"],"preview":true}),
+            json!({"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"version":env!("CARGO_PKG_VERSION"),"gui_required":false,"icmp_adapter":if cfg!(windows){"windows-iphelper"}else if cfg!(target_os="macos"){"darwin-datagram"}else{"unavailable"},"tools":["ping","trace","tcping","dns","ntp","tftp","syslog"],"preview":true}),
         ),
         _ => Err(ToolError::new("INVALID_ARGUMENT", "Unknown tool")),
     }
@@ -275,6 +288,15 @@ mod tests {
             ..Request::default()
         };
         assert_eq!(run(&r, &c, &|_| {}).unwrap_err().code, "INVALID_ARGUMENT");
+        let r = Request {
+            target: "must-not-resolve.invalid".into(),
+            payload_size_bytes: 65501,
+            ..Request::default()
+        };
+        assert_eq!(run(&r, &c, &|_| {}).unwrap_err().code, "INVALID_ARGUMENT");
+        // Older saved requests keep the default when this new field is absent.
+        let old: Request = serde_json::from_str(r#"{"tool":"ping"}"#).unwrap();
+        assert_eq!(old.payload_size_bytes, 32);
     }
     #[test]
     fn cancellation_prevents_execution() {

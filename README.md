@@ -1,6 +1,6 @@
-# netbox Windows 首次测试版
+# netbox Windows / macOS 基础功能测试版
 
-版本：`0.1.0-alpha.1`。基于上级目录的《netbox 技术方案 v0.3》，实现用于首次操作测试和评估的 Windows x64 基础工具集。
+版本：`0.1.0-alpha.1`。基于上级目录的《netbox 技术方案 v0.3》，实现用于首次操作测试和评估的基础工具集。macOS 的启动、构建、架构和验证边界见 [README-macOS.md](README-macOS.md)；下列 Windows 操作说明继续保留。
 
 ## 启动
 
@@ -12,7 +12,7 @@
 
 | 工具 | GUI / CLI 能力 |
 | --- | --- |
-| Ping | Windows ICMP API，IPv4/IPv6、次数/持续探测、超时、间隔、延迟和丢包 |
+| Ping | Windows ICMP API / macOS Darwin ICMP，IPv4/IPv6、次数/持续探测、测试包大小、超时、间隔、延迟和丢包 |
 | Traceroute | ICMP 逐跳，最大跳数、每跳三次；无响应不直接判定断路 |
 | TCPing | 指定端口 TCP connect，区分连接成功、拒绝、超时 |
 | DNS | 系统解析；指定 DNS 的 A/AAAA/CNAME/MX/TXT/NS/PTR/SOA 查询，UDP 截断回退 TCP |
@@ -22,12 +22,15 @@
 
 GUI 提供中英切换、实时结果、会话任务中心、停止单任务/全部任务、复制和 JSON 导出。GUI 内最多同时运行 4 个任务，保存最近 40 个任务；退出 GUI 会停止其任务。CLI 独立运行，与 GUI 的生命周期互不影响。
 
+Ping 的“测试包大小 / 字节”支持 0～65500 的整数，默认 32，指 ICMP 数据部分，不包含 IP / ICMP 头。CLI 使用 `--size`，结果及导出 JSON 使用 `payload_size_bytes` 记录该值。大包的实际可达性受网络 MTU、分片和设备策略影响。
+
 ## CLI 示例
 
 在发布目录的 PowerShell 中执行：
 
 ```powershell
 .\netbox-cli.exe ping 127.0.0.1
+.\netbox-cli.exe ping 127.0.0.1 --size 1472
 .\netbox-cli.exe ping ::1 -6 -c 4 --format json
 .\netbox-cli.exe trace 192.168.1.1 --max-hops 15
 .\netbox-cli.exe tcping 192.168.1.1 443 -c 10
@@ -53,7 +56,7 @@ GUI 提供中英切换、实时结果、会话任务中心、停止单任务/全
 
 ## 本测试版边界
 
-- 只交付 Windows x64。实际验证系统及产物哈希见 `测试报告.md` 和 `validation/`；尚未完成旧 LTSC、Windows 10 最低端、其他架构和真实设备型号认证。
+- Windows 包交付 x64；macOS 包和运行范围见 `README-macOS.md`。实际验证系统及产物哈希见 `测试报告.md` 和 `validation/`；尚未完成旧 LTSC、Windows 10 最低端、其他架构和真实设备型号认证。
 - GUI 是使用已安装 WebView2 的轻量便携包，未附私有 Fixed Version 运行时；CLI 不依赖 WebView2、Node、Python 或开发工具。
 - TFTP 仅 octet，512 字节、一次一个活动传输、根目录内单层文件名；不协商 blksize、不回绕、不支持 netascii/断点续传。最大文件 33,553,919 字节。服务允许上传也只新建，始终不覆盖已有文件。传输端口由 OS 分配，不限制在 v0.3 规划的固定 TID 范围；局域网防火墙需允许本程序的实际 UDP 流量。
 - TFTP 每块等待 1 秒、最多重传 5 次，接收端提交后结束等待 2 秒。上传最终 ACK 未收到时，远端文件可能已存在，不能直接假定上传没有发生。用户选择的本地磁盘根目录必须可信。
@@ -76,7 +79,7 @@ GUI 提供中英切换、实时结果、会话任务中心、停止单任务/全
 
 ## 开发与复测
 
-当前验证工具链：Rust 1.94.0、Node 24.3.0、Visual Studio 2022 Build Tools。`Cargo.lock` 和 `package-lock.json` 已锁定依赖。`rust-toolchain.toml` 使用本机 stable 以避免隐式安装额外工具链；复现发布版本需先核对 Rust 版本，不要直接随意升级依赖。
+当前验证工具链：Rust 1.94.0、Node 24.3.0、Visual Studio 2022 Build Tools。`Cargo.lock` 和 `package-lock.json` 已锁定依赖。Windows 原包使用 Rust 1.94.0；当前 `rust-toolchain.toml` 为 macOS 扩展锁定到 1.96.0，Windows 在新工具链上的发布回归尚未执行。依赖仍使用锁文件，不要直接随意升级。
 
 ```powershell
 npm ci

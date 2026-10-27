@@ -1,12 +1,18 @@
+#[cfg(target_os = "macos")]
+use crate::macos_icmp::icmp;
 use crate::runtime::*;
-use serde_json::{Value, json};
+#[cfg(not(target_os = "macos"))]
+use serde_json::Value;
+use serde_json::json;
+#[cfg(windows)]
+use std::net::IpAddr;
 use std::{
-    net::{IpAddr, TcpStream},
+    net::TcpStream,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 #[cfg(windows)]
-fn icmp(ip: IpAddr, ttl: u8, timeout: u32) -> Result<Value, ToolError> {
+fn icmp(ip: IpAddr, ttl: u8, timeout: u32, payload_size: usize) -> Result<Value, ToolError> {
     use windows_sys::Win32::{
         Foundation::{GetLastError, INVALID_HANDLE_VALUE},
         NetworkManagement::IpHelper::*,
@@ -23,7 +29,7 @@ fn icmp(ip: IpAddr, ttl: u8, timeout: u32) -> Result<Value, ToolError> {
                 format!("ICMP create: {}", GetLastError()),
             ));
         }
-        let payload = [0x6e_u8; 32];
+        let payload = vec![0x6e_u8; payload_size];
         let opts = IP_OPTION_INFORMATION {
             Ttl: ttl,
             Tos: 0,
@@ -32,7 +38,7 @@ fn icmp(ip: IpAddr, ttl: u8, timeout: u32) -> Result<Value, ToolError> {
             OptionsData: std::ptr::null_mut(),
         };
         // Aligned storage for Windows reply structures and quoted data.
-        let mut buf = vec![0_u64; 256];
+        let mut buf = vec![0_u64; (payload_size + 1024).div_ceil(8)];
         let start = Instant::now();
         let n = match ip {
             IpAddr::V4(v) => IcmpSendEcho2Ex(
@@ -94,11 +100,11 @@ fn icmp(ip: IpAddr, ttl: u8, timeout: u32) -> Result<Value, ToolError> {
         }
     }
 }
-#[cfg(not(windows))]
-fn icmp(_: IpAddr, _: u8, _: u32) -> Result<Value, ToolError> {
+#[cfg(not(any(windows, target_os = "macos")))]
+fn icmp(_: std::net::SocketAddr, _: u8, _: u32, _: usize, _: &Cancel) -> Result<Value, ToolError> {
     Err(ToolError::new(
         "UNSUPPORTED_CAPABILITY",
-        "Windows ICMP adapter required",
+        "ICMP is available on Windows and macOS",
     ))
 }
 
@@ -107,7 +113,16 @@ pub fn probe(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
         return Err(ToolError::new("INVALID_ARGUMENT", "TCP port is required"));
     }
     let addr = resolve(&r.target, r.port, r.ipv6, c)?;
-    emit(json!({"event_type":"target","address":addr.ip().to_string(),"port":r.port}));
+    let payload_size = if r.tool == "ping" {
+        r.payload_size_bytes as usize
+    } else {
+        32
+    };
+    let mut target = json!({"event_type":"target","address":addr.ip().to_string(),"port":r.port});
+    if r.tool == "ping" {
+        target["payload_size_bytes"] = json!(payload_size);
+    }
+    emit(target);
     let mut sent = 0_u32;
     let mut received = 0_u32;
     let mut total = 0.0_f64;
@@ -143,11 +158,21 @@ pub fn probe(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
                 }
             }
         } else {
-            icmp(addr.ip(), hop, r.timeout_ms as u32)?
+            #[cfg(windows)]
+            {
+                icmp(addr.ip(), hop, r.timeout_ms as u32, payload_size)?
+            }
+            #[cfg(not(windows))]
+            {
+                icmp(addr, hop, r.timeout_ms as u32, payload_size, c)?
+            }
         };
         sent += 1;
         sample["event_type"] = json!("sample");
         sample["seq"] = json!(sent);
+        if r.tool == "ping" {
+            sample["payload_size_bytes"] = json!(payload_size);
+        }
         if r.tool == "trace" {
             sample["hop"] = json!(hop);
         }
@@ -176,9 +201,11 @@ pub fn probe(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
             )?;
         }
     }
-    Ok(
-        json!({"target":addr.ip().to_string(),"sent":sent,"received":received,"lost":sent-received,"loss_percent":(sent-received)as f64*100.0/sent.max(1)as f64,"rtt_min_ms":if received>0{Some(minimum)}else{None},"rtt_avg_ms":if received>0{Some(total/received as f64)}else{None},"rtt_max_ms":if received>0{Some(maximum)}else{None},"reached":reached,"success":if r.tool=="trace"{reached}else{received>0},"samples":samples,"samples_truncated":sent>10000}),
-    )
+    let mut result = json!({"target":addr.ip().to_string(),"sent":sent,"received":received,"lost":sent-received,"loss_percent":(sent-received)as f64*100.0/sent.max(1)as f64,"rtt_min_ms":if received>0{Some(minimum)}else{None},"rtt_avg_ms":if received>0{Some(total/received as f64)}else{None},"rtt_max_ms":if received>0{Some(maximum)}else{None},"reached":reached,"success":if r.tool=="trace"{reached}else{received>0},"samples":samples,"samples_truncated":sent>10000});
+    if r.tool == "ping" {
+        result["payload_size_bytes"] = json!(payload_size);
+    }
+    Ok(result)
 }
 
 fn ntp_stamp(t: SystemTime) -> u64 {

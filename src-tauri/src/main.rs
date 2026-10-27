@@ -30,7 +30,11 @@ struct Task {
     result: Option<Value>,
 }
 #[derive(Clone, Default)]
-struct Tasks(Arc<Mutex<BTreeMap<String, Task>>>, Arc<AtomicBool>);
+struct Tasks(
+    Arc<Mutex<BTreeMap<String, Task>>>,
+    Arc<AtomicBool>,
+    Arc<AtomicBool>,
+);
 #[derive(Serialize)]
 struct Snapshot {
     id: String,
@@ -229,7 +233,19 @@ async fn export_result(content: String) -> Result<bool, String> {
 }
 #[tauri::command]
 fn app_info() -> Value {
-    json!({"version":env!("CARGO_PKG_VERSION"),"platform":"Windows x64","portable":true,"tools":7})
+    let os = if cfg!(target_os = "macos") {
+        "macOS"
+    } else if cfg!(windows) {
+        "Windows"
+    } else {
+        std::env::consts::OS
+    };
+    let arch = match std::env::consts::ARCH {
+        "aarch64" => "Apple Silicon",
+        "x86_64" => "x64",
+        other => other,
+    };
+    json!({"version":env!("CARGO_PKG_VERSION"),"platform":format!("{os} {arch}"),"os":os,"architecture":std::env::consts::ARCH,"portable":true,"tools":7})
 }
 fn chrono_now() -> String {
     format!(
@@ -239,6 +255,32 @@ fn chrono_now() -> String {
             .unwrap_or_default()
             .as_millis()
     )
+}
+fn shutdown(handle: tauri::AppHandle, state: Tasks) {
+    state.1.store(true, Ordering::Relaxed);
+    if let Ok(mut m) = state.0.lock() {
+        for t in m.values_mut() {
+            t.cancel.store(true, Ordering::Relaxed);
+        }
+    }
+    std::thread::spawn(move || {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let running = state
+                .0
+                .lock()
+                .map(|m| {
+                    m.values()
+                        .any(|t| matches!(t.status.as_str(), "running" | "cancelling"))
+                })
+                .unwrap_or(false);
+            if !running || Instant::now() > deadline {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        handle.exit(0);
+    });
 }
 fn main() {
     let app = tauri::Builder::default()
@@ -254,8 +296,18 @@ fn main() {
             app_info
         ])
         .build(tauri::generate_context!())
-        .expect("Cannot start netbox; WebView2 runtime is required");
+        .expect("Cannot start netbox; check the platform WebView runtime");
     app.run(|app, event| {
+        // macOS normally keeps an app alive after the last window closes.
+        // This temporary toolbox must stop its listeners when its window closes.
+        if let tauri::RunEvent::WindowEvent {
+            event: tauri::WindowEvent::CloseRequested { api, .. },
+            ..
+        } = &event
+        {
+            api.prevent_close();
+            app.exit(0);
+        }
         if let tauri::RunEvent::ExitRequested { api, .. } = event {
             let state = app.state::<Tasks>().inner().clone();
             if state.1.load(Ordering::Relaxed) {
@@ -271,31 +323,34 @@ fn main() {
                 .unwrap_or(false);
             if active {
                 api.prevent_exit();
-                state.1.store(true, Ordering::Relaxed);
-                if let Ok(mut m) = state.0.lock() {
-                    for t in m.values_mut() {
-                        t.cancel.store(true, Ordering::Relaxed);
-                    }
-                }
-                let handle = app.clone();
-                std::thread::spawn(move || {
-                    let deadline = Instant::now() + Duration::from_secs(5);
-                    loop {
-                        let running = state
-                            .0
-                            .lock()
-                            .map(|m| {
-                                m.values()
-                                    .any(|t| matches!(t.status.as_str(), "running" | "cancelling"))
-                            })
-                            .unwrap_or(false);
-                        if !running || Instant::now() > deadline {
-                            break;
+                #[cfg(target_os = "macos")]
+                {
+                    if state.2.swap(true, Ordering::Relaxed) { return; }
+                    let handle = app.clone();
+                    let window = app.get_webview_window("main");
+                    // A parented asynchronous Cocoa sheet keeps the application
+                    // event loop responsive while the user decides.
+                    tauri::async_runtime::spawn(async move {
+                        let Some(window) = window else {
+                            state.2.store(false, Ordering::Relaxed);
+                            return;
+                        };
+                        let decision = rfd::AsyncMessageDialog::new()
+                            .set_parent(&window)
+                            .set_title("退出 netbox / Quit netbox")
+                            .set_description("退出会停止本窗口的全部测试、文件传输和临时监听。其他终端中的独立 CLI 不受影响。\nQuitting stops this window's diagnostics, transfers and listeners. Independent CLI processes remain running.")
+                            .set_level(rfd::MessageLevel::Warning)
+                            .set_buttons(rfd::MessageButtons::OkCancelCustom("停止并退出 / Stop and quit".into(), "取消 / Cancel".into()))
+                            .show().await;
+                        if decision == rfd::MessageDialogResult::Custom("停止并退出 / Stop and quit".into()) {
+                            shutdown(handle, state);
+                        } else {
+                            state.2.store(false, Ordering::Relaxed);
                         }
-                        std::thread::sleep(Duration::from_millis(50));
-                    }
-                    handle.exit(0);
-                });
+                    });
+                }
+                #[cfg(not(target_os = "macos"))]
+                shutdown(app.clone(), state);
             }
         }
     });

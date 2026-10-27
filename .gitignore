@@ -6,3 +6,6 @@
 /test-output/
 *.part
 
+
+.DS_Store
+__pycache__/

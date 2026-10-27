@@ -15,11 +15,12 @@ import traceback
 
 ROOT = Path(__file__).resolve().parents[1]
 args = argparse.ArgumentParser()
-args.add_argument('--exe', default=str(ROOT/'target/debug/netbox-cli.exe'))
+args.add_argument('--exe', default=str(ROOT/'target/debug'/('netbox-cli.exe' if os.name == 'nt' else 'netbox-cli')))
 args.add_argument('--output', default=str(ROOT/'test-output/integration.json'))
 opts = args.parse_args()
 EXE = str(Path(opts.exe).resolve())
 results = []
+(ROOT/'test-output').mkdir(exist_ok=True)
 work = Path(tempfile.mkdtemp(prefix='netbox-tests-', dir=ROOT/'test-output'))
 
 def check(name, fn):

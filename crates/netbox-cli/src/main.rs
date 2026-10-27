@@ -13,8 +13,8 @@ use std::{
 #[command(
     name = "netbox-cli",
     version,
-    about = "netbox Network Toolkit / 网络工具箱 · Windows preview",
-    long_about = "Windows preview: Ping / Trace / TCPing / DNS / NTP / TFTP / Syslog UDP.\nGUI is never launched by CLI. Ctrl+C cancels the current operation.\n命令行独立运行；Ctrl+C 取消。Run help <command> for arguments."
+    about = "netbox Network Toolkit / 网络工具箱 · Windows / macOS preview",
+    long_about = "Windows / macOS preview: Ping / Trace / TCPing / DNS / NTP / TFTP / Syslog UDP.\nGUI is never launched by CLI. Ctrl+C cancels the current operation.\n命令行独立运行；Ctrl+C 取消。Run help <command> for arguments."
 )]
 struct Cli {
     #[arg(long,global=true,default_value="text",value_parser=["text","json","jsonl"])]
@@ -31,6 +31,9 @@ struct Cli {
 #[derive(Args)]
 struct Probe {
     target: String,
+    /// ICMP data bytes, excluding IP/ICMP headers / ICMP 数据字节数
+    #[arg(long, default_value_t = 32)]
+    size: u32,
     #[arg(short = 'c', long, default_value_t = 4)]
     count: u32,
     #[arg(short = 't', long, conflicts_with = "count")]
@@ -168,6 +171,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
     match cmd {
         Command::Ping(p) => {
             r.target = p.target;
+            r.payload_size_bytes = p.size;
             r.count = if p.continuous { 0 } else { p.count };
             r.timeout_ms = p.timeout_ms;
             r.interval_ms = p.interval_ms;
