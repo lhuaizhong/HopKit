@@ -12,7 +12,7 @@ jobs:
           - os: windows-2022
             platform: windows-x64
             target: x86_64-pc-windows-msvc
-            config: src-tauri/tauri.windows.conf.json
+            config: src-tauri/tauri.release-windows.conf.json
             bundles: nsis
             build-config: src-tauri/tauri.conf.json
           - os: macos-14
