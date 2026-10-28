@@ -2,6 +2,14 @@
 
 版本：`0.1.0-alpha.1`，基于《netbox 技术方案 v0.3》及现有 Windows 基础测试版。GUI 和独立 CLI 共享 Rust 协议核心。此包用于基础评估；不是 v0.3 的正式版完整验收结果。
 
+## 下载
+
+- [Apple Silicon DMG](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg)
+- [Intel DMG](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg)
+- [全部安装包、CLI ZIP 和 SHA-256](https://github.com/lhuaizhong/netbox/releases/tag/v0.1.0-alpha.1)
+
+DMG 打开后将 `netbox.app` 拖入 Applications；两种 DMG 均以 macOS 11.0 为最低构建目标，最低版本尚未实机验证。
+
 ## 启动
 
 - Apple Silicon（M 系列）：使用 `macos-arm64` 包；Intel：使用 `macos-x86_64` 包。Intel 包的构建成功不代表已通过 Intel 实机测试。
@@ -64,7 +72,7 @@ Ping 的“测试包大小 / 字节”可设置为 0～65500 的整数，默认 
 - 当前完整运行证据来自 Apple Silicon、macOS 27.0.1。本次构建目标下限为 arm64 macOS 11、Intel macOS 10.15；最低系统和 Intel 真机仍需验证，不能从 Mach-O 下限或交叉编译成功推导运行支持。
 - TFTP 仅 octet、512 字节、一次一个活动传输、根目录单层文件名；不协商选项、不回绕、不支持 netascii，最大 33,553,919 字节。服务写入只允许新建。最终 ACK 丢失可能导致远端结果不确定，不应盲目重传上传。文件根目录须可信；防火墙需允许实际动态 UDP 传输端口。
 - Syslog 仅 UDP，JSONL 段 64 MiB、7 天/约 2 GiB 上限；不承诺正式版吞吐量、SQLite 索引和严格崩溃恢复。预览有界且采样，完整日志以指定目录中 `netbox-syslog/` 文件为准。
-- 无 AI/MCP、Syslog TCP/TLS、自动更新或更新签名验证、安装器、永久任务历史、FTP。本包的 SHA-256 仅供完整性核对，ad-hoc 签名不证明发布者身份。
+- 无 AI/MCP、Syslog TCP/TLS、自动更新或更新签名验证、永久任务历史、FTP。本包的 SHA-256 仅供完整性核对，ad-hoc 签名不证明发布者身份。
 - macOS ICMP 等待每 50ms 检查取消；TCP connect 和直接 DNS 的部分系统调用仍可能等到所选超时。实际多网卡/VPN、链路本地 scope、休眠唤醒、物理设备互通及下载 quarantine 首次放行仍应按环境验证。
 
 ## 构建和复测

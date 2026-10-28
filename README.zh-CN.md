@@ -4,6 +4,20 @@
 
 版本：`0.1.0-alpha.1`。提供用于首次操作测试和评估的网络诊断工具、临时 TFTP/Syslog 服务，包含桌面 GUI 和独立 CLI。macOS 的启动、构建、架构和验证边界见 [README-macOS.md](README-macOS.md)；下列 Windows 操作说明继续保留。
 
+## 下载
+
+[Release v0.1.0-alpha.1](https://github.com/lhuaizhong/netbox/releases/tag/v0.1.0-alpha.1) · [SHA256SUMS.txt](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt)
+
+| 平台 / 格式 | 下载 |
+| --- | --- |
+| Windows x64 | [netbox-0.1.0-alpha.1-windows-x64-setup.exe](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-setup.exe) |
+| Windows x64 portable EXE | [netbox-0.1.0-alpha.1-windows-x64-portable.exe](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.exe) |
+| Windows x64 portable ZIP + CLI | [netbox-0.1.0-alpha.1-windows-x64-portable.zip](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.zip) |
+| macOS Apple Silicon DMG | [netbox-0.1.0-alpha.1-macos-arm64.dmg](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg) |
+| macOS Intel DMG | [netbox-0.1.0-alpha.1-macos-x86_64.dmg](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg) |
+
+macOS 含 CLI 的 ZIP 及每个文件的 SHA-256 也在 Release 页面提供。Windows 安装版包含 GUI 和 CLI，缺少 WebView2 时会联网安装运行库；portable EXE 可直接运行，CLI 见 ZIP 包。macOS 打开 DMG 后将 netbox 拖入 Applications。当前为预发布测试版：Windows 未做代码签名，macOS 使用 ad-hoc 签名且未经 Apple 公证；系统可能提示发布者无法验证。macOS 两种架构均以 11.0 为最低构建目标，最低系统版本尚未实机验证。
+
 ## 启动
 
 解压发布包到本地可写目录，双击 `netbox.exe`。GUI 使用系统 Microsoft Edge WebView2 Runtime；通常已随较新 Windows 安装。如果 GUI 无法启动，可先独立使用 `netbox-cli.exe`，再按微软官方说明安装 WebView2 Runtime：<https://developer.microsoft.com/microsoft-edge/webview2/>。
@@ -69,7 +83,7 @@ Ping 的“测试包大小 / 字节”支持 0～65500 的整数，默认 32，�
 - Syslog 仅 UDP，接收与文件写入在一个独立工作线程执行，没有正式版的异步队列/SQLite 索引/高级查询。不承诺正式版吞吐量。预览前 10 条后最高约 20 条/秒；UI 可筛选当前 200 条预览，完整接收内容保存在指定目录的 `netbox-syslog/`。
 - Syslog 原始字节以 `raw_hex` 保留；同时保存 UTF-8 容错展示文本。每段 64 MiB，7 天/约 2 GiB 总上限，封段时清理，允许最多一段的临时超额；每秒同步，正常停止再次同步。没有严格崩溃恢复/索引重建保证，强制退出的尾段可能有不完整行。剩余磁盘小于 1 GiB 停止写入。
 - ICMP 和 TCP connect 的单次系统调用最久等至所选 timeout，默认 1 秒；取消在当前调用返回后生效。DNS TCP 回退也可能等至读写 timeout，默认不承诺所有参数下取消 P95≤1 秒。
-- 不提供 AI/MCP、安装器、自动更新、签名更新验证、永久历史、配置导入导出、FTP、Syslog TCP/TLS；这些不属于本次基础评估包。未启用遥测，诊断只有用户主动操作才产生相关网络请求。
+- 不提供 AI/MCP、自动更新、签名更新验证、永久历史、配置导入导出、FTP、Syslog TCP/TLS；这些不属于本次基础评估包。未启用遥测，诊断只有用户主动操作才产生相关网络请求。
 - 可执行文件未做商业代码签名；应用展示身份使用本地预览命名空间。首次测试版不代表 v0.3 正式版验收已经全部通过。
 
 ## 建议首次评估顺序
@@ -85,7 +99,7 @@ Ping 的“测试包大小 / 字节”支持 0～65500 的整数，默认 32，�
 
 ## 开发与复测
 
-当前验证工具链：Rust 1.94.0、Node 24.3.0、Visual Studio 2022 Build Tools。`Cargo.lock` 和 `package-lock.json` 已锁定依赖。Windows 原包使用 Rust 1.94.0；当前 `rust-toolchain.toml` 为 macOS 扩展锁定到 1.96.0，Windows 在新工具链上的发布回归尚未执行。依赖仍使用锁文件，不要直接随意升级。
+当前验证工具链：Rust 1.94.0、Node 24.3.0、Visual Studio 2022 Build Tools。`Cargo.lock` 和 `package-lock.json` 已锁定依赖。Windows 原包使用 Rust 1.94.0；当前 `rust-toolchain.toml` 为 macOS 扩展锁定到 1.96.0，GitHub 发布构建使用锁定工具链，执行核心测试、本地协议集成测试，以及安装器和 GUI 启动冒烟检查。依赖仍使用锁文件，不要直接随意升级。
 
 ```powershell
 npm ci

@@ -4,6 +4,20 @@
 
 Version: `0.1.0-alpha.1`. This preview provides a desktop GUI and standalone CLI for network diagnostics and temporary TFTP/Syslog services. See [README-macOS.md](README-macOS.md) for macOS startup, build, architecture, and validation details. The Windows instructions are below.
 
+## Downloads
+
+[Release v0.1.0-alpha.1](https://github.com/lhuaizhong/netbox/releases/tag/v0.1.0-alpha.1) · [SHA256SUMS.txt](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt)
+
+| Platform / format | Download |
+| --- | --- |
+| Windows x64 | [netbox-0.1.0-alpha.1-windows-x64-setup.exe](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-setup.exe) |
+| Windows x64 portable EXE | [netbox-0.1.0-alpha.1-windows-x64-portable.exe](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.exe) |
+| Windows x64 portable ZIP + CLI | [netbox-0.1.0-alpha.1-windows-x64-portable.zip](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.zip) |
+| macOS Apple Silicon DMG | [netbox-0.1.0-alpha.1-macos-arm64.dmg](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg) |
+| macOS Intel DMG | [netbox-0.1.0-alpha.1-macos-x86_64.dmg](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg) |
+
+The Release page also includes macOS ZIPs with the CLI and per-file SHA-256 checksums. The Windows installer includes the GUI and CLI and downloads WebView2 if missing. Run the portable EXE directly; the ZIP also includes the CLI. Open the macOS DMG and drag netbox to Applications. This is a prerelease: Windows binaries are unsigned; macOS apps are ad-hoc signed without Apple notarization, so the OS may warn about an unverified publisher. Both macOS architectures target macOS 11.0 or later; the minimum OS has not been tested on hardware.
+
 ## Getting started
 
 Extract the release archive into a writable local directory and run `netbox.exe`. The GUI requires the system Microsoft Edge WebView2 Runtime, which is usually installed on recent Windows systems. If the GUI cannot start, use `netbox-cli.exe` independently and install the runtime from [Microsoft's WebView2 page](https://developer.microsoft.com/microsoft-edge/webview2/).
@@ -75,7 +89,7 @@ Exit codes: 0 = diagnostic criterion met; 1 = network/remote result did not meet
 - Syslog uses UDP and a dedicated receive/write thread, without the planned asynchronous queue, SQLite index, or advanced queries. Production throughput is not guaranteed. After the first ten messages, the preview is sampled at approximately 20 messages per second. The GUI filters the latest 200 preview events; full received messages are saved under `netbox-syslog/` in the selected directory.
 - Syslog preserves original bytes as `raw_hex` alongside decoded text with UTF-8 replacement. Segments are 64 MiB, with a seven-day / approximately 2 GiB retention cap. Cleanup occurs when a segment closes, allowing a temporary overrun of up to one segment. Writes are synchronized every second and again on normal shutdown. Strict crash recovery and index rebuilding are not guaranteed; forced termination can leave a partial final line. Writing stops below 1 GiB of free disk space.
 - ICMP and TCP connect calls may wait for the configured timeout, one second by default. Cancellation takes effect when the current call returns. DNS TCP fallback can also wait for read/write timeouts. A cancellation P95 of at most one second is not guaranteed for all settings.
-- AI/MCP, installers, automatic updates, update signature verification, permanent history, configuration import/export, FTP, and Syslog TCP/TLS are outside this evaluation build. Telemetry is disabled. Diagnostic network requests are initiated by user actions.
+- AI/MCP, automatic updates, update signature verification, permanent history, configuration import/export, FTP, and Syslog TCP/TLS are outside this evaluation build. Telemetry is disabled. Diagnostic network requests are initiated by user actions.
 - Executables have no commercial code signature and use a local preview application identity. This preview does not represent full acceptance against the v0.3 production design.
 
 ## Suggested evaluation sequence
@@ -91,7 +105,7 @@ When reporting an issue, include the app version, Windows version, tool paramete
 
 ## Development and verification
 
-The verified Windows toolchain uses Rust 1.94.0, Node 24.3.0, and Visual Studio 2022 Build Tools. Dependencies are locked by `Cargo.lock` and `package-lock.json`. The original Windows package uses Rust 1.94.0; `rust-toolchain.toml` currently pins 1.96.0 for the macOS extension. A Windows release regression on that newer toolchain has not been completed. Keep the dependency lockfiles intact.
+The verified Windows toolchain uses Rust 1.94.0, Node 24.3.0, and Visual Studio 2022 Build Tools. Dependencies are locked by `Cargo.lock` and `package-lock.json`. The original Windows package uses Rust 1.94.0; `rust-toolchain.toml` currently pins 1.96.0 for the macOS extension. GitHub release builds use the pinned toolchain and run core tests, local protocol integration tests, and installer/GUI launch smoke checks. Keep the dependency lockfiles intact.
 
 ```powershell
 npm ci

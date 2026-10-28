@@ -1,0 +1,67 @@
+name: Build release packages
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            platform: windows-x64
+            target: x86_64-pc-windows-msvc
+            config: src-tauri/tauri.windows.conf.json
+            bundles: nsis
+            build-config: src-tauri/tauri.conf.json
+          - os: macos-14
+            platform: macos-arm64
+            target: aarch64-apple-darwin
+            config: src-tauri/tauri.release-macos.conf.json
+            bundles: dmg
+            build-config: src-tauri/tauri.macos.conf.json
+          - os: macos-15-intel
+            platform: macos-x86_64
+            target: x86_64-apple-darwin
+            config: src-tauri/tauri.release-macos.conf.json
+            bundles: dmg
+            build-config: src-tauri/tauri.macos.conf.json
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Rust toolchain
+        run: rustup show active-toolchain
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - run: npm ci
+      - run: cargo test -p netbox-core --locked
+      - run: cargo build --release --locked -p netbox-cli
+      - name: Build desktop executable
+        run: npx tauri build --no-bundle --config ${{ matrix.build-config }} -- --locked
+      - name: Protocol regression
+        shell: bash
+        run: |
+          suffix=""
+          if [[ "$RUNNER_OS" == Windows ]]; then suffix=".exe"; fi
+          python scripts/integration_test.py --exe "target/release/netbox-cli$suffix" --output test-output/integration-release.json
+      - name: Generate build metadata and dependency licenses
+        run: python scripts/build-info.py --target ${{ matrix.target }} --build-dir target/release --output-dir release/metadata
+      - name: Bundle installer
+        run: npx tauri bundle --bundles ${{ matrix.bundles }} --config ${{ matrix.config }}
+      - name: Package and verify artifacts
+        run: python scripts/release-assets.py --platform ${{ matrix.platform }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: netbox-${{ matrix.platform }}
+          path: release/assets/*
+          if-no-files-found: error
+          retention-days: 14
