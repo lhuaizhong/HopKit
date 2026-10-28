@@ -6,6 +6,8 @@ resolver = "2"
 version = "0.1.0-alpha.1"
 edition = "2024"
 rust-version = "1.94"
+license = "MIT"
+repository = "https://github.com/lhuaizhong/netbox"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }

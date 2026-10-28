@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-Version: `0.1.0-alpha.1`. This evaluation build implements the basic toolset described in the netbox v0.3 technical design in the parent directory. See [README-macOS.md](README-macOS.md) for macOS startup, build, architecture, and validation details. The Windows instructions are below.
+Version: `0.1.0-alpha.1`. This preview provides a desktop GUI and standalone CLI for network diagnostics and temporary TFTP/Syslog services. See [README-macOS.md](README-macOS.md) for macOS startup, build, architecture, and validation details. The Windows instructions are below.
 
 ## Getting started
 
@@ -106,3 +106,18 @@ powershell -NoProfile -File scripts/package.ps1
 For GUI development, run `npm run desktop`. The integration script uses only Python's standard library and independent local protocol peers on temporary ports, without public Internet access or real devices. Reports contain per-scenario evidence. GUI CDP tests enable the WebView2 debugging port only for test launches; normal release startup does not enable it.
 
 Release packaging includes both `README.md` and `README.zh-CN.md`; Windows also keeps `使用说明.md` as a Chinese-language convenience copy. Build-time defaults apply to new installations; rebuilding or upgrading does not discard an existing GUI language preference.
+
+## Source and feedback
+
+The public source repository is [lhuaizhong/netbox](https://github.com/lhuaizhong/netbox). Clone it with:
+
+```sh
+git clone https://github.com/lhuaizhong/netbox.git
+cd netbox
+```
+
+Follow the development instructions above for Windows or [README-macOS.md](README-macOS.md) for macOS. Report bugs and feature requests through [GitHub Issues](https://github.com/lhuaizhong/netbox/issues), with sensitive device addresses, configuration files, and log contents removed. Build outputs and local test artifacts are excluded from Git history.
+
+## License
+
+Project source code is available under the [MIT License](LICENSE), copyright 2026 Huaizhong Liu. Third-party dependencies retain their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the notices included in release packages.

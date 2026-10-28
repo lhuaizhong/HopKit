@@ -20,5 +20,13 @@
     "typescript": "~5.9",
     "vite": "^7",
     "vue-tsc": "^3"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lhuaizhong/netbox.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lhuaizhong/netbox/issues"
   }
 }

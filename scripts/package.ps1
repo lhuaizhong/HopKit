@@ -10,7 +10,7 @@ New-Item -ItemType Directory -Path (Join-Path $packagePath 'shortcuts'),(Join-Pa
 Copy-Item -LiteralPath (Join-Path $projectRoot 'target/release/netbox-desktop.exe') -Destination (Join-Path $packagePath 'netbox.exe')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'target/release/netbox-cli.exe') -Destination (Join-Path $packagePath 'netbox-cli.exe')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'target/release/netbox-cli.exe') -Destination (Join-Path $packagePath 'shortcuts/nb.exe')
-foreach($file in @('README.md','README.zh-CN.md','README-macOS.md')){Copy-Item -LiteralPath (Join-Path $projectRoot $file) -Destination $packagePath}
+foreach($file in @('LICENSE','README.md','README.zh-CN.md','README-macOS.md')){Copy-Item -LiteralPath (Join-Path $projectRoot $file) -Destination $packagePath}
 Copy-Item -LiteralPath (Join-Path $projectRoot 'README.zh-CN.md') -Destination (Join-Path $packagePath '使用说明.md')
 foreach($file in @('测试报告.md','THIRD_PARTY_NOTICES.md','BUILD_INFO.json','SBOM.cdx.json')){if(Test-Path -LiteralPath (Join-Path $projectRoot $file)){Copy-Item -LiteralPath (Join-Path $projectRoot $file) -Destination $packagePath}}
 if(Test-Path -LiteralPath (Join-Path $projectRoot 'licenses')){Copy-Item -LiteralPath (Join-Path $projectRoot 'licenses') -Destination $packagePath -Recurse}

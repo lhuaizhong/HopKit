@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-版本：`0.1.0-alpha.1`。基于上级目录的《netbox 技术方案 v0.3》，实现用于首次操作测试和评估的基础工具集。macOS 的启动、构建、架构和验证边界见 [README-macOS.md](README-macOS.md)；下列 Windows 操作说明继续保留。
+版本：`0.1.0-alpha.1`。提供用于首次操作测试和评估的网络诊断工具、临时 TFTP/Syslog 服务，包含桌面 GUI 和独立 CLI。macOS 的启动、构建、架构和验证边界见 [README-macOS.md](README-macOS.md)；下列 Windows 操作说明继续保留。
 
 ## 启动
 
@@ -100,3 +100,18 @@ powershell -NoProfile -File scripts/package.ps1
 ```
 
 开发 GUI 可运行 `npm run desktop`。集成脚本只使用 Python 标准库，在本机临时端口运行独立协议对端，不依赖公网和真实设备；可在报告中检查逐项证据。GUI 的 CDP 测试只在测试启动时设置 WebView2 调试环境变量，正常发布启动不开放调试端口。
+
+## 源码与反馈
+
+公开源码仓库：[lhuaizhong/netbox](https://github.com/lhuaizhong/netbox)。
+
+```sh
+git clone https://github.com/lhuaizhong/netbox.git
+cd netbox
+```
+
+Windows 开发步骤见上文，macOS 见 [README-macOS.md](README-macOS.md)。问题和功能建议请提交到 [GitHub Issues](https://github.com/lhuaizhong/netbox/issues)，分享前移除敏感设备地址、配置和日志内容。构建产物及本地测试文件不纳入 Git 历史。
+
+## 许可证
+
+项目源码采用 [MIT 许可证](LICENSE)，版权所有 2026 Huaizhong Liu。第三方依赖保留各自许可证，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和发布包内的依赖声明。
