@@ -19,7 +19,7 @@ output.mkdir(parents=True,exist_ok=True)
 build=args.build_dir or root/'target/release'
 if args.target:
     command=['cargo','metadata','--format-version','1','--locked','--offline','--filter-platform',args.target]
-    metadata=json.loads(subprocess.check_output(command,cwd=root,text=True))
+    metadata=json.loads(subprocess.check_output(command,cwd=root,text=True,encoding='utf-8'))
 else:
     metadata=json.loads((root/'test-output/cargo-metadata.json').read_text(encoding='utf-8-sig'))
 packages={p['id']:p for p in metadata['packages']}
@@ -57,7 +57,7 @@ for name in ['vue','@vue/runtime-core','@vue/runtime-dom','@vue/reactivity','@vu
     components.append({'type':'library','name':name,'version':p['version'],'purl':f"pkg:npm/{name}@{p['version']}"})
 (output/'THIRD_PARTY_NOTICES.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
 (output/'SBOM.cdx.json').write_text(json.dumps({'bomFormat':'CycloneDX','specVersion':'1.5','version':1,'components':components},ensure_ascii=False,indent=2),encoding='utf-8')
-def version(cmd):return subprocess.check_output(cmd,cwd=root,text=True).strip()
+def version(cmd):return subprocess.check_output(cmd,cwd=root,text=True,encoding='utf-8').strip()
 suffix='.exe' if platform.system()=='Windows' else ''
 binaries = [build/('netbox-desktop'+suffix),build/('netbox-cli'+suffix)]
 if platform.system()=='Darwin':
