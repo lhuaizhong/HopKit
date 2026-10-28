@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(description=__doc__)
@@ -57,7 +58,6 @@ if args.platform == 'windows-x64':
         uninstallers = list(Path(folder).glob('*ninstall*.exe'))
         assert len(uninstallers) == 1, uninstallers
         run(uninstallers[0], '/S', '_?=' + folder)
-    shutil.make_archive(str(assets / f'{name}-portable'), 'zip', package.parent, package.name)
 else:
     assert platform.system() == 'Darwin'
     expected_arch = args.platform.removeprefix('macos-')
@@ -89,7 +89,10 @@ info['files'] = {f.name: {'sha256': hashlib.sha256(f.read_bytes()).hexdigest(), 
 info_path.write_text(json.dumps(info, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 # Regenerate the ZIP with final build information.
 if args.platform == 'windows-x64':
-    shutil.make_archive(str(assets / f'{name}-portable'), 'zip', package.parent, package.name)
+    with zipfile.ZipFile(assets / f'{name}-portable.zip', 'w', zipfile.ZIP_DEFLATED, strict_timestamps=False) as archive:
+        for path in sorted(package.rglob('*')):
+            if path.is_file():
+                archive.write(path, path.relative_to(package.parent))
 else:
     (assets / f'{name}.zip').unlink()
     run('ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', package, assets / f'{name}.zip')
