@@ -5,7 +5,7 @@
 /release/
 /test-output/
 *.part
-
+/licenses/
 
 .DS_Store
 __pycache__/

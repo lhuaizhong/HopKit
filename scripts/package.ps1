@@ -15,7 +15,7 @@ foreach($file in @('测试报告.md','THIRD_PARTY_NOTICES.md','BUILD_INFO.json',
 if(Test-Path -LiteralPath (Join-Path $projectRoot 'licenses')){Copy-Item -LiteralPath (Join-Path $projectRoot 'licenses') -Destination $packagePath -Recurse}
 foreach($file in @('integration-release.json','gui.json','unit-tests.txt')){if(Test-Path -LiteralPath (Join-Path $projectRoot "test-output/$file")){Copy-Item -LiteralPath (Join-Path $projectRoot "test-output/$file") -Destination (Join-Path $packagePath "validation/$file")}}
 $hashes=Get-ChildItem -LiteralPath $packagePath -File -Recurse | ForEach-Object{ $hash=Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256; $relative=$_.FullName.Substring($packagePath.Length+1).Replace('\','/'); "$($hash.Hash.ToLower())  $relative" }
-$hashes | Set-Content -LiteralPath (Join-Path $packagePath 'SHA256SUMS.txt') -Encoding ASCII
+$hashes | Set-Content -LiteralPath (Join-Path $packagePath 'SHA256SUMS.txt') -Encoding UTF8
 Compress-Archive -LiteralPath $packagePath -DestinationPath (Join-Path $releaseRoot "$packageName.zip")
 Get-Item -LiteralPath (Join-Path $releaseRoot "$packageName.zip") | Select-Object FullName,Length
 Get-FileHash -LiteralPath (Join-Path $releaseRoot "$packageName.zip") -Algorithm SHA256

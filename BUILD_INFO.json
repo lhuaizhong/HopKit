@@ -1,0 +1,28 @@
+{
+  "product": "netbox Network Toolkit",
+  "version": "0.1.0-alpha.1",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "architecture": "AMD64",
+  "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+  "node": "v24.3.0",
+  "build_features": [
+    "netbox-desktop/custom-protocol",
+    "static-crt"
+  ],
+  "files": {
+    "netbox-desktop.exe": {
+      "sha256": "e351e4691c15f7d92323eda7c17066c0c052df7955db18da6d56d0544370c836",
+      "bytes": 9021440
+    },
+    "netbox-cli.exe": {
+      "sha256": "c331a83fc944c8d57bb88980be4048ac22d25ad3d96a09188f04e8ce8070a8a2",
+      "bytes": 1436672
+    }
+  },
+  "dependency_locks": {
+    "Cargo.lock": "09abccd9f9907d4142246d7c4019b3e1ed574649c6eefdf4901b21c95dc4895c",
+    "package-lock.json": "fd7e00f5e1750a09598f9e1fbd520ed95ff465416ef6147e56ccfe8b32e12405"
+  },
+  "commercial_code_signing": false,
+  "webview2": "System installed runtime required"
+}
