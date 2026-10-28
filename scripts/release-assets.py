@@ -80,6 +80,19 @@ else:
         finally:
             run('hdiutil', 'detach', mount)
     run('ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', package, assets / f'{name}.zip')
+# Record the bytes actually shipped after Tauri patches/signs the GUI binary.
+info_path = package / 'BUILD_INFO.json'
+info = json.loads(info_path.read_text())
+shipped = [package / 'netbox.exe', package / 'netbox-cli.exe'] if args.platform == 'windows-x64' else [package / 'netbox.app/Contents/MacOS/netbox-desktop', package / 'netbox-cli']
+info['metadata_stage'] = 'packaged'
+info['files'] = {f.name: {'sha256': hashlib.sha256(f.read_bytes()).hexdigest(), 'bytes': f.stat().st_size} for f in shipped}
+info_path.write_text(json.dumps(info, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+# Regenerate the ZIP with final build information.
+if args.platform == 'windows-x64':
+    shutil.make_archive(str(assets / f'{name}-portable'), 'zip', package.parent, package.name)
+else:
+    (assets / f'{name}.zip').unlink()
+    run('ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', package, assets / f'{name}.zip')
 for artifact in sorted(assets.iterdir()):
     if artifact.suffix == '.sha256':
         continue

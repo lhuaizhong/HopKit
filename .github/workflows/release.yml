@@ -19,13 +19,13 @@ jobs:
             platform: macos-arm64
             target: aarch64-apple-darwin
             config: src-tauri/tauri.release-macos.conf.json
-            bundles: dmg
+            bundles: app,dmg
             build-config: src-tauri/tauri.macos.conf.json
           - os: macos-15-intel
             platform: macos-x86_64
             target: x86_64-apple-darwin
             config: src-tauri/tauri.release-macos.conf.json
-            bundles: dmg
+            bundles: app,dmg
             build-config: src-tauri/tauri.macos.conf.json
     runs-on: ${{ matrix.os }}
     steps:
@@ -42,6 +42,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
+          cache-on-failure: true
       - run: npm ci
       - run: cargo test -p netbox-core --locked
       - run: cargo build --release --locked -p netbox-cli
