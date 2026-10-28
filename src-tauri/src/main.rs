@@ -260,6 +260,41 @@ async fn export_result(content: String) -> Result<bool, String> {
     .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+async fn open_project() -> Result<(), String> {
+    // Keep the destination fixed: this command cannot launch arbitrary URLs or programs.
+    tauri::async_runtime::spawn_blocking(|| {
+        let url = "https://github.com/lhuaizhong/netbox";
+        #[cfg(target_os = "macos")]
+        let mut command = {
+            let mut command = std::process::Command::new("/usr/bin/open");
+            command.arg(url);
+            command
+        };
+        #[cfg(target_os = "windows")]
+        let mut command = {
+            use std::os::windows::process::CommandExt;
+            let mut command = std::process::Command::new("rundll32.exe");
+            command.args(["url.dll,FileProtocolHandler", url]);
+            command.creation_flags(0x08000000);
+            command
+        };
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        let mut command = {
+            let mut command = std::process::Command::new("xdg-open");
+            command.arg(url);
+            command
+        };
+        let status = command.status().map_err(|e| e.to_string())?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err("Could not open the project in the default browser".into())
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
 fn app_info() -> Value {
     let os = if cfg!(target_os = "macos") {
         "macOS"
@@ -322,6 +357,7 @@ fn main() {
             choose_path,
             export_result,
             export_result_image,
+            open_project,
             app_info
         ])
         .build(tauri::generate_context!())

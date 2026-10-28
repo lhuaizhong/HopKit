@@ -91,6 +91,12 @@
 
 当前二进制对应报告为 `test-output/gui-macos-arm64.json`、`test-output/platform-macos-arm64.json`、`test-output/integration-release-macos-arm64.json`；界面原始记录为 `test-output/gui-outward-defaults-ax.json`，截图为 `test-output/gui-outward-tftp-macos.png`、`test-output/gui-outward-filter-macos.png`。本次局域网 IP 测试在同一台 Mac 上使用独立协议客户端，未使用第二台物理设备。此前包及报告保留在 `test-output/before-outward-default-*`。
 
+### GitHub 项目入口（2026-10-28）
+
+- 所有工具页共用的界面底部新增 GitHub 项目链接，中文显示“分享与更新”，英文显示“Share & updates”，目标固定为 `https://github.com/lhuaizhong/netbox`。
+- 链接通过桌面后端调用系统默认浏览器，打开失败时保留可复制的项目地址；不替换工具窗口，也不自动检查或下载更新。
+- 前端类型检查与生产构建、桌面后端 Clippy 通过。macOS 原生窗口验证中英文入口及实际浏览器跳转；Windows 代码共用，但本次未在 Windows 实机验证或重打 Windows 包。
+
 ## 平台差异与待验证项
 
 1. macOS 使用无特权 ICMP 数据报套接字，不运行系统 ping/traceroute，不安装提权 helper。每次收包验证 id、sequence、目标及 Echo 随机载荷，引用错误报文验证原目标和标识；收包每 50ms 检查取消。

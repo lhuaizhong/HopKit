@@ -115,3 +115,5 @@ Windows 开发步骤见上文，macOS 见 [README-macOS.md](README-macOS.md)。�
 ## 许可证
 
 项目源码采用 [MIT 许可证](LICENSE)，版权所有 2026 Huaizhong Liu。第三方依赖保留各自许可证，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和发布包内的依赖声明。
+
+界面底部的 **GitHub · 分享与更新** 链接会在默认浏览器中打开项目仓库，方便分享和获取更新版本。

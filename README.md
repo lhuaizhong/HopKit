@@ -24,6 +24,8 @@ The package does not modify PATH, install system services, add firewall rules, o
 
 The GUI starts in **English** on first use. Use the **中文 / English** button in the header to switch languages; a saved language preference takes precedence on subsequent launches. The CLI also defaults to English; use `--lang zh-CN` for Chinese result headings. Some preview CLI help and error messages are still bilingual, and machine-readable field names remain English.
 
+The footer’s **GitHub · Share & updates** link opens this project in your default browser for sharing and updates.
+
 The GUI includes appearance switching, live results, a session task center, individual/all-task cancellation, copy, and JSON export. It supports up to four active tasks and retains the latest 40 tasks. Closing the GUI stops its tasks. CLI processes run independently.
 
 Use **Appearance → Fresh / Easy to read** in the header to change styles. Easy to read uses larger text, darker secondary text and status colors, clearer input borders, and stronger keyboard focus indicators. Configuration and results stack vertically in narrower windows. Changes take effect immediately and are saved locally. Fresh is the initial appearance.

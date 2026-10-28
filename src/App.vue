@@ -11,6 +11,9 @@ const appInfo=ref({version:'',platform:'',os:''})
 const lang=ref(localStorage.getItem('netbox-language')==='zh-CN'?'zh-CN':'en-US')
 const en=computed(()=>lang.value==='en-US')
 const t=(zh:string,english:string)=>en.value?english:zh
+const projectUrl='https://github.com/lhuaizhong/netbox'
+const projectLinkError=ref('')
+async function openProject(){try{projectLinkError.value='';await invoke('open_project')}catch(e){projectLinkError.value=t('无法打开浏览器，请复制链接访问：','Could not open the browser. Copy this link: ')+projectUrl}}
 const tools=[
  {id:'ping',name:'Ping',glyph:'↗',sub:['连通性测试','ICMP echo'],desc:['检测目标可达性、延迟与丢包。','Measure reachability, latency and packet loss.']},
  {id:'trace',name:'Traceroute',glyph:'⌁',sub:['路由追踪','Route tracing'],desc:['逐跳查看 ICMP 路径，识别响应与超时。','Inspect ICMP responses along the route.']},
@@ -206,7 +209,8 @@ onUnmounted(()=>clearInterval(timer))
       <section class="panel task-panel"><div class="panel-title"><h2>{{t('任务中心','Task center')}}<span class="task-count">{{countActive}} {{t('运行中','active')}}</span></h2><button :disabled="!countActive" class="quiet danger" @click="stopAll">{{t('停止全部','Stop all')}}</button></div><div v-if="!tasks.length" class="task-empty">{{t('本次会话的任务将在这里显示。','Tasks from this session will appear here.')}}</div><button v-for="item in tasks.slice(0,6)" :key="item.id" class="task-row" @click="openTask(item)"><span class="task-icon">{{tools.find(x=>x.id===item.tool)?.glyph}}</span><strong>{{item.tool}}</strong><code>{{item.target}}</code><span :class="['status',item.status]">{{statusText(item.status)}}</span><span>↗</span></button></section>
      </div>
     </div>
-    <footer><span><i></i>{{t('所有工具在本机运行；未接入 AI 或云端遥测。','Tools run locally. No AI or cloud telemetry is connected.')}}</span><span>{{t('首次评估版','First evaluation build')}} <b>α.1</b></span></footer>
+    <footer><span><i></i>{{t('所有工具在本机运行；未接入 AI 或云端遥测。','Tools run locally. No AI or cloud telemetry is connected.')}}</span><a class="project-link" :href="projectUrl" :title="t('在默认浏览器打开项目，分享与获取更新：','Open the project in your default browser to share and get updates: ')+projectUrl" target="_blank" rel="noopener noreferrer" @click.prevent="openProject">GitHub · {{t('分享与更新','Share & updates')}} ↗</a><span>{{t('首次评估版','First evaluation build')}} <b>α.1</b></span></footer>
+    <p v-if="projectLinkError" class="project-link-error" role="alert">{{projectLinkError}}</p>
    </main>
   </div>
  </div>

@@ -1,4 +1,10 @@
 /* The switch stays legible in both appearances so it is easy to discover. */
+footer { flex-wrap: wrap; align-items: center; }
+.project-link { color: #1756a9; font-size: 12px; padding: 6px 0; text-underline-offset: 3px; }
+.project-link:hover { color: #103d7a; }
+.project-link:focus-visible { outline: 3px solid #1756a9; outline-offset: 3px; border-radius: 3px; }
+.project-link-error { color: #982b24; font-size: 12px; overflow-wrap: anywhere; margin-top: 8px; }
+:root[data-theme="readable"] :is(.project-link,.project-link-error) { font-size: 14px; }
 .result-panel > .panel-title { flex-wrap: wrap; padding-top: 12px; padding-bottom: 12px; }
 .result-tools { flex-wrap: wrap; align-items: center; }
 .result-tools [role="status"] { color: #176346; font-size: 12px; }
