@@ -38,8 +38,10 @@ try {
   await page.evaluateOnNewDocument(() => {
     let task
     window.__detailPolls = 0
+    window.__imageExports = []
     window.__TAURI_INTERNALS__ = { invoke: async (command, args) => {
       if (command === 'app_info') return { version: 'test', platform: 'Windows x64', os: 'Windows' }
+      if (command === 'export_result_image') { window.__imageExports.push(args); return !window.__cancelImage }
       if (command === 'list_tasks') return task ? [{ ...task, result: null, events: [] }] : []
       if (command === 'task_poll') {
         window.__detailPolls++
@@ -53,7 +55,7 @@ try {
           { cursor: 1, seq: 1, event_type: 'sample', ok: true, status: 'reply', hop: 1, address: '127.0.0.1', rtt_ms: 0.25 },
           { cursor: 2, seq: 2, event_type: 'sample', ok: false, status: 'timeout', hop: 1, address: '::1', rtt_ms: null },
         ]
-        task = { id: 'appearance-test', tool: r.tool, action: r.action || '', target: r.target || '127.0.0.1', status: 'succeeded', started_at: new Date().toISOString(), seq: 2, events,
+        task = { id: 'appearance-test', port:r.port, request:r, tool: r.tool, action: r.action || '', target: r.target || '127.0.0.1', status: 'succeeded', started_at: new Date().toISOString(), seq: 2, events,
           result: { data: { sent: 2, received: 1, loss_percent: 50, rtt_avg_ms: 0.25, samples: events, diagnostics: Array.from({length:100}, (_,i)=>`Diagnostic line ${i}`),
             ...(r.tool === 'dns' ? { addresses: ['127.0.0.1', '::1'] } : {}),
             ...(r.tool === 'ntp' ? { best_sample: { offset_ms: 0.42 } } : {}),
@@ -122,6 +124,49 @@ try {
     await page.click('.appearance-switch button:last-child'); await assertTheme('readable'); await contrast()
   })
   await page.screenshot({ path: path.join(out, 'readable-results.png'), fullPage: true })
+  await check('PNG captures styled result cards without JSON; cancel stays quiet', async () => {
+    await page.$eval('.filter-bar input', e => { e.value='reply'; e.dispatchEvent(new Event('input',{bubbles:true})) })
+    await page.evaluate(()=>{
+      const body=document.querySelector('.table-scroll tbody')
+      for(let i=0;i<35;i++){const row=body.firstElementChild.cloneNode(true);row.dataset.screenshotTest='true';body.append(row)}
+    })
+    assert.equal(await page.$('.raw-result pre'),null)
+    await page.evaluate(()=>{
+      const descriptor=Object.getOwnPropertyDescriptor(HTMLImageElement.prototype,'src')
+      window.__imageSrcDescriptor=descriptor
+      Object.defineProperty(HTMLImageElement.prototype,'src',{...descriptor,set(value){if(value.startsWith('data:image/svg+xml'))window.__screenshotSvg=decodeURIComponent(value.split(',').slice(1).join(','));descriptor.set.call(this,value)}})
+      ;[...document.querySelectorAll('.result-tools button')].find(e=>e.textContent.includes('Export image')).click()
+    })
+    await page.waitForFunction(()=>window.__imageExports.length===1)
+    const exported=await page.evaluate(()=>({base64:btoa(window.__imageExports[0].png.reduce((s,b)=>s+String.fromCharCode(b),''))}))
+    const bytes=Buffer.from(exported.base64,'base64')
+    assert.deepEqual([...bytes.subarray(0,8)],[137,80,78,71,13,10,26,10])
+    assert(bytes.readUInt32BE(16)>600)
+    assert(bytes.readUInt32BE(20)>2000,'Scrollable rows were clipped')
+    const svg=await page.evaluate(()=>window.__screenshotSvg)
+    assert(svg.includes('class="metrics"'),'Metric cards missing')
+    assert(!svg.includes('raw-result'),'JSON disclosure included')
+    assert(!svg.includes('result-tools'),'Export toolbar included')
+    assert(svg.includes('reply'),'Current filter was not preserved')
+    await page.evaluate(()=>{Object.defineProperty(HTMLImageElement.prototype,'src',window.__imageSrcDescriptor)})
+    fs.writeFileSync(path.join(out,'export-result.png'),bytes)
+    assert.equal(await page.$('.raw-result pre'),null,'Export changed expansion state')
+    await page.waitForSelector('.result-tools [role="status"]')
+    await page.evaluate(()=>window.__cancelImage=true)
+    await page.evaluate(()=>[...document.querySelectorAll('.result-tools button')].find(e=>e.textContent.includes('Export image')).click())
+    await page.waitForFunction(()=>window.__imageExports.length===2)
+    assert.equal(await page.$('.result-tools [role="status"]'),null,'Cancel reported success')
+    await page.evaluate(()=>document.querySelectorAll('[data-screenshot-test]').forEach(row=>row.remove()))
+    await page.$eval('.filter-bar input',e=>{e.value='';e.dispatchEvent(new Event('input',{bubbles:true}))})
+    await page.evaluate(()=>{
+      Object.defineProperty(navigator,'clipboard',{configurable:true,value:{write:async items=>{
+        const blob=await items[0].getType('image/png');window.__clipboardImageBytes=blob.size
+      }}})
+    })
+    await page.evaluate(()=>[...document.querySelectorAll('.result-tools button')].find(e=>e.textContent.includes('Copy image')).click())
+    await page.waitForFunction(()=>window.__clipboardImageBytes>0)
+    await page.waitForFunction(()=>document.querySelector('.result-tools').textContent.includes('Image copied'))
+  })
   await check('Completed results stay mounted and retain JSON scroll while summaries refresh', async () => {
     for (const style of ['fresh', 'readable']) {
       await page.click(`.appearance-switch button:${style === 'fresh' ? 'first-of-type' : 'last-child'}`)
@@ -164,6 +209,12 @@ try {
           await pick(name); await noOverflow(); await contrast()
           if (['Ping', 'Traceroute', 'TCPing', 'DNS', 'NTP'].includes(name)) {
             await page.click('form .primary'); await page.waitForSelector('.raw-result'); await contrast(); await noOverflow()
+            if(name==='TCPing'){
+              const actual=await page.$eval('#port',e=>e.value)
+              assert((await page.$eval('.tcp-port',e=>e.textContent)).endsWith(actual))
+              await page.$eval('#port',e=>{e.value='1';e.dispatchEvent(new Event('input',{bubbles:true}))})
+              assert((await page.$eval('.tcp-port',e=>e.textContent)).endsWith(actual),'Result port followed edited input')
+            }
           }
           if (name === 'TFTP' || name === 'Syslog' || name === 'DNS') {
             const count = await page.$$eval('.segmented button', x => x.length)

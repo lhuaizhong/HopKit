@@ -32,6 +32,8 @@ Ping accepts payload sizes from 0 to 65,500 bytes, with a default of 32. This is
 
 ## CLI examples
 
+After a task finishes, use **Export image** or **Copy image** in Live results to save a PNG or copy it to the clipboard. The image preserves the displayed metric cards, charts, table, status, language and appearance. Scrollable result rows are expanded in a detached copy; current filters are respected. JSON, action buttons and the task center are excluded. The live page and its scroll position stay unchanged. Only the retained GUI preview is captured; this is not a complete Syslog log.
+
 Run these commands in PowerShell from the release directory:
 
 ```powershell

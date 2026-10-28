@@ -1,4 +1,8 @@
 /* The switch stays legible in both appearances so it is easy to discover. */
+.result-panel > .panel-title { flex-wrap: wrap; padding-top: 12px; padding-bottom: 12px; }
+.result-tools { flex-wrap: wrap; align-items: center; }
+.result-tools [role="status"] { color: #176346; font-size: 12px; }
+:root[data-theme="readable"] .result-tools [role="status"] { font-size: 14px; }
 .appearance-switch {
   display: flex;
   align-items: center;

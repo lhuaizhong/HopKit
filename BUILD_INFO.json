@@ -8,16 +8,16 @@
   "minimum_system_runtime_verified": false,
   "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
   "node": "v24.3.0",
-  "source_commit": "e8878c9dc62eeb625a64f40d22f6593cfc8349f8",
+  "source_commit": "e8497f1bbf9cfea80fa22267a555118199f4a73f",
   "source_dirty": true,
-  "source_sha256": "bc031e3fc1901d53a170fc6c3e4ffa6171ab0788d574477e0d07706a88c1e2cc",
+  "source_sha256": "676ec53a362c43a05270289de09eb5c6de4ad56294395011a2de40bf1ee6746f",
   "build_features": [
     "netbox-desktop/custom-protocol"
   ],
   "files": {
     "netbox-desktop.exe": {
-      "sha256": "b8c7ae1185f132f92673a45e6026c97b800de7b3cb64b87470ae3f62dfcaabc9",
-      "bytes": 9034240
+      "sha256": "1f7421b9f7ac80b392ea4526a86cfd1ed30e66916f4598d23bf5a8666896dd56",
+      "bytes": 9082368
     },
     "netbox-cli.exe": {
       "sha256": "6666778fb86ac25aa44b7129d2153bbfa4214b79fb8333998f7ce795bef6a351",

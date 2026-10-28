@@ -20,6 +20,7 @@ struct Event {
 }
 struct Task {
     id: String,
+    port: u16,
     tool: String,
     action: String,
     target: String,
@@ -39,6 +40,7 @@ struct Tasks(
 #[derive(Serialize)]
 struct Snapshot {
     id: String,
+    port: u16,
     tool: String,
     action: String,
     target: String,
@@ -51,6 +53,7 @@ struct Snapshot {
 fn snap(t: &Task, after: u64) -> Snapshot {
     Snapshot {
         id: t.id.clone(),
+        port: t.port,
         tool: t.tool.clone(),
         action: t.action.clone(),
         target: t.target.clone(),
@@ -98,6 +101,7 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
             id.clone(),
             Task {
                 id: id.clone(),
+                port: request.port,
                 tool: request.tool.clone(),
                 action: request.action.clone(),
                 target: if matches!(request.action.as_str(), "serve" | "listen") {
@@ -216,6 +220,26 @@ async fn choose_path(kind: String) -> Option<String> {
     .unwrap_or(None)
 }
 #[tauri::command]
+async fn export_result_image(png: Vec<u8>, filename: String) -> Result<bool, String> {
+    if png.len() > 16 * 1024 * 1024 || !png.starts_with(b"\x89PNG\r\n\x1a\n") {
+        return Err("Invalid PNG or image exceeds 16 MiB".into());
+    }
+    let safe_name = if filename.starts_with("netbox-")
+        && filename.ends_with(".png")
+        && filename.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+    { filename } else { "netbox-result.png".into() };
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Some(path) = rfd::FileDialog::new()
+            .set_file_name(safe_name)
+            .add_filter("PNG image", &["png"])
+            .save_file()
+        {
+            std::fs::write(path, png).map_err(|e| e.to_string())?;
+            Ok(true)
+        } else { Ok(false) }
+    }).await.map_err(|e| e.to_string())?
+}
+#[tauri::command]
 async fn export_result(content: String) -> Result<bool, String> {
     if content.len() > 16 * 1024 * 1024 {
         return Err("Export too large".into());
@@ -297,6 +321,7 @@ fn main() {
             stop_all,
             choose_path,
             export_result,
+            export_result_image,
             app_info
         ])
         .build(tauri::generate_context!())

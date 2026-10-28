@@ -1254,8 +1254,8 @@
     {
       "type": "library",
       "name": "indexmap",
-      "version": "2.14.2",
-      "purl": "pkg:cargo/indexmap@2.14.2",
+      "version": "1.9.3",
+      "purl": "pkg:cargo/indexmap@1.9.3",
       "licenses": [
         {
           "license": {
@@ -1267,8 +1267,8 @@
     {
       "type": "library",
       "name": "indexmap",
-      "version": "1.9.3",
-      "purl": "pkg:cargo/indexmap@1.9.3",
+      "version": "2.14.2",
+      "purl": "pkg:cargo/indexmap@2.14.2",
       "licenses": [
         {
           "license": {
@@ -1514,8 +1514,8 @@
     {
       "type": "library",
       "name": "miniz_oxide",
-      "version": "0.9.1",
-      "purl": "pkg:cargo/miniz_oxide@0.9.1",
+      "version": "0.8.9",
+      "purl": "pkg:cargo/miniz_oxide@0.8.9",
       "licenses": [
         {
           "license": {
@@ -1527,8 +1527,8 @@
     {
       "type": "library",
       "name": "miniz_oxide",
-      "version": "0.8.9",
-      "purl": "pkg:cargo/miniz_oxide@0.8.9",
+      "version": "0.9.1",
+      "purl": "pkg:cargo/miniz_oxide@0.9.1",
       "licenses": [
         {
           "license": {
@@ -1995,8 +1995,8 @@
     {
       "type": "library",
       "name": "schemars",
-      "version": "0.8.22",
-      "purl": "pkg:cargo/schemars@0.8.22",
+      "version": "0.9.0",
+      "purl": "pkg:cargo/schemars@0.9.0",
       "licenses": [
         {
           "license": {
@@ -2021,8 +2021,8 @@
     {
       "type": "library",
       "name": "schemars",
-      "version": "0.9.0",
-      "purl": "pkg:cargo/schemars@0.9.0",
+      "version": "0.8.22",
+      "purl": "pkg:cargo/schemars@0.8.22",
       "licenses": [
         {
           "license": {

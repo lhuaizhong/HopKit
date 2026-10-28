@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { appearance } from './appearance'
+import { resultImage } from './result-image'
 
 type Row = Record<string, any>
 type TraceHop = {hop:number;probes:(Row|null)[];addresses:string[]}
-type Task = {id:string;tool:string;action:string;target:string;status:string;started_at:string;seq:number;events:Row[];result:Row|null}
+type Task = {id:string;tool:string;action:string;target:string;port?:number;status:string;started_at:string;seq:number;events:Row[];result:Row|null;request?:Row|null}
 const appInfo=ref({version:'',platform:'',os:''})
 const lang=ref(localStorage.getItem('netbox-language')==='zh-CN'?'zh-CN':'en-US')
 const en=computed(()=>lang.value==='en-US')
@@ -23,6 +24,9 @@ const selected=ref('ping'),active=ref(''),tasks=ref<Task[]>([]),rows=ref<Row[]>(
 // List responses contain summaries only. Keep the selected snapshot separately
 // so refreshing the task center cannot remove its result or reset its scroll.
 const activeDetail=ref<Task|null>(null)
+const exportingImage=ref(false),imageSaved=ref(false),imageCopied=ref(false)
+const imageError=ref('')
+watch(active,()=>{imageSaved.value=false;imageCopied.value=false;imageError.value=''})
 const form=reactive({target:'127.0.0.1',port:443,count:4,timeout_ms:1000,interval_ms:1000,payload_size_bytes:32,ipv6:false,max_hops:30,record_type:'A',dns_server:'',dns_mode:'system',path:'',remote_name:'config.cfg',action:'get',listen:'0.0.0.0',allow:'',writable:false,overwrite:false,message:'netbox test',continuous:false})
 const current=computed(()=>tools.find(x=>x.id===selected.value)!)
 const task=computed(()=>activeDetail.value?.id===active.value?activeDetail.value:tasks.value.find(x=>x.id===active.value))
@@ -70,7 +74,7 @@ async function start(){
   const request={tool:selected.value,target:form.target.trim(),port:selected.value==='dns'?0:Number(form.port),count:form.continuous&&['ping','tcping'].includes(selected.value)?0:Number(form.count),timeout_ms:Number(form.timeout_ms),interval_ms:Number(form.interval_ms),payload_size_bytes:selected.value==='ping'?Number(form.payload_size_bytes):32,ipv6:form.ipv6,max_hops:Number(form.max_hops),record_type:form.dns_mode==='system'?'A':form.record_type,dns_server:selected.value==='dns'&&form.dns_mode==='direct'?form.dns_server.trim():'',path:form.path,remote_name:form.remote_name,action:form.action,listen:form.listen.trim(),allow:form.allow.trim(),writable:form.writable,overwrite:form.overwrite,message:form.message}
   if(selected.value==='dns'&&form.dns_mode==='direct'&&!request.dns_server)throw new Error(t('请输入 DNS 服务器 IP。','Enter a DNS server IP.'))
   const id=await invoke<string>('start_task',{request})
-  const started:Task={id,tool:request.tool,action:request.action,target:service.value?`${request.listen}:${request.port}`:request.target,status:'running',started_at:String(Date.now()).padStart(20,'0'),seq:0,events:[],result:null}
+  const started:Task={id,tool:request.tool,action:request.action,target:service.value?`${request.listen}:${request.port}`:request.target,port:request.port,status:'running',started_at:String(Date.now()).padStart(20,'0'),seq:0,events:[],result:null}
   pendingTasks.set(id,started);tasks.value=[started,...tasks.value.filter(x=>x.id!==id)]
   active.value=id;activeDetail.value=started;rows.value=[];await poll()
  }catch(e){error.value=String(e)}finally{loading.value=false}
@@ -100,6 +104,25 @@ async function poll(){if(polling)return;polling=true;try{
  }
  }catch(e){error.value=String(e)}finally{polling=false}}
 async function exportData(){try{await invoke('export_result',{content:JSON.stringify({task:task.value,preview:rows.value},null,2)})}catch(e){error.value=String(e)}}
+async function exportImage(destination:'file'|'clipboard'='file'){
+ if(exportingImage.value||!task.value?.result)return
+ exportingImage.value=true;imageSaved.value=false;imageCopied.value=false;imageError.value=''
+ try{
+  const snapshot=JSON.parse(JSON.stringify(task.value)) as Task
+  const source=document.querySelector<HTMLElement>('.results-column')!
+  const image=resultImage(source,en.value)
+  if(destination==='clipboard'){
+   await navigator.clipboard.write([new ClipboardItem({'image/png':image})])
+   if(task.value?.id===snapshot.id)imageCopied.value=true
+   return
+  }
+  const blob=await image
+  const png=Array.from(new Uint8Array(await blob.arrayBuffer()))
+  const filename=`netbox-${snapshot.tool}-${snapshot.id.slice(0,8)}.png`
+  const saved=await invoke<boolean>('export_result_image',{png,filename})
+  if(task.value?.id===snapshot.id)imageSaved.value=saved
+ }catch(e){imageError.value=String(e)}finally{exportingImage.value=false}
+}
 async function copy(){try{await navigator.clipboard.writeText(JSON.stringify(task.value?.result||rows.value,null,2));copied.value=true;setTimeout(()=>copied.value=false,1500)}catch(e){error.value=String(e)}}
 let timer:ReturnType<typeof setInterval>
 onMounted(async()=>{poll();timer=setInterval(poll,350);try{appInfo.value=await invoke('app_info')}catch(e){error.value=String(e)}})
@@ -157,10 +180,11 @@ onUnmounted(()=>clearInterval(timer))
       <section class="metrics" v-if="['ping','trace','tcping'].includes(selected)"><div><small>{{t('已发送','SENT')}}</small><b>{{stats.sent}}<em>{{t('次','probes')}}</em></b></div><div><small>{{t('已响应','RECEIVED')}}</small><b>{{stats.received}}<em>{{t('次','replies')}}</em></b></div><div><small>{{t('平均延迟','AVG LATENCY')}}</small><b>{{number(stats.avg)}}<em>ms</em></b></div><div><small>{{t('丢包率','PACKET LOSS')}}</small><b :class="{warn:stats.loss>0}">{{number(stats.loss)}}<em>%</em></b></div></section>
       <section class="metrics" v-else-if="selected==='syslog'&&form.action==='listen'"><div><small>{{t('用户态收到','RECEIVED')}}</small><b>{{latestStats?.received??0}}</b></div><div><small>{{t('已写入','WRITTEN')}}</small><b>{{latestStats?.written??0}}</b></div><div><small>{{t('来源拒绝','DENIED')}}</small><b>{{latestStats?.denied??0}}</b></div><div><small>{{t('传输协议','TRANSPORT')}}</small><b>UDP</b></div></section>
       <section class="result-panel panel">
-       <div class="panel-title"><h2>{{t('实时结果','Live results')}}<span v-if="task" :class="['status',task.status]">{{statusText(task.status)}}</span></h2><div class="result-tools"><button :disabled="!task" @click="copy">{{copied?t('已复制','Copied'):t('复制','Copy')}}</button><button :disabled="!task" @click="exportData">{{t('导出 JSON','Export JSON')}}</button></div></div>
+       <div class="panel-title"><h2>{{t('实时结果','Live results')}}<span v-if="task" :class="['status',task.status]">{{statusText(task.status)}}</span></h2><div class="result-tools"><button :disabled="!task?.result||exportingImage" @click="exportImage('file')">{{exportingImage?t('正在导出…','Exporting…'):t('导出图片','Export image')}}</button><button :disabled="!task?.result||exportingImage" @click="exportImage('clipboard')">{{imageCopied?t('图片已复制','Image copied'):t('复制图片','Copy image')}}</button><span v-if="imageSaved" role="status">{{t('图片已保存','Image saved')}}</span><button :disabled="!task" @click="copy">{{copied?t('已复制','Copied'):t('复制','Copy')}}</button><button :disabled="!task" @click="exportData">{{t('导出 JSON','Export JSON')}}</button></div></div>
+       <div v-if="imageError" class="result-error" role="alert">{{imageError}}</div>
        <div v-if="!active" class="empty-state"><div class="radar"><span></span><i></i><b>⌁</b></div><h3>{{t('准备就绪，开始第一次测试','Ready for your first test')}}</h3><p>{{t('配置左侧参数，结果将实时显示在这里。','Configure a task on the left. Results will appear here.')}}</p><div class="example">{{t('快速开始','QUICK START')}}<code>nb {{selected==='tftp'?'tftp --help':selected==='syslog'?'syslog --help':selected+' 127.0.0.1'+(selected==='tcping'?' 443':'')}}</code></div></div>
        <template v-else>
-        <div class="result-meta"><code>{{task?.target}}</code><span v-if="selected==='ping'&&probeSize!=null">{{t('测试包','Packet')}} {{probeSize}} B</span><span>{{active.slice(0,8)}} · {{t('本地任务','local task')}}</span></div>
+        <div class="result-meta"><code>{{task?.target}}</code><span v-if="task?.tool==='tcping'&&task.port!=null" class="tcp-port">{{t('TCP 端口','TCP port')}} {{task.port}}</span><span v-if="selected==='ping'&&probeSize!=null">{{t('测试包','Packet')}} {{probeSize}} B</span><span>{{active.slice(0,8)}} · {{t('本地任务','local task')}}</span></div>
         <div v-if="sampleRows.length&&['ping','tcping'].includes(selected)" class="sparkline"><div v-for="(s,i) in sampleRows.slice(-80)" :key="i" :class="{lost:!s.ok}" :style="{height:s.ok?Math.max(8,Math.min(64,8+Number(s.rtt_ms)*2))+'px':'8px'}" :title="s.status+' '+s.rtt_ms+'ms'"></div><small>RTT / ms</small></div>
         <div class="filter-bar"><span>⌕</span><input v-model="filter" :placeholder="t('筛选当前预览…','Filter current preview…')"><small>{{selected==='trace'?traceHops.length:rows.length}} {{selected==='trace'?t('跳','hops'):t('条预览','events')}}</small></div>
         <div class="table-scroll">

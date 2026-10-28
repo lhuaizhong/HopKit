@@ -55,8 +55,60 @@ try{
   assert(after.same);assert.equal(after.top,before.top);assert.equal(after.page,before.page);assert.equal(after.changes,0)
   await page.click('.raw-result > button')
  })
+ await check('Native screenshot renderer captures result cards and validates PNG saving input',async()=>{
+  const current=(await invoke('list_tasks'))[0]
+  const detail=await invoke('task_poll',{id:current.id,after:0})
+  assert(detail.result)
+  let rejected=false
+  try{await invoke('export_result_image',{png:[1,2,3],filename:'invalid.png'})}catch{rejected=true}
+  assert(rejected,'Backend must reject invalid PNG before showing a dialog')
+  await field('#target','changed-after-test.invalid')
+  await page.evaluate(()=>{
+   window.__originalCreateElement=document.createElement.bind(document)
+   document.createElement=(tag,...args)=>{
+    const element=window.__originalCreateElement(tag,...args)
+    if(tag==='canvas'){
+     const encode=element.toDataURL.bind(element)
+     element.toDataURL=(...options)=>{window.__nativeImage=encode(...options);throw new Error('PNG captured by test before save dialog')}
+    }
+    return element
+   }
+  })
+  try{
+   await clickText('.result-tools button','导出图片')
+   await page.waitForFunction(()=>!!window.__nativeImage)
+   const data=await page.evaluate(()=>window.__nativeImage)
+   const bytes=Buffer.from(data.split(',')[1],'base64')
+   assert.deepEqual([...bytes.subarray(0,8)],[137,80,78,71,13,10,26,10])
+   fs.writeFileSync(path.join(out,'gui-export-result.png'),bytes)
+  }finally{await page.evaluate(()=>{document.createElement=window.__originalCreateElement})}
+ })
  await check('English UI and navigation',async()=>{await clickText('.header-actions button','English');await clickText('nav .nav-item','DNS');assert((await page.$eval('h1',e=>e.textContent)).includes('Name resolution'));await field('#target','localhost');const t=await uiTask();const s=await taskFinished(t.id);assert.equal(s.result.data.source,'system');assert(s.result.data.addresses.length>0)})
- await check('GUI TCPing connects to independent local TCP server',async()=>{const server=net.createServer(s=>s.end());await new Promise(r=>server.listen(0,'127.0.0.1',r));try{await clickText('nav .nav-item','TCPing');await field('#target','127.0.0.1');await field('#port',server.address().port);await field('#count',2);await field('#interval',50);const t=await uiTask();assert.equal((await taskFinished(t.id)).result.data.received,2)}finally{server.close()}})
+ await check('GUI TCPing connects to independent local TCP server',async()=>{const server=net.createServer(s=>s.end());await new Promise(r=>server.listen(0,'127.0.0.1',r));try{await clickText('nav .nav-item','TCPing');await field('#target','127.0.0.1');await field('#port',server.address().port);await field('#count',2);await field('#interval',50);const t=await uiTask();const finished=await taskFinished(t.id);assert.equal(finished.result.data.received,2);assert.equal(finished.port,server.address().port)
+ await page.waitForSelector('.tcp-port');const expected='TCP port '+server.address().port
+ assert.equal(await page.$eval('.tcp-port',e=>e.textContent),expected)
+ await field('#port',1);await pause(500);assert.equal(await page.$eval('.tcp-port',e=>e.textContent),expected)
+ await clickText('nav .nav-item','Ping');await clickText('.task-row','tcping');await page.waitForSelector('.tcp-port')
+ assert.equal(await page.$eval('.tcp-port',e=>e.textContent),expected)
+ await page.screenshot({path:path.join(out,'gui-tcping-port.png'),fullPage:true})
+ await page.evaluate(()=>{
+  window.__tcpOriginalCreate=document.createElement.bind(document)
+  document.createElement=(tag,...args)=>{
+   const element=window.__tcpOriginalCreate(tag,...args)
+   if(tag==='canvas'){
+    const encode=element.toDataURL.bind(element)
+    element.toDataURL=(...options)=>{window.__tcpImage=encode(...options);throw new Error('Screenshot captured by test')}
+   }
+   return element
+  }
+ })
+ try{
+  await clickText('.result-tools button','Export image');await page.waitForFunction(()=>!!window.__tcpImage)
+  const uri=await page.evaluate(()=>window.__tcpImage)
+  fs.writeFileSync(path.join(out,'gui-tcping-port-result.png'),Buffer.from(uri.split(',')[1],'base64'))
+ }finally{await page.evaluate(()=>{document.createElement=window.__tcpOriginalCreate})}
+
+ }finally{server.close()}})
  await check('GUI ICMP trace reaches loopback',async()=>{await clickText('nav .nav-item','Traceroute');await field('#target','127.0.0.1');await field('#hops',2);const t=await uiTask();assert.equal((await taskFinished(t.id)).result.data.reached,true)})
  await check('GUI NTP measures an independent responder',async()=>{const socket=dgram.createSocket('udp4');await new Promise(r=>socket.bind(0,'127.0.0.1',r));socket.on('message',(q,peer)=>{const b=Buffer.alloc(48);b[0]=0x24;b[1]=2;q.copy(b,24,40,48);const stamp=q.readBigUInt64BE(40)+214748365n;b.writeBigUInt64BE(stamp,32);b.writeBigUInt64BE(stamp,40);socket.send(b,peer.port,peer.address)});try{await clickText('nav .nav-item','NTP');await field('#target','127.0.0.1');await field('#port',socket.address().port);await field('#count',1);const t=await uiTask();assert.equal((await taskFinished(t.id)).result.data.valid_samples,1)}finally{socket.close()}})
  await check('GUI starts/stops Syslog and renders external text without HTML',async()=>{await clickText('nav .nav-item','Syslog');const logPath=path.join(out,'gui-syslog');await field('#path',logPath);await field('#port',15514);const t=await uiTask();await pause(300);const socket=dgram.createSocket('udp4');await new Promise((res,rej)=>socket.send(Buffer.from('<13><script>alert(1)</script> GUI日志'),15514,'127.0.0.1',e=>e?rej(e):res()));socket.close();await pause(800);assert((await page.$eval('tbody',e=>e.textContent)).includes('<script>alert(1)</script>'));assert.equal(await page.$$('tbody script').then(x=>x.length),0);await page.screenshot({path:path.join(out,'gui-syslog.png'),fullPage:true});await clickText('form .stop','Stop');assert.equal((await taskFinished(t.id)).status,'cancelled');assert(fs.readdirSync(path.join(logPath,'netbox-syslog')).some(x=>x.endsWith('.jsonl')))})
