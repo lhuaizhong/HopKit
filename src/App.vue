@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { appearance } from './appearance'
 
 type Row = Record<string, any>
 type TraceHop = {hop:number;probes:(Row|null)[];addresses:string[]}
@@ -98,7 +99,18 @@ onUnmounted(()=>clearInterval(timer))
    <div class="sidebar-bottom"><div class="preview-badge">{{appInfo.os.toUpperCase()}} PREVIEW</div><p>v{{appInfo.version}}</p><small>{{t('本地执行 · 离线可用','Local tools · Offline ready')}}</small></div>
   </aside>
   <div class="workspace">
-   <header><div class="breadcrumb">{{t('工作台','Workspace')}} <span>/</span> <strong>{{current.name}}</strong></div><div class="header-actions"><span class="platform"><i></i> {{appInfo.platform}}</span><button class="quiet" @click="language">{{en?'中文':'English'}}</button></div></header>
+   <header>
+    <div class="breadcrumb">{{t('工作台','Workspace')}} <span>/</span> <strong>{{current.name}}</strong></div>
+    <div class="header-actions">
+     <span class="platform"><i></i> {{appInfo.platform}}</span>
+     <div class="appearance-switch" role="group" :aria-label="t('界面风格','Appearance')">
+      <span class="appearance-label">{{t('界面风格','Appearance')}}</span>
+      <button type="button" :aria-pressed="appearance==='fresh'" @click="appearance='fresh'">{{t('清新','Fresh')}}</button>
+      <button type="button" :aria-pressed="appearance==='readable'" @click="appearance='readable'">{{t('视力友好','Easy to read')}}</button>
+     </div>
+     <button class="quiet" @click="language">{{en?'中文':'English'}}</button>
+    </div>
+   </header>
    <main>
     <div class="page-heading"><div><div class="eyebrow">NETWORK DIAGNOSTICS</div><h1>{{current.name}}<span>{{en?current.sub[1]:current.sub[0]}}</span></h1><p>{{en?current.desc[1]:current.desc[0]}}</p></div><span class="local-pill"><span>◈</span>{{t('本机执行','LOCAL EXECUTION')}}</span></div>
     <div class="content-grid">

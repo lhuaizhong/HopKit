@@ -994,8 +994,8 @@
     {
       "type": "library",
       "name": "getrandom",
-      "version": "0.4.3",
-      "purl": "pkg:cargo/getrandom@0.4.3",
+      "version": "0.3.4",
+      "purl": "pkg:cargo/getrandom@0.3.4",
       "licenses": [
         {
           "license": {
@@ -1007,8 +1007,8 @@
     {
       "type": "library",
       "name": "getrandom",
-      "version": "0.3.4",
-      "purl": "pkg:cargo/getrandom@0.3.4",
+      "version": "0.4.3",
+      "purl": "pkg:cargo/getrandom@0.4.3",
       "licenses": [
         {
           "license": {
@@ -1514,8 +1514,8 @@
     {
       "type": "library",
       "name": "miniz_oxide",
-      "version": "0.8.9",
-      "purl": "pkg:cargo/miniz_oxide@0.8.9",
+      "version": "0.9.1",
+      "purl": "pkg:cargo/miniz_oxide@0.9.1",
       "licenses": [
         {
           "license": {
@@ -1527,8 +1527,8 @@
     {
       "type": "library",
       "name": "miniz_oxide",
-      "version": "0.9.1",
-      "purl": "pkg:cargo/miniz_oxide@0.9.1",
+      "version": "0.8.9",
+      "purl": "pkg:cargo/miniz_oxide@0.8.9",
       "licenses": [
         {
           "license": {
@@ -1995,6 +1995,19 @@
     {
       "type": "library",
       "name": "schemars",
+      "version": "0.9.0",
+      "purl": "pkg:cargo/schemars@0.9.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "schemars",
       "version": "1.2.3",
       "purl": "pkg:cargo/schemars@1.2.3",
       "licenses": [
@@ -2010,19 +2023,6 @@
       "name": "schemars",
       "version": "0.8.22",
       "purl": "pkg:cargo/schemars@0.8.22",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "schemars",
-      "version": "0.9.0",
-      "purl": "pkg:cargo/schemars@0.9.0",
       "licenses": [
         {
           "license": {

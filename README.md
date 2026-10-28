@@ -20,7 +20,9 @@
 | TFTP | octet/512 字节，上传、下载、临时服务；本地原子提交，默认不覆盖，服务默认只读 |
 | Syslog | UDP 发送/接收、优先级提取、实时采样预览、带原始字节的 JSONL、按段轮转 |
 
-GUI 提供中英切换、实时结果、会话任务中心、停止单任务/全部任务、复制和 JSON 导出。GUI 内最多同时运行 4 个任务，保存最近 40 个任务；退出 GUI 会停止其任务。CLI 独立运行，与 GUI 的生命周期互不影响。
+GUI 提供中英切换、界面风格切换、实时结果、会话任务中心、停止单任务/全部任务、复制和 JSON 导出。GUI 内最多同时运行 4 个任务，保存最近 40 个任务；退出 GUI 会停止其任务。CLI 独立运行，与 GUI 的生命周期互不影响。
+
+顶部“界面风格”可切换“清新”和“视力友好”。视力友好风格增大正文、表单及结果字号，加深辅助文字和状态颜色，并强化输入框边界与键盘焦点；窗口较窄时，配置与结果会改为上下排列。选择立即生效，保存在本机，下次启动沿用；首次使用默认清新风格。
 
 Ping 的“测试包大小 / 字节”支持 0～65500 的整数，默认 32，指 ICMP 数据部分，不包含 IP / ICMP 头。CLI 使用 `--size`，结果及导出 JSON 使用 `payload_size_bytes` 记录该值。大包的实际可达性受网络 MTU、分片和设备策略影响。
 
@@ -84,6 +86,9 @@ Ping 的“测试包大小 / 字节”支持 0～65500 的整数，默认 32，�
 ```powershell
 npm ci
 npm run build
+# 界面风格专项验证（开发环境需提供 puppeteer-core 及浏览器）
+# $env:NETBOX_BROWSER='本机 Chrome/Chromium 可执行文件绝对路径'
+# node scripts/appearance-test.mjs
 cargo test -p netbox-core
 cargo build --release --features netbox-desktop/custom-protocol -p netbox-desktop -p netbox-cli
 python scripts/integration_test.py --exe target/release/netbox-cli.exe
