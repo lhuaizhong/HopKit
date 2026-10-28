@@ -7,7 +7,7 @@ type Row = Record<string, any>
 type TraceHop = {hop:number;probes:(Row|null)[];addresses:string[]}
 type Task = {id:string;tool:string;action:string;target:string;status:string;started_at:string;seq:number;events:Row[];result:Row|null}
 const appInfo=ref({version:'',platform:'',os:''})
-const lang=ref(localStorage.getItem('netbox-language')||'zh-CN')
+const lang=ref(localStorage.getItem('netbox-language')==='zh-CN'?'zh-CN':'en-US')
 const en=computed(()=>lang.value==='en-US')
 const t=(zh:string,english:string)=>en.value?english:zh
 const tools=[

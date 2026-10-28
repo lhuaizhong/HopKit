@@ -22,6 +22,7 @@ const field=async(selector,value)=>{await page.$eval(selector,(input,value)=>{in
 const taskFinished=async id=>{for(let i=0;i<80;i++){const s=await invoke('task_poll',{id,after:0});if(!['running','cancelling'].includes(s.status))return s;await pause(150)}throw new Error('Task did not finish')}
 const uiTask=async()=>{const before=new Set((await invoke('list_tasks')).map(x=>x.id));await page.click('form button.primary');for(let i=0;i<30;i++){const tasks=await invoke('list_tasks');const task=tasks.find(x=>!before.has(x.id));if(task)return task;await pause(100)}throw new Error('UI did not start task')}
 try{
+ await page.evaluate(()=>localStorage.setItem('netbox-language','zh-CN'));await page.reload()
  await page.waitForSelector('nav .nav-item');await pause(500)
  await check('Native WebView loads bundled assets and all 7 tools',async()=>{assert.equal(await page.$$eval('nav .nav-item',x=>x.length),7);assert((await page.content()).includes('NETWORK TOOLKIT'));assert(await page.evaluate(()=>!!window.__TAURI_INTERNALS__))})
  await check('Native appearance switch persists and keeps readable fields',async()=>{

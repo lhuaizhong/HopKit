@@ -85,7 +85,7 @@ try {
   }
   await page.goto(url)
   await page.waitForSelector('.appearance-switch')
-  await check('Fresh is the initial appearance', async () => { await assertTheme('fresh'); assert.equal(await page.$eval('#target', e => getComputedStyle(e).fontSize), '12px') })
+  await check('Fresh appearance and English are the initial defaults', async () => { await assertTheme('fresh'); assert.equal(await page.$eval('#target', e => getComputedStyle(e).fontSize), '12px'); assert.equal(await page.$eval('form .primary', e => e.textContent.trim()), '▶Run test') })
   await page.screenshot({ path: path.join(out, 'fresh.png'), fullPage: true })
   await check('Keyboard activates readable style and exposes selected state', async () => {
     await page.focus('.appearance-switch button:last-child'); await page.keyboard.press('Space'); await assertTheme('readable')
@@ -100,6 +100,12 @@ try {
     await page.reload(); await assertTheme('readable')
     const second = await browser.newPage(); await second.goto(url)
     await second.waitForFunction(() => document.documentElement.dataset.theme === 'readable'); await second.close()
+  })
+  await check('Saved Chinese language takes precedence over the English default', async () => {
+    await page.click('.header-actions > .quiet'); await page.reload(); await assertTheme('readable')
+    assert.equal(await page.$eval('.header-actions > .quiet', e => e.textContent), 'English')
+    await page.click('.header-actions > .quiet'); await page.reload(); await assertTheme('readable')
+    assert.equal(await page.$eval('.header-actions > .quiet', e => e.textContent), '中文')
   })
   await check('Switching style preserves parameters and a completed task', async () => {
     await page.$eval('#target', e => { e.value = 'localhost'; e.dispatchEvent(new Event('input', { bubbles: true })) })

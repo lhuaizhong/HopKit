@@ -19,7 +19,7 @@ use std::{
 struct Cli {
     #[arg(long,global=true,default_value="text",value_parser=["text","json","jsonl"])]
     format: String,
-    #[arg(long,global=true,default_value="zh-CN",value_parser=["zh-CN","en-US"])]
+    #[arg(long,global=true,default_value="en-US",value_parser=["zh-CN","en-US"])]
     lang: String,
     #[arg(long, global = true)]
     no_color: bool,

@@ -10,7 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{"label": "main", "title": "netbox · 网络工具箱", "width": 1220, "height": 820, "minWidth": 960, "minHeight": 680}],
+    "windows": [{"label": "main", "title": "netbox · Network Toolkit", "width": 1220, "height": 820, "minWidth": 960, "minHeight": 680}],
     "security": { "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'" }
   },
   "bundle": { "active": false }

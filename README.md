@@ -1,34 +1,38 @@
-# netbox Windows / macOS 基础功能测试版
+# netbox Network Toolkit — Windows / macOS Preview
 
-版本：`0.1.0-alpha.1`。基于上级目录的《netbox 技术方案 v0.3》，实现用于首次操作测试和评估的基础工具集。macOS 的启动、构建、架构和验证边界见 [README-macOS.md](README-macOS.md)；下列 Windows 操作说明继续保留。
+[简体中文](README.zh-CN.md)
 
-## 启动
+Version: `0.1.0-alpha.1`. This evaluation build implements the basic toolset described in the netbox v0.3 technical design in the parent directory. See [README-macOS.md](README-macOS.md) for macOS startup, build, architecture, and validation details. The Windows instructions are below.
 
-解压发布包到本地可写目录，双击 `netbox.exe`。GUI 使用系统 Microsoft Edge WebView2 Runtime；通常已随较新 Windows 安装。如果 GUI 无法启动，可先独立使用 `netbox-cli.exe`，再按微软官方说明安装 WebView2 Runtime：<https://developer.microsoft.com/microsoft-edge/webview2/>。
+## Getting started
 
-本包不修改 PATH、不安装系统服务、不添加防火墙规则、不自动访问更新服务器。普通用户可执行基本工具；设备访问临时服务时可能需要由用户按本机策略放行入站流量。
+Extract the release archive into a writable local directory and run `netbox.exe`. The GUI requires the system Microsoft Edge WebView2 Runtime, which is usually installed on recent Windows systems. If the GUI cannot start, use `netbox-cli.exe` independently and install the runtime from [Microsoft's WebView2 page](https://developer.microsoft.com/microsoft-edge/webview2/).
 
-## 已实现
+The package does not modify PATH, install system services, add firewall rules, or contact update servers automatically. Basic tools run as an ordinary user. To let devices access temporary listeners, allow inbound traffic according to your local firewall policy.
 
-| 工具 | GUI / CLI 能力 |
+## Features
+
+| Tool | GUI / CLI capabilities |
 | --- | --- |
-| Ping | Windows ICMP API / macOS Darwin ICMP，IPv4/IPv6、次数/持续探测、测试包大小、超时、间隔、延迟和丢包 |
-| Traceroute | ICMP 逐跳，最大跳数、每跳三次；无响应不直接判定断路 |
-| TCPing | 指定端口 TCP connect，区分连接成功、拒绝、超时 |
-| DNS | 系统解析；指定 DNS 的 A/AAAA/CNAME/MX/TXT/NS/PTR/SOA 查询，UDP 截断回退 TCP |
-| NTP | 1～20 次采样、偏差/延迟/stratum、KoD；不修改系统时间 |
-| TFTP | octet/512 字节，上传、下载、临时服务；本地原子提交，默认不覆盖，服务默认只读 |
-| Syslog | UDP 发送/接收、优先级提取、实时采样预览、带原始字节的 JSONL、按段轮转 |
+| Ping | Windows ICMP API / macOS Darwin ICMP; IPv4/IPv6, finite or continuous probes, payload size, timeout, interval, latency, and packet loss |
+| Traceroute | ICMP hop-by-hop tracing with three probes per hop and a configurable hop limit; an unresponsive hop alone does not prove a broken route |
+| TCPing | TCP connect timing to a specified port, distinguishing successful connections, refusals, and timeouts |
+| DNS | System resolver or a specified DNS server; A/AAAA/CNAME/MX/TXT/NS/PTR/SOA queries, with TCP fallback for truncated UDP replies |
+| NTP | 1–20 samples, clock offset, delay, stratum, and KoD handling; never changes the system clock |
+| TFTP | octet/512-byte transfers, upload/download, and a temporary server; atomic local writes, no overwrite by default, read-only server by default |
+| Syslog | UDP send/receive, priority extraction, sampled live preview, JSONL files with original message bytes, and segment rotation |
 
-GUI 提供中英切换、界面风格切换、实时结果、会话任务中心、停止单任务/全部任务、复制和 JSON 导出。GUI 内最多同时运行 4 个任务，保存最近 40 个任务；退出 GUI 会停止其任务。CLI 独立运行，与 GUI 的生命周期互不影响。
+The GUI starts in **English** on first use. Use the **中文 / English** button in the header to switch languages; a saved language preference takes precedence on subsequent launches. The CLI also defaults to English; use `--lang zh-CN` for Chinese result headings. Some preview CLI help and error messages are still bilingual, and machine-readable field names remain English.
 
-顶部“界面风格”可切换“清新”和“视力友好”。视力友好风格增大正文、表单及结果字号，加深辅助文字和状态颜色，并强化输入框边界与键盘焦点；窗口较窄时，配置与结果会改为上下排列。选择立即生效，保存在本机，下次启动沿用；首次使用默认清新风格。
+The GUI includes appearance switching, live results, a session task center, individual/all-task cancellation, copy, and JSON export. It supports up to four active tasks and retains the latest 40 tasks. Closing the GUI stops its tasks. CLI processes run independently.
 
-Ping 的“测试包大小 / 字节”支持 0～65500 的整数，默认 32，指 ICMP 数据部分，不包含 IP / ICMP 头。CLI 使用 `--size`，结果及导出 JSON 使用 `payload_size_bytes` 记录该值。大包的实际可达性受网络 MTU、分片和设备策略影响。
+Use **Appearance → Fresh / Easy to read** in the header to change styles. Easy to read uses larger text, darker secondary text and status colors, clearer input borders, and stronger keyboard focus indicators. Configuration and results stack vertically in narrower windows. Changes take effect immediately and are saved locally. Fresh is the initial appearance.
 
-## CLI 示例
+Ping accepts payload sizes from 0 to 65,500 bytes, with a default of 32. This is the ICMP data size, excluding IP and ICMP headers. Use `--size` in the CLI; results and exported JSON record it as `payload_size_bytes`. Large-packet reachability depends on MTU, fragmentation, and device policy.
 
-在发布目录的 PowerShell 中执行：
+## CLI examples
+
+Run these commands in PowerShell from the release directory:
 
 ```powershell
 .\netbox-cli.exe ping 127.0.0.1
@@ -48,46 +52,48 @@ Ping 的“测试包大小 / 字节”支持 0～65500 的整数，默认 32，�
 .\netbox-cli.exe --help
 ```
 
-局域网 IP 均为示例，必须替换为实际目标/本机地址。TFTP 默认 UDP 69、Syslog 默认 UDP 514；可用 `--port 1069`、`--port 1514` 测试自定义端口。GUI / CLI 服务默认监听 `0.0.0.0`（所有 IPv4 网卡），对外监听时来源留空表示允许所有来源；可用 `--allow` 指定来源网段，多个 CIDR 用逗号分隔。`--listen` 可指定本机网卡 IP，`::` 表示所有 IPv6 网卡，`127.0.0.1` / `::1` 表示仅本机。
+LAN addresses are examples: replace them with the actual target or local interface address. TFTP defaults to UDP 69 and Syslog to UDP 514. Use `--port 1069` or `--port 1514` to test alternate ports.
 
-`shortcuts/nb.exe` 是相同版本的可选短入口，可直接相对调用或自行加入用户 PATH；先检查是否已存在其他 `nb` 命令。完整入口不依赖这个短名。
+GUI and CLI listeners bind to `0.0.0.0` (all IPv4 interfaces) by default. An empty source allowlist accepts all sources. Use `--allow` with comma-separated CIDRs to restrict access. Set `--listen` to a local interface IP, `::` for all IPv6 interfaces, or `127.0.0.1` / `::1` for local-only access.
 
-`--format json` 为有限任务单对象；`--format jsonl` 为逐行事件，适用于持续探测和服务。服务 `--duration <秒>` 可指定自动停止，默认 0 表示运行至 Ctrl+C；限时服务也可输出一个最终 JSON。`--lang en-US` 切换结果标题；测试版部分 CLI 帮助/错误仍为中英混合，机器字段固定英文。
+`shortcuts/nb.exe` is an optional short entry point for the same version. Invoke it by relative path or add it to your own PATH after checking for an existing `nb` command. The full executable works independently of this shortcut.
 
-退出码：0 达到诊断判据；1 网络/远端结果未达判据；2 参数无效；3 本机权限、占用或能力不足；4 本地读写/输出失败；130 主动取消。Ping/TCPing 至少一次响应为成功，`--strict` 要求零丢包。`status=succeeded` 表示操作执行完成，网络判据仍以 `data.success` 及退出码为准。
+`--format json` emits one object for a finite task. `--format jsonl` emits events line by line for continuous probes and services. For services, `--duration <seconds>` enables automatic stopping; the default of 0 runs until Ctrl+C. A duration-limited service can also emit a final JSON object.
 
-## 本测试版边界
+Exit codes: 0 = diagnostic criterion met; 1 = network/remote result did not meet the criterion; 2 = invalid arguments; 3 = local permissions, resource conflict, or unsupported capability; 4 = local I/O or output failure; 130 = cancelled. Ping/TCPing succeed if at least one probe receives a response; `--strict` requires zero loss. Task `status=succeeded` means the operation completed; inspect `data.success` and the exit code for the diagnostic outcome.
 
-- Windows 包交付 x64；macOS 包和运行范围见 `README-macOS.md`。实际验证系统及产物哈希见 `测试报告.md` 和 `validation/`；尚未完成旧 LTSC、Windows 10 最低端、其他架构和真实设备型号认证。
-- GUI 是使用已安装 WebView2 的轻量便携包，未附私有 Fixed Version 运行时；CLI 不依赖 WebView2、Node、Python 或开发工具。
-- TFTP 仅 octet，512 字节、一次一个活动传输、根目录内单层文件名；不协商 blksize、不回绕、不支持 netascii/断点续传。最大文件 33,553,919 字节。服务允许上传也只新建，始终不覆盖已有文件。传输端口由 OS 分配，不限制在 v0.3 规划的固定 TID 范围；局域网防火墙需允许本程序的实际 UDP 流量。
-- TFTP 每块等待 1 秒、最多重传 5 次，接收端提交后结束等待 2 秒。上传最终 ACK 未收到时，远端文件可能已存在，不能直接假定上传没有发生。用户选择的本地磁盘根目录必须可信。
-- Syslog 仅 UDP，接收与文件写入在一个独立工作线程执行，没有正式版的异步队列/SQLite 索引/高级查询。不承诺正式版吞吐量。预览前 10 条后最高约 20 条/秒；UI 可筛选当前 200 条预览，完整接收内容保存在指定目录的 `netbox-syslog/`。
-- Syslog 原始字节以 `raw_hex` 保留；同时保存 UTF-8 容错展示文本。每段 64 MiB，7 天/约 2 GiB 总上限，封段时清理，允许最多一段的临时超额；每秒同步，正常停止再次同步。没有严格崩溃恢复/索引重建保证，强制退出的尾段可能有不完整行。剩余磁盘小于 1 GiB 停止写入。
-- ICMP 和 TCP connect 的单次系统调用最久等至所选 timeout，默认 1 秒；取消在当前调用返回后生效。DNS TCP 回退也可能等至读写 timeout，默认不承诺所有参数下取消 P95≤1 秒。
-- 不提供 AI/MCP、安装器、自动更新、签名更新验证、永久历史、配置导入导出、FTP、Syslog TCP/TLS；这些不属于本次基础评估包。未启用遥测，诊断只有用户主动操作才产生相关网络请求。
-- 可执行文件未做商业代码签名；应用展示身份使用本地预览命名空间。首次测试版不代表 v0.3 正式版验收已经全部通过。
+## Preview limitations
 
-## 建议首次评估顺序
+- The Windows package targets x64. See `README-macOS.md` for macOS packages and supported execution scope. Verified systems and artifact hashes are recorded in `测试报告.md` and `validation/`. Older LTSC releases, minimum Windows 10 configurations, other architectures, and real device models have not been certified.
+- The GUI is portable and uses the installed WebView2 Runtime; no private Fixed Version runtime is bundled. The CLI requires no WebView2, Node, Python, or development tools.
+- TFTP supports octet mode, 512-byte blocks, one active transfer, and single-component filenames within the selected root. There is no blksize negotiation, block-number rollover, netascii, or resume support. The maximum file size is 33,553,919 bytes. Server uploads only create new files and never overwrite existing files. Transfer ports are allocated by the OS rather than a fixed TID range; LAN firewall rules must permit the application's actual UDP traffic.
+- TFTP waits one second per block and retries up to five times. The receiver waits two seconds after committing a transfer. If an upload's final ACK is lost, the remote file may already exist. Choose a trusted local directory for the server root.
+- Syslog uses UDP and a dedicated receive/write thread, without the planned asynchronous queue, SQLite index, or advanced queries. Production throughput is not guaranteed. After the first ten messages, the preview is sampled at approximately 20 messages per second. The GUI filters the latest 200 preview events; full received messages are saved under `netbox-syslog/` in the selected directory.
+- Syslog preserves original bytes as `raw_hex` alongside decoded text with UTF-8 replacement. Segments are 64 MiB, with a seven-day / approximately 2 GiB retention cap. Cleanup occurs when a segment closes, allowing a temporary overrun of up to one segment. Writes are synchronized every second and again on normal shutdown. Strict crash recovery and index rebuilding are not guaranteed; forced termination can leave a partial final line. Writing stops below 1 GiB of free disk space.
+- ICMP and TCP connect calls may wait for the configured timeout, one second by default. Cancellation takes effect when the current call returns. DNS TCP fallback can also wait for read/write timeouts. A cancellation P95 of at most one second is not guaranteed for all settings.
+- AI/MCP, installers, automatic updates, update signature verification, permanent history, configuration import/export, FTP, and Syslog TCP/TLS are outside this evaluation build. Telemetry is disabled. Diagnostic network requests are initiated by user actions.
+- Executables have no commercial code signature and use a local preview application identity. This preview does not represent full acceptance against the v0.3 production design.
 
-1. 对 `127.0.0.1` 做 Ping，再对网关做 Ping/Traceroute；检查成功/超时/取消、中文和英文显示。
-2. 对已知开放和关闭端口做 TCPing，分别检查连接、拒绝和超时。
-3. 比较系统 DNS 与指定企业 DNS 的 A/AAAA 结果；使用可达 NTP 服务器检查时间偏差。
-4. TFTP 先在受控目录传输小配置文件，核对文件内容，再连接实际设备。文件服务默认只读，需要备份上传时显式启用新建权限。
-5. 指定 UDP 1514 开启 Syslog 接收，通过本机局域网 IP 发送测试消息；核对预览和 JSONL 文件，再按需限制来源网段。
-6. 同时运行多个任务，验证停止全部、关闭 GUI 和独立 CLI 的生命周期。
+## Suggested evaluation sequence
 
-记录问题时提供应用版本、Windows 版本、工具参数、期望/实际结果和导出的 JSON；敏感日志先自行检查与脱敏。
+1. Ping `127.0.0.1`, then Ping/Traceroute your gateway. Check success, timeout, cancellation, and English/Chinese display.
+2. Run TCPing against known open and closed ports to check connection, refusal, and timeout results.
+3. Compare system DNS and corporate DNS A/AAAA results. Check clock offset against a reachable NTP server.
+4. Transfer a small TFTP configuration file in a controlled directory and verify its contents before testing real devices. The server is read-only by default; explicitly allow file creation for backup uploads.
+5. Start Syslog on UDP 1514 and send a test message to the local LAN IP. Verify both preview and JSONL output, then restrict source networks as needed.
+6. Run multiple tasks and check stop-all, GUI shutdown, and independent CLI lifecycles.
 
-## 开发与复测
+When reporting an issue, include the app version, Windows version, tool parameters, expected/actual result, and exported JSON. Review and redact sensitive logs before sharing.
 
-当前验证工具链：Rust 1.94.0、Node 24.3.0、Visual Studio 2022 Build Tools。`Cargo.lock` 和 `package-lock.json` 已锁定依赖。Windows 原包使用 Rust 1.94.0；当前 `rust-toolchain.toml` 为 macOS 扩展锁定到 1.96.0，Windows 在新工具链上的发布回归尚未执行。依赖仍使用锁文件，不要直接随意升级。
+## Development and verification
+
+The verified Windows toolchain uses Rust 1.94.0, Node 24.3.0, and Visual Studio 2022 Build Tools. Dependencies are locked by `Cargo.lock` and `package-lock.json`. The original Windows package uses Rust 1.94.0; `rust-toolchain.toml` currently pins 1.96.0 for the macOS extension. A Windows release regression on that newer toolchain has not been completed. Keep the dependency lockfiles intact.
 
 ```powershell
 npm ci
 npm run build
-# 界面风格专项验证（开发环境需提供 puppeteer-core 及浏览器）
-# $env:NETBOX_BROWSER='本机 Chrome/Chromium 可执行文件绝对路径'
+# Appearance checks require development-only puppeteer-core and a browser:
+# $env:NETBOX_BROWSER='absolute path to your Chrome/Chromium executable'
 # node scripts/appearance-test.mjs
 cargo test -p netbox-core
 cargo build --release --features netbox-desktop/custom-protocol -p netbox-desktop -p netbox-cli
@@ -95,4 +101,6 @@ python scripts/integration_test.py --exe target/release/netbox-cli.exe
 powershell -NoProfile -File scripts/package.ps1
 ```
 
-开发 GUI 可运行 `npm run desktop`。集成脚本只使用 Python 标准库，在本机临时端口运行独立协议对端，不依赖公网和真实设备；可在报告中检查逐项证据。GUI 的 CDP 测试只在测试启动时设置 WebView2 调试环境变量，正常发布启动不开放调试端口。
+For GUI development, run `npm run desktop`. The integration script uses only Python's standard library and independent local protocol peers on temporary ports, without public Internet access or real devices. Reports contain per-scenario evidence. GUI CDP tests enable the WebView2 debugging port only for test launches; normal release startup does not enable it.
+
+Release packaging includes both `README.md` and `README.zh-CN.md`; Windows also keeps `使用说明.md` as a Chinese-language convenience copy. Build-time defaults apply to new installations; rebuilding or upgrading does not discard an existing GUI language preference.
