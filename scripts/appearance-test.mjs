@@ -37,10 +37,16 @@ try {
   page.on('pageerror', e => errors.push(e.message))
   await page.evaluateOnNewDocument(() => {
     let task
+    window.__detailPolls = 0
     window.__TAURI_INTERNALS__ = { invoke: async (command, args) => {
       if (command === 'app_info') return { version: 'test', platform: 'Windows x64', os: 'Windows' }
-      if (command === 'list_tasks') return task ? [task] : []
-      if (command === 'task_poll') return { ...task, events: task.events.filter(x => x.cursor > args.after) }
+      if (command === 'list_tasks') return task ? [{ ...task, result: null, events: [] }] : []
+      if (command === 'task_poll') {
+        window.__detailPolls++
+        const snapshot = { ...task, events: task.events.filter(x => x.cursor > args.after) }
+        await new Promise(resolve => setTimeout(resolve, 80))
+        return snapshot
+      }
       if (command === 'start_task') {
         const r = args.request
         const events = [
@@ -48,7 +54,7 @@ try {
           { cursor: 2, seq: 2, event_type: 'sample', ok: false, status: 'timeout', hop: 1, address: '::1', rtt_ms: null },
         ]
         task = { id: 'appearance-test', tool: r.tool, action: r.action || '', target: r.target || '127.0.0.1', status: 'succeeded', started_at: new Date().toISOString(), seq: 2, events,
-          result: { data: { sent: 2, received: 1, loss_percent: 50, rtt_avg_ms: 0.25, samples: events,
+          result: { data: { sent: 2, received: 1, loss_percent: 50, rtt_avg_ms: 0.25, samples: events, diagnostics: Array.from({length:100}, (_,i)=>`Diagnostic line ${i}`),
             ...(r.tool === 'dns' ? { addresses: ['127.0.0.1', '::1'] } : {}),
             ...(r.tool === 'ntp' ? { best_sample: { offset_ms: 0.42 } } : {}),
           } } }
@@ -116,6 +122,38 @@ try {
     await page.click('.appearance-switch button:last-child'); await assertTheme('readable'); await contrast()
   })
   await page.screenshot({ path: path.join(out, 'readable-results.png'), fullPage: true })
+  await check('Completed results stay mounted and retain JSON scroll while summaries refresh', async () => {
+    for (const style of ['fresh', 'readable']) {
+      await page.click(`.appearance-switch button:${style === 'fresh' ? 'first-of-type' : 'last-child'}`)
+      await assertTheme(style)
+      await page.click('.raw-result > button'); await page.waitForSelector('.raw-result pre')
+      const before = await page.evaluate(() => {
+        const pre = document.querySelector('.raw-result pre')
+        pre.scrollTop = 200
+        pre.scrollIntoView({block:'center'})
+        window.__resultPre = pre
+        window.__resultMutations = 0
+        window.__resultObserver = new MutationObserver(mutations => { window.__resultMutations += mutations.length })
+        window.__resultObserver.observe(document.querySelector('.result-panel'), {childList:true,subtree:true,characterData:true})
+        return {top:pre.scrollTop, page:scrollY, polls:window.__detailPolls}
+      })
+      assert(before.top > 0, 'JSON must be long enough to scroll')
+      await new Promise(resolve => setTimeout(resolve, 1800))
+      const after = await page.evaluate(() => {
+        window.__resultObserver.disconnect()
+        const pre = document.querySelector('.raw-result pre')
+        return {same:pre===window.__resultPre,top:pre?.scrollTop,page:scrollY,polls:window.__detailPolls,mutations:window.__resultMutations}
+      })
+      assert(after.same, 'The JSON node was replaced')
+      assert.equal(after.top,before.top,'JSON scroll reset')
+      assert.equal(after.page,before.page,'Page scroll jumped')
+      assert.equal(after.polls,before.polls,'Completed task details were polled again')
+      assert.equal(after.mutations,0,'Completed result DOM kept refreshing')
+      await page.click('.raw-result > button')
+    }
+    await page.click('.task-row'); await page.waitForSelector('.raw-result')
+    assert.equal(await page.$$eval('tbody tr',rows=>rows.length),2,'Reopening history must fetch preview again')
+  })
   await check('Both languages and all seven tools fit at 960, 1220 and 1440px', async () => {
     for (const width of [960, 1220, 1440]) {
       await page.setViewport({ width, height: 820 })

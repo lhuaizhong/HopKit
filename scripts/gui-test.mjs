@@ -12,6 +12,8 @@ const out=path.join(root,'test-output');fs.mkdirSync(out,{recursive:true})
 const browser=await puppeteer.connect({browserURL:'http://127.0.0.1:9227',defaultViewport:null})
 const pages=await browser.pages();const page=pages.find(p=>/tauri\.localhost|localhost/.test(p.url()))||pages[0]
 assert(page,'No WebView page')
+// Hidden Windows test launches can report a zero viewport until first shown.
+await page.setViewport({width:1220,height:820})
 const errors=[];page.on('pageerror',e=>errors.push(e.message))
 const report=[]
 const pause=ms=>new Promise(r=>setTimeout(r,ms))
@@ -22,6 +24,7 @@ const field=async(selector,value)=>{await page.$eval(selector,(input,value)=>{in
 const taskFinished=async id=>{for(let i=0;i<80;i++){const s=await invoke('task_poll',{id,after:0});if(!['running','cancelling'].includes(s.status))return s;await pause(150)}throw new Error('Task did not finish')}
 const uiTask=async()=>{const before=new Set((await invoke('list_tasks')).map(x=>x.id));await page.click('form button.primary');for(let i=0;i<30;i++){const tasks=await invoke('list_tasks');const task=tasks.find(x=>!before.has(x.id));if(task)return task;await pause(100)}throw new Error('UI did not start task')}
 try{
+ await page.waitForSelector('nav .nav-item')
  await page.evaluate(()=>localStorage.setItem('netbox-language','zh-CN'));await page.reload()
  await page.waitForSelector('nav .nav-item');await pause(500)
  await check('Native WebView loads bundled assets and all 7 tools',async()=>{assert.equal(await page.$$eval('nav .nav-item',x=>x.length),7);assert((await page.content()).includes('NETWORK TOOLKIT'));assert(await page.evaluate(()=>!!window.__TAURI_INTERNALS__))})
@@ -35,6 +38,23 @@ try{
  })
  await page.screenshot({path:path.join(out,'gui-home.png'),fullPage:true})
  await check('GUI Ping uses Rust backend; cursors deliver 4 samples once',async()=>{await field('#count',4);await field('#interval',50);const t=await uiTask();const final=await taskFinished(t.id);assert.equal(final.result.data.received,4);const cursors=final.events.map(x=>x.cursor);assert.equal(new Set(cursors).size,cursors.length);await pause(600);assert.equal(await page.$$eval('tbody tr',x=>x.length),4);await page.screenshot({path:path.join(out,'gui-ping.png'),fullPage:true})})
+ await check('Completed native JSON result stays mounted and keeps its scroll',async()=>{
+  await page.click('.raw-result > button');await page.waitForSelector('.raw-result pre')
+  const before=await page.evaluate(()=>{
+   const pre=document.querySelector('.raw-result pre');pre.scrollTop=150;pre.scrollIntoView({block:'center'})
+   window.__stablePre=pre;window.__resultChanges=0
+   window.__stableObserver=new MutationObserver(m=>window.__resultChanges+=m.length)
+   window.__stableObserver.observe(document.querySelector('.result-panel'),{childList:true,subtree:true,characterData:true})
+   return {top:pre.scrollTop,page:scrollY}
+  })
+  assert(before.top>0);await pause(1800)
+  const after=await page.evaluate(()=>{
+   window.__stableObserver.disconnect();const pre=document.querySelector('.raw-result pre')
+   return {same:pre===window.__stablePre,top:pre?.scrollTop,page:scrollY,changes:window.__resultChanges}
+  })
+  assert(after.same);assert.equal(after.top,before.top);assert.equal(after.page,before.page);assert.equal(after.changes,0)
+  await page.click('.raw-result > button')
+ })
  await check('English UI and navigation',async()=>{await clickText('.header-actions button','English');await clickText('nav .nav-item','DNS');assert((await page.$eval('h1',e=>e.textContent)).includes('Name resolution'));await field('#target','localhost');const t=await uiTask();const s=await taskFinished(t.id);assert.equal(s.result.data.source,'system');assert(s.result.data.addresses.length>0)})
  await check('GUI TCPing connects to independent local TCP server',async()=>{const server=net.createServer(s=>s.end());await new Promise(r=>server.listen(0,'127.0.0.1',r));try{await clickText('nav .nav-item','TCPing');await field('#target','127.0.0.1');await field('#port',server.address().port);await field('#count',2);await field('#interval',50);const t=await uiTask();assert.equal((await taskFinished(t.id)).result.data.received,2)}finally{server.close()}})
  await check('GUI ICMP trace reaches loopback',async()=>{await clickText('nav .nav-item','Traceroute');await field('#target','127.0.0.1');await field('#hops',2);const t=await uiTask();assert.equal((await taskFinished(t.id)).result.data.reached,true)})

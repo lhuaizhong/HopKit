@@ -20,9 +20,12 @@ const tools=[
  {id:'syslog',name:'Syslog',glyph:'≡',sub:['临时日志','Temporary logs'],desc:['接收、保存并预览 UDP 设备日志。','Receive, save and preview device logs over UDP.']}
 ]
 const selected=ref('ping'),active=ref(''),tasks=ref<Task[]>([]),rows=ref<Row[]>([]),error=ref(''),loading=ref(false),filter=ref(''),expanded=ref(false),copied=ref(false)
+// List responses contain summaries only. Keep the selected snapshot separately
+// so refreshing the task center cannot remove its result or reset its scroll.
+const activeDetail=ref<Task|null>(null)
 const form=reactive({target:'127.0.0.1',port:443,count:4,timeout_ms:1000,interval_ms:1000,payload_size_bytes:32,ipv6:false,max_hops:30,record_type:'A',dns_server:'',dns_mode:'system',path:'',remote_name:'config.cfg',action:'get',listen:'0.0.0.0',allow:'',writable:false,overwrite:false,message:'netbox test',continuous:false})
 const current=computed(()=>tools.find(x=>x.id===selected.value)!)
-const task=computed(()=>tasks.value.find(x=>x.id===active.value))
+const task=computed(()=>activeDetail.value?.id===active.value?activeDetail.value:tasks.value.find(x=>x.id===active.value))
 const running=computed(()=>task.value?.status==='running'||task.value?.status==='cancelling')
 const service=computed(()=>selected.value==='tftp'&&form.action==='serve'||selected.value==='syslog'&&form.action==='listen')
 const serviceTask=computed(()=>service.value?tasks.value.find(x=>x.tool===selected.value&&x.action===form.action&&['running','cancelling'].includes(x.status)):undefined)
@@ -69,19 +72,32 @@ async function start(){
   const id=await invoke<string>('start_task',{request})
   const started:Task={id,tool:request.tool,action:request.action,target:service.value?`${request.listen}:${request.port}`:request.target,status:'running',started_at:String(Date.now()).padStart(20,'0'),seq:0,events:[],result:null}
   pendingTasks.set(id,started);tasks.value=[started,...tasks.value.filter(x=>x.id!==id)]
-  active.value=id;rows.value=[];await poll()
+  active.value=id;activeDetail.value=started;rows.value=[];await poll()
  }catch(e){error.value=String(e)}finally{loading.value=false}
 }
 async function stop(){const id=stopTask.value?.id;if(!id)return;try{if(active.value!==id){active.value=id;rows.value=[]}await invoke('cancel_task',{id});await poll()}catch(e){error.value=String(e)}}
 async function stopAll(){try{await invoke('stop_all');await poll()}catch(e){error.value=String(e)}}
-async function openTask(item:Task){selected.value=item.tool;if(['tftp','syslog'].includes(item.tool))form.action=item.action;active.value=item.id;rows.value=[];await poll()}
+async function openTask(item:Task){selected.value=item.tool;if(['tftp','syslog'].includes(item.tool))form.action=item.action;active.value=item.id;activeDetail.value=null;rows.value=[];await poll()}
 let polling=false
 async function poll(){if(polling)return;polling=true;try{
  const listed=await invoke<Task[]>('list_tasks')
  for(const [id,pending] of pendingTasks){if(listed.some(x=>x.id===id))pendingTasks.delete(id);else listed.push(pending)}
- tasks.value=listed.sort((a,b)=>b.started_at.localeCompare(a.started_at))
+ const previous=new Map(tasks.value.map(item=>[item.id,item]))
+ const summaries=listed.sort((a,b)=>b.started_at.localeCompare(a.started_at)).map(item=>{
+  const old=previous.get(item.id)
+  return old&&old.status===item.status&&old.seq===item.seq&&old.started_at===item.started_at?old:item
+ })
+ if(summaries.length!==tasks.value.length||summaries.some((item,i)=>item!==tasks.value[i]))tasks.value=summaries
  const id=active.value
- if(id){const after=rows.value.length?Number(rows.value[rows.value.length-1]?.cursor||0):0;const detail=await invoke<Task>('task_poll',{id,after});if(active.value!==id)return;if(detail.events.length){if(after&&detail.events[0].cursor>after+1)error.value=t('部分实时预览已淘汰；接收文件仍独立保存。','Some preview events expired; service files are independent.');rows.value=[...rows.value,...detail.events].slice(-300)}const i=tasks.value.findIndex(x=>x.id===id);if(i>=0)tasks.value[i]=detail}
+ if(id){
+  const cached=activeDetail.value,summary=tasks.value.find(item=>item.id===id)
+  if(cached?.id===id&&cached.result&&!['running','cancelling'].includes(cached.status)&&(!summary||summary.status===cached.status&&summary.seq===cached.seq))return
+  const preview=rows.value,after=preview.length?Number(preview[preview.length-1]?.cursor||0):0
+  const detail=await invoke<Task>('task_poll',{id,after})
+  if(active.value!==id||rows.value!==preview)return
+  if(detail.events.length){if(after&&detail.events[0].cursor>after+1)error.value=t('部分实时预览已淘汰；接收文件仍独立保存。','Some preview events expired; service files are independent.');rows.value=[...preview,...detail.events].slice(-300)}
+  activeDetail.value=detail
+ }
  }catch(e){error.value=String(e)}finally{polling=false}}
 async function exportData(){try{await invoke('export_result',{content:JSON.stringify({task:task.value,preview:rows.value},null,2)})}catch(e){error.value=String(e)}}
 async function copy(){try{await navigator.clipboard.writeText(JSON.stringify(task.value?.result||rows.value,null,2));copied.value=true;setTimeout(()=>copied.value=false,1500)}catch(e){error.value=String(e)}}
