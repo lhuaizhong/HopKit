@@ -12,7 +12,7 @@ const appInfo=ref({version:'',platform:'',os:''})
 const lang=ref(preference('language')==='zh-CN'?'zh-CN':'en-US')
 const en=computed(()=>lang.value==='en-US')
 const t=(zh:string,english:string)=>en.value?english:zh
-const projectUrl='https://github.com/lhuaizhong/netbox'
+const projectUrl='https://github.com/lhuaizhong/HopKit'
 const projectLinkError=ref('')
 async function openProject(){try{projectLinkError.value='';await invoke('open_project')}catch(e){projectLinkError.value=t('无法打开浏览器，请复制链接访问：','Could not open the browser. Copy this link: ')+projectUrl}}
 const tools=[

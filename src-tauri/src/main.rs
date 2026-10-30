@@ -273,7 +273,7 @@ async fn export_result(content: String) -> Result<bool, String> {
 async fn open_project() -> Result<(), String> {
     // Keep the destination fixed: this command cannot launch arbitrary URLs or programs.
     tauri::async_runtime::spawn_blocking(|| {
-        let url = "https://github.com/lhuaizhong/netbox";
+        let url = "https://github.com/lhuaizhong/HopKit";
         #[cfg(target_os = "macos")]
         let mut command = {
             let mut command = std::process::Command::new("/usr/bin/open");

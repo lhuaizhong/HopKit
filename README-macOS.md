@@ -6,9 +6,9 @@
 
 当前分支已改名 HopKit（原 netbox），尚未发布新的 HopKit 包。以下历史下载仍使用 netbox 名称且不含 `hk`；下文命令用于当前源码生成的新包。
 
-- [Apple Silicon DMG](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg)
-- [Intel DMG](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg)
-- [全部安装包、CLI ZIP 和 SHA-256](https://github.com/lhuaizhong/netbox/releases/tag/v0.1.0-alpha.1)
+- [Apple Silicon DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg)
+- [Intel DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg)
+- [全部安装包、CLI ZIP 和 SHA-256](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-alpha.1)
 
 DMG 打开后将 `HopKit.app` 拖入 Applications；两种 DMG 均以 macOS 11.0 为最低构建目标，最低版本尚未实机验证。
 

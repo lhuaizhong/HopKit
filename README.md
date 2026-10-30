@@ -8,15 +8,15 @@ Version: `0.1.0-alpha.1`. This source tree provides a desktop GUI and standalone
 
 **This branch is HopKit (formerly netbox). No HopKit release is published yet. The following downloads are historical netbox builds and do not include `hk`; build this branch for the new names.**
 
-[Historical release v0.1.0-alpha.1](https://github.com/lhuaizhong/netbox/releases/tag/v0.1.0-alpha.1) · [SHA256SUMS.txt](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt)
+[Historical release v0.1.0-alpha.1](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-alpha.1) · [SHA256SUMS.txt](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt)
 
 | Platform / format | Download |
 | --- | --- |
-| Windows x64 | [netbox-0.1.0-alpha.1-windows-x64-setup.exe](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-setup.exe) |
-| Windows x64 portable EXE | [netbox-0.1.0-alpha.1-windows-x64-portable.exe](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.exe) |
-| Windows x64 portable ZIP + CLI | [netbox-0.1.0-alpha.1-windows-x64-portable.zip](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.zip) |
-| macOS Apple Silicon DMG | [netbox-0.1.0-alpha.1-macos-arm64.dmg](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg) |
-| macOS Intel DMG | [netbox-0.1.0-alpha.1-macos-x86_64.dmg](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg) |
+| Windows x64 | [netbox-0.1.0-alpha.1-windows-x64-setup.exe](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-setup.exe) |
+| Windows x64 portable EXE | [netbox-0.1.0-alpha.1-windows-x64-portable.exe](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.exe) |
+| Windows x64 portable ZIP + CLI | [netbox-0.1.0-alpha.1-windows-x64-portable.zip](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.zip) |
+| macOS Apple Silicon DMG | [netbox-0.1.0-alpha.1-macos-arm64.dmg](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg) |
+| macOS Intel DMG | [netbox-0.1.0-alpha.1-macos-x86_64.dmg](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg) |
 
 The Release page also includes macOS ZIPs with the CLI and per-file SHA-256 checksums. The Windows installer includes the GUI and CLI and downloads WebView2 if missing. Run the portable EXE directly; the ZIP also includes the CLI. Open the macOS DMG and drag HopKit to Applications. This is a prerelease: Windows binaries are unsigned; macOS apps are ad-hoc signed without Apple notarization, so the OS may warn about an unverified publisher. Both macOS architectures target macOS 11.0 or later; the minimum OS has not been tested on hardware.
 
@@ -144,14 +144,14 @@ Release packaging includes both `README.md` and `README.zh-CN.md`; Windows also 
 
 ## Source and feedback
 
-The public source repository is [lhuaizhong/netbox](https://github.com/lhuaizhong/netbox). Clone it with:
+The public source repository is [lhuaizhong/HopKit](https://github.com/lhuaizhong/HopKit). Clone it with:
 
 ```sh
-git clone https://github.com/lhuaizhong/netbox.git
-cd netbox
+git clone https://github.com/lhuaizhong/HopKit.git
+cd HopKit
 ```
 
-Follow the development instructions above for Windows or [README-macOS.md](README-macOS.md) for macOS. Report bugs and feature requests through [GitHub Issues](https://github.com/lhuaizhong/netbox/issues), with sensitive device addresses, configuration files, and log contents removed. Build outputs and local test artifacts are excluded from Git history.
+Follow the development instructions above for Windows or [README-macOS.md](README-macOS.md) for macOS. Report bugs and feature requests through [GitHub Issues](https://github.com/lhuaizhong/HopKit/issues), with sensitive device addresses, configuration files, and log contents removed. Build outputs and local test artifacts are excluded from Git history.
 
 ## License
 

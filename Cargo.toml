@@ -7,7 +7,7 @@ version = "0.1.0-alpha.1"
 edition = "2024"
 rust-version = "1.94"
 license = "MIT"
-repository = "https://github.com/lhuaizhong/netbox"
+repository = "https://github.com/lhuaizhong/HopKit"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }

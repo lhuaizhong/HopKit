@@ -26,9 +26,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/lhuaizhong/netbox.git"
+    "url": "https://github.com/lhuaizhong/HopKit.git"
   },
   "bugs": {
-    "url": "https://github.com/lhuaizhong/netbox/issues"
+    "url": "https://github.com/lhuaizhong/HopKit/issues"
   }
 }

@@ -8,15 +8,15 @@
 
 **当前分支已改名 HopKit（原 netbox），尚未发布 HopKit 下载包。下列链接是历史 netbox 版本，不含 `hk`；新名称请从当前源码构建。**
 
-[历史 Release v0.1.0-alpha.1](https://github.com/lhuaizhong/netbox/releases/tag/v0.1.0-alpha.1) · [SHA256SUMS.txt](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt)
+[历史 Release v0.1.0-alpha.1](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-alpha.1) · [SHA256SUMS.txt](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt)
 
 | 平台 / 格式 | 下载 |
 | --- | --- |
-| Windows x64 | [netbox-0.1.0-alpha.1-windows-x64-setup.exe](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-setup.exe) |
-| Windows x64 portable EXE | [netbox-0.1.0-alpha.1-windows-x64-portable.exe](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.exe) |
-| Windows x64 portable ZIP + CLI | [netbox-0.1.0-alpha.1-windows-x64-portable.zip](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.zip) |
-| macOS Apple Silicon DMG | [netbox-0.1.0-alpha.1-macos-arm64.dmg](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg) |
-| macOS Intel DMG | [netbox-0.1.0-alpha.1-macos-x86_64.dmg](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg) |
+| Windows x64 | [netbox-0.1.0-alpha.1-windows-x64-setup.exe](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-setup.exe) |
+| Windows x64 portable EXE | [netbox-0.1.0-alpha.1-windows-x64-portable.exe](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.exe) |
+| Windows x64 portable ZIP + CLI | [netbox-0.1.0-alpha.1-windows-x64-portable.zip](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.zip) |
+| macOS Apple Silicon DMG | [netbox-0.1.0-alpha.1-macos-arm64.dmg](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg) |
+| macOS Intel DMG | [netbox-0.1.0-alpha.1-macos-x86_64.dmg](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg) |
 
 macOS 含 CLI 的 ZIP 及每个文件的 SHA-256 也在 Release 页面提供。Windows 安装版包含 GUI 和 CLI，缺少 WebView2 时会联网安装运行库；portable EXE 可直接运行，CLI 见 ZIP 包。macOS 打开 DMG 后将 HopKit 拖入 Applications。当前为预发布测试版：Windows 未做代码签名，macOS 使用 ad-hoc 签名且未经 Apple 公证；系统可能提示发布者无法验证。macOS 两种架构均以 11.0 为最低构建目标，最低系统版本尚未实机验证。
 
@@ -136,14 +136,14 @@ powershell -NoProfile -File scripts/package.ps1
 
 ## 源码与反馈
 
-公开源码仓库：[lhuaizhong/netbox](https://github.com/lhuaizhong/netbox)。
+公开源码仓库：[lhuaizhong/HopKit](https://github.com/lhuaizhong/HopKit)。
 
 ```sh
-git clone https://github.com/lhuaizhong/netbox.git
-cd netbox
+git clone https://github.com/lhuaizhong/HopKit.git
+cd HopKit
 ```
 
-Windows 开发步骤见上文，macOS 见 [README-macOS.md](README-macOS.md)。问题和功能建议请提交到 [GitHub Issues](https://github.com/lhuaizhong/netbox/issues)，分享前移除敏感设备地址、配置和日志内容。构建产物及本地测试文件不纳入 Git 历史。
+Windows 开发步骤见上文，macOS 见 [README-macOS.md](README-macOS.md)。问题和功能建议请提交到 [GitHub Issues](https://github.com/lhuaizhong/HopKit/issues)，分享前移除敏感设备地址、配置和日志内容。构建产物及本地测试文件不纳入 Git 历史。
 
 ## 许可证
 

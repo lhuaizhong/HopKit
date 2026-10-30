@@ -350,3 +350,7 @@ hopkit-cli ping 127.0.0.1
 - NetBox 名称背景：[NetBox Labs](https://netboxlabs.com/home/)。
 - 时间线与网络诊断产品参考：[PingPlotter](https://www.pingplotter.com/)。仅作为交互方向参考，不照搬其诊断结论。
 - 本文优先级是基于“网络工程师、终端排障、免费开源、Windows/macOS 优先”的产品判断，后续以真实用户反馈调整。
+
+## 仓库迁移实施补记
+
+2026-10-30：GitHub 仓库已从 `lhuaizhong/netbox` 更名为 `lhuaizhong/HopKit`，实际地址为 https://github.com/lhuaizhong/HopKit 。当前源码和用户文档链接、本地 origin 已同步；上文关于“远端尚未迁移”的表述记录编写时基线。历史报告、发布资产文件名及本地工作目录保留。

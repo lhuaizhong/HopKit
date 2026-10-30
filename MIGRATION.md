@@ -1,6 +1,6 @@
 # HopKit migration / 命名迁移
 
-HopKit is the new name for netbox. 当前开发版本仍为 `0.1.0-alpha.1`；历史下载不等于此分支的新包。仓库继续使用 <https://github.com/lhuaizhong/netbox>，本地 `netbox/` 工作目录无需改名。MIT 许可证与版权归属不变。
+HopKit is the new name for netbox. 当前开发版本仍为 `0.1.0-alpha.1`；历史下载不等于此分支的新包。仓库已于 2026-10-30 更名，地址为 <https://github.com/lhuaizhong/HopKit>；本地 `netbox/` 工作目录无需改名。MIT 许可证与版权归属不变。
 
 | 对象 / Item | 新名称 / Name |
 | --- | --- |
