@@ -15,7 +15,7 @@ use std::{
     bin_name = "hopkit-cli",
     version,
     about = "HopKit Network Toolkit / 网络工具箱 · Windows / macOS preview",
-    long_about = "HopKit Network Toolkit / 开源网络排障工具箱\nWindows / macOS preview: Ping / Trace / TCPing / DNS / NTP / FTP / TFTP / Syslog UDP.\nGUI is never launched by CLI. Ctrl+C cancels the current operation.\n命令行独立运行；Ctrl+C 取消。Run help <command> for arguments."
+    long_about = "HopKit Network Toolkit / 开源网络排障工具箱\nWindows / macOS preview: Ping / Trace / TCPing / DNS / NTP / iperf3 / FTP / TFTP / Syslog UDP.\nGUI is never launched by CLI. Ctrl+C cancels the current operation.\n命令行独立运行；Ctrl+C 取消。Run help <command> for arguments."
 )]
 struct Cli {
     #[arg(long,global=true,default_value="text",value_parser=["text","json","jsonl"])]
@@ -118,6 +118,11 @@ enum Command {
         about = "FTP passive client/server / FTP 文件传输与临时服务"
     )]
     Ftp(Ftp),
+    #[command(
+        subcommand,
+        about = "Native iperf3 TCP/UDP client/server / 内置网络测速，无需安装 iperf3"
+    )]
+    Iperf3(Iperf3),
     #[command(subcommand, about = "TFTP octet client/server / 文件传输")]
     Tftp(Tftp),
     #[command(subcommand, about = "Syslog UDP client/server / 临时日志")]
@@ -140,6 +145,42 @@ enum Ntp {
         #[arg(long, default_value_t = 10, value_parser = clap::value_parser!(u8).range(1..=15))]
         stratum: u8,
         /// Stop after N seconds; 0 runs until Ctrl+C / 运行秒数
+        #[arg(long, default_value_t = 0)]
+        duration: u64,
+    },
+}
+#[derive(Subcommand)]
+enum Iperf3 {
+    #[command(about = "Measure TCP/UDP throughput / 测量网络吞吐量")]
+    Client {
+        target: String,
+        #[arg(long, default_value_t = 5201)]
+        port: u16,
+        #[arg(long, default_value_t = 10)]
+        duration: u64,
+        #[arg(short = 'P', long, default_value_t = 1)]
+        parallel: u8,
+        #[arg(short = 'R', long)]
+        reverse: bool,
+        #[arg(short = 'u', long)]
+        udp: bool,
+        /// Target rate per stream in Mbps; TCP 0 = unlimited / 每流目标速率
+        #[arg(long, default_value_t = 0)]
+        bitrate_mbps: u32,
+        #[arg(long, default_value_t = 5000)]
+        timeout_ms: u64,
+        #[arg(short = '6', long)]
+        ipv6: bool,
+    },
+    #[command(about = "Serve iperf3 tests; one test at a time / 提供测速服务，每次一个测试")]
+    Serve {
+        #[arg(long, default_value = "0.0.0.0")]
+        listen: String,
+        #[arg(long, default_value_t = 5201)]
+        port: u16,
+        #[arg(long, default_value = "")]
+        allow: String,
+        /// 0 runs until Ctrl+C / 0 表示持续运行
         #[arg(long, default_value_t = 0)]
         duration: u64,
     },
@@ -525,6 +566,50 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
                     r.target = target;
                     r.message = message;
                     r.port = port;
+                }
+            }
+        }
+        Command::Iperf3(command) => {
+            r.tool = "iperf3".into();
+            r.timeout_ms = 5000;
+            match command {
+                Iperf3::Client {
+                    target,
+                    port,
+                    duration,
+                    parallel,
+                    reverse,
+                    udp,
+                    bitrate_mbps,
+                    timeout_ms,
+                    ipv6,
+                } => {
+                    r.action = "client".into();
+                    r.target = target;
+                    r.port = port;
+                    r.duration_secs = duration;
+                    r.iperf_parallel = parallel;
+                    r.iperf_reverse = reverse;
+                    r.iperf_protocol = if udp { "udp" } else { "tcp" }.into();
+                    r.iperf_bitrate_mbps = if udp && bitrate_mbps == 0 {
+                        10
+                    } else {
+                        bitrate_mbps
+                    };
+                    r.timeout_ms = timeout_ms;
+                    r.ipv6 = ipv6;
+                }
+                Iperf3::Serve {
+                    listen,
+                    port,
+                    allow,
+                    duration,
+                } => {
+                    r.action = "serve".into();
+                    r.listen = listen;
+                    r.port = port;
+                    r.allow = allow;
+                    r.duration_secs = duration;
                 }
             }
         }

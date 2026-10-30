@@ -9,7 +9,13 @@ export async function resultImage(source: HTMLElement, english: boolean): Promis
   nodes.forEach((node, i) => {
     const copy = copies[i]!
     const style = getComputedStyle(node)
-    for (const property of style) copy.style.setProperty(property, style.getPropertyValue(property))
+    for (const property of style) {
+      const value = style.getPropertyValue(property)
+      // WebKit enumerates `all` with an empty value. Setting an empty shorthand
+      // removes longhands already copied (including align-items: flex-end).
+      // The standalone SVG has no stylesheet to restore those declarations.
+      if (value) copy.style.setProperty(property, value)
+    }
     copy.style.animation = 'none'
     copy.style.transition = 'none'
     // Sticky headers otherwise retain their offset inside the scroll container.

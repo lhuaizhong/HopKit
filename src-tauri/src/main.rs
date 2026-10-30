@@ -35,7 +35,10 @@ struct Task {
 }
 impl Task {
     fn record_event(&mut self, body: Value) {
-        if matches!(body["event_type"].as_str(), Some("stats" | "stopped")) {
+        if matches!(
+            body["event_type"].as_str(),
+            Some("stats" | "stopped" | "test_complete")
+        ) {
             self.latest_stats = Some(body.clone());
         }
         self.seq += 1;

@@ -110,3 +110,7 @@ python3 scripts/macos_test.py --exe release/hopkit-0.1.0-alpha.1-macos-arm64/hop
 打包脚本按架构设置 deployment target、生成 `.app` ZIP 和独立 CLI `.zip`，执行 ad-hoc 签名验证，附带构建信息、第三方许可、SBOM 和 SHA-256。默认拒绝覆盖已有发布目录；`--skip-build` 只用于打包已经生成的同架构 release 产物。只交叉编译的 Intel 包不能套用 arm64 运行测试报告作为实机证据。
 
 迁移策略和各包入口见 [MIGRATION.md](MIGRATION.md)；新旧日志不自动合并，GUI 的“浏览已有日志…”可选择旧目录并在 Finder 中查看。
+
+## 内置 iperf3 测速
+
+左侧 iperf3 位于 TFTP 正上方，提供客户端和服务端，默认 5201 端口。实现内置于 Rust 核心，无需 Homebrew、外部 iperf3 或 libiperf。支持 TCP 上传/反向下载、1–16 并行流，UDP 单流限速、抖动和丢包，IPv4/IPv6、来源 CIDR、实时速率、停止和结果导出。UDP 同时使用同端口 TCP 控制连接。服务每次接受一个测试；不支持 iperf2、认证、同时双向传输、预热和按字节结束。CLI 用法与范围见 [中文说明](README.zh-CN.md#iperf3-网络测速)。

@@ -35,6 +35,7 @@ The package does not modify PATH, install system services, add firewall rules, o
 | TCPing | TCP connect timing to a specified port, distinguishing successful connections, refusals, and timeouts |
 | DNS | System resolver or a specified DNS server; A/AAAA/CNAME/MX/TXT/NS/PTR/SOA queries, with TCP fallback for truncated UDP replies |
 | NTP | Client: 1–20 samples, offset/delay/stratum and KoD; temporary NTPv3/v4 UDP server with IPv4/IPv6, source CIDRs and statistics; never changes the system clock |
+| iperf3 | Native Rust TCP/UDP throughput client/server; IPv4/IPv6, upload/reverse download, 1–16 TCP streams, single-stream paced UDP, live bitrate, jitter/loss and source CIDRs; no external iperf3 installation |
 | FTP | Passive binary client: directory listing, upload and download; temporary IPv4/IPv6 server, anonymous or password login, source CIDRs, read-only by default |
 | TFTP | octet/512-byte transfers, upload/download, and a temporary server; atomic local writes, no overwrite by default, read-only server by default |
 | Syslog | UDP send/receive, priority extraction, sampled live preview, JSONL files with original message bytes, and segment rotation |
@@ -86,6 +87,21 @@ GUI and CLI listeners bind to `0.0.0.0` (all IPv4 interfaces) by default. An emp
 In the GUI, select **NTP → NTP Server**, set the listen address/port, source CIDRs, stratum and duration, then click **Start service**. A duration of 0 runs until stopped. Live counters show received/replied requests, denied sources and invalid packets; send failures are shown below the preview. Stop, Stop all and quitting the GUI release its listener. Client measurements remain available while the server runs.
 
 The temporary server uses the host system clock as a local reference, with an advertised stratum of 10 by default (`--stratum 1..15`). It does not verify upstream synchronization or adjust the clock; its accuracy depends on the host. It supports only basic 48-byte, unauthenticated NTPv3/v4 client requests and server replies, following the timestamp layout in [RFC 5905](https://www.rfc-editor.org/rfc/rfc5905.html#section-8). Authentication/NTS, extension fields, broadcast, peer and control modes are unsupported. Request previews are sampled; counters include every received datagram, with a final `stopped` event on cancellation or duration expiry. These source changes do not alter the previously published release binaries.
+
+### iperf3 network speed test
+
+Select **iperf3** immediately above **TFTP**. Start **Server** on one computer and **Client** on another, using the server IP and port (default 5201). Both peers can use HopKit, or interoperate with standard iperf3. The wire protocol and data transport are implemented in Rust; no executable, libiperf or runtime download is needed.
+
+```sh
+hk iperf3 serve --listen 0.0.0.0 --port 5201
+hk iperf3 client 192.168.1.10 --duration 10 -P 4
+hk iperf3 client 192.168.1.10 --duration 10 -R
+hk iperf3 client 192.168.1.10 -u --bitrate-mbps 10 --format json
+```
+
+TCP supports 1–16 streams and an optional target rate per stream (0 = unlimited). UDP supports one stream, 1–10000 Mbps and 1200-byte client datagrams. UDP tests also require TCP on the same port. Test duration is 1–3600 seconds; server duration is 0–86400 seconds (0 = until stopped). Servers process one test at a time and support source CIDRs. Live local rates update every 0.5 seconds. Cancellation preserves partial byte counts, elapsed time and local statistics; peer metrics remain unavailable until result exchange. Results support history, rerun, JSON and image export.
+
+Unsupported: iperf2, authentication, SCTP, simultaneous bidirectional tests, omit/warm-up, byte/block-count termination, parallel UDP, GSO/GRO, and custom MSS/window/TOS/congestion tuning. Unsupported client modes are explicitly rejected without stopping the server. TCP retransmits and CPU utilization are not measured; CPU fields are wire-format placeholders, not measurements. Optional standard iperf3 paths in `scripts/iperf3-test.py` are development-only test peers; native tests run with an empty PATH.
 
 Select **FTP** immediately below **TFTP** in the GUI for **List / Download / Upload / Server**. Choose the local root, listen address, port, credentials, source CIDRs and duration for a server. Anonymous read-only access is the default; enable uploads explicitly to create new files. A named account requires a password. Server counters, task cancellation and JSON export use the same task center as the other tools. Passwords are omitted from serialized requests and results. CLI passwords come from `HOPKIT_FTP_PASSWORD` (falling back to `NETBOX_FTP_PASSWORD` only when absent), or the variable named by `--password-env`; for example, set `$env:HOPKIT_FTP_PASSWORD='your-password'` in PowerShell before using `--user operator`. Do not put a password in a target URL.
 

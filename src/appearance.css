@@ -193,3 +193,9 @@ footer { flex-wrap: wrap; align-items: center; }
   :root[data-theme="readable"] .page-heading { flex-wrap: wrap; }
   :root[data-theme="readable"] .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
+
+.throughput-chart { padding: 14px 18px; color: #637188; font-size: 12px; border-block: 1px solid #e3e9f1; }
+.throughput-bars { display: flex; align-items: flex-end; height: 110px; gap: 3px; margin: 12px 0 5px; border-bottom: 1px solid #9aa9bb; }
+.throughput-bars span { flex: 1; min-width: 2px; max-width: 24px; background: #3379e8; border-radius: 3px 3px 0 0; }
+:root[data-theme="readable"] .throughput-chart { color: var(--read-secondary); font-size: 16px; }
+:root[data-theme="readable"] .throughput-bars span { background: var(--read-accent); }

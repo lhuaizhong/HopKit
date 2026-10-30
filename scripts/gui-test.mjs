@@ -28,7 +28,7 @@ try{
  await page.waitForSelector('nav .nav-item')
  await page.evaluate(()=>localStorage.setItem('hopkit-language','zh-CN'));await page.reload()
  await page.waitForSelector('nav .nav-item');await pause(500)
- await check('Native WebView loads bundled assets and all 8 tools, FTP immediately below TFTP',async()=>{assert.deepEqual(await page.$$eval('nav .nav-item b',x=>x.map(e=>e.textContent)),['Ping','Traceroute','TCPing','DNS','NTP','TFTP','FTP','Syslog']);assert((await page.content()).includes('NETWORK TOOLKIT'));assert(await page.evaluate(()=>!!window.__TAURI_INTERNALS__))})
+ await check('Native WebView loads bundled assets and all 9 tools, iperf3 immediately above TFTP',async()=>{assert.deepEqual(await page.$$eval('nav .nav-item b',x=>x.map(e=>e.textContent)),['Ping','Traceroute','TCPing','DNS','NTP','iperf3','TFTP','FTP','Syslog']);assert((await page.content()).includes('NETWORK TOOLKIT'));assert(await page.evaluate(()=>!!window.__TAURI_INTERNALS__))})
  await check('Native appearance switch persists and keeps readable fields',async()=>{
   await page.click('.appearance-switch button:last-child')
   await page.waitForFunction(()=>document.documentElement.dataset.theme==='readable')
