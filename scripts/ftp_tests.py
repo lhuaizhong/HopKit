@@ -65,24 +65,42 @@ def run_checks(check, cli, service, port, work, thread):
 
     def authentication():
         root = work/'ftp-auth'; root.mkdir(); p = port()
-        previous = os.environ.get('NETBOX_FTP_PASSWORD')
-        os.environ['NETBOX_FTP_PASSWORD'] = 'test-ftp-secret'
+        names = ['HOPKIT_FTP_PASSWORD', 'NETBOX_FTP_PASSWORD', 'HOPKIT_TEST_PASSWORD', 'HOPKIT_MISSING_PASSWORD']
+        previous = {name: os.environ.get(name) for name in names}
+        os.environ['HOPKIT_FTP_PASSWORD'] = 'test-ftp-secret'
+        os.environ['NETBOX_FTP_PASSWORD'] = 'legacy-wrong-secret'
+        os.environ['HOPKIT_TEST_PASSWORD'] = 'test-ftp-secret'
+        os.environ.pop('HOPKIT_MISSING_PASSWORD', None)
         try:
-            with service('ftp', 'serve', '--root', root, '--listen', '127.0.0.1', '--port', p, '--user', 'tester', duration=2) as (_, log):
+            with service('ftp', 'serve', '--root', root, '--listen', '127.0.0.1', '--port', p, '--user', 'tester', duration=4) as (_, log):
                 ftp = ftplib.FTP(timeout=3); ftp.connect('127.0.0.1', p)
                 rejected(lambda: ftp.login('tester', 'wrong')); ftp.close()
                 with connect(p, user='tester', password='test-ftp-secret') as ftp:
                     rejected(lambda: ftp.storbinary('STOR denied.bin', io.BytesIO(b'data')))
                     rejected(lambda: ftp.sendcmd('DELE anything'))
-                assert cli('ftp', 'list', '127.0.0.1', '--port', p, '--user', 'tester')['status'] == 'succeeded'
-                os.environ['NETBOX_FTP_PASSWORD'] = 'incorrect'
-                value = cli('ftp', 'list', '127.0.0.1', '--port', p, '--user', 'tester', code=1)
-                assert value['error']['code'] == 'FTP_AUTH'
-            assert 'test-ftp-secret' not in log.read_text(encoding='utf-8')
+                args = ('ftp', 'list', '127.0.0.1', '--port', p, '--user', 'tester')
+                outputs = [cli(*args)]  # New value wins over the conflicting legacy value.
+                os.environ.pop('HOPKIT_FTP_PASSWORD')
+                os.environ['NETBOX_FTP_PASSWORD'] = 'test-ftp-secret'
+                outputs.append(cli(*args))  # Legacy fallback.
+                outputs.append(cli(*args, '--password-env', 'HOPKIT_TEST_PASSWORD'))
+                os.environ['HOPKIT_FTP_PASSWORD'] = ''
+                outputs.append(cli(*args, code=1))  # Present empty new value still wins.
+                assert outputs[-1]['error']['code'] == 'FTP_AUTH'
+                os.environ['HOPKIT_FTP_PASSWORD'] = 'incorrect'
+                outputs.append(cli(*args, '--password-env', 'HOPKIT_TEST_PASSWORD'))
+                outputs.append(cli(*args, '--password-env', 'HOPKIT_MISSING_PASSWORD', code=1))
+                assert outputs[-1]['error']['code'] == 'FTP_AUTH'  # Explicit variable never falls back.
+            text = log.read_text(encoding='utf-8') + repr(outputs)
+            assert all(secret not in text for secret in ['test-ftp-secret', 'legacy-wrong-secret', 'incorrect'])
             assert not (root/'denied.bin').exists()
+            os.environ.pop('HOPKIT_FTP_PASSWORD')
+            with service('ftp', 'serve', '--root', root, '--listen', '127.0.0.1', '--port', port(), '--user', 'tester', duration=1) as (_, legacy_log):
+                assert 'test-ftp-secret' not in legacy_log.read_text(encoding='utf-8')
         finally:
-            if previous is None: os.environ.pop('NETBOX_FTP_PASSWORD', None)
-            else: os.environ['NETBOX_FTP_PASSWORD'] = previous
+            for name, value in previous.items():
+                if value is None: os.environ.pop(name, None)
+                else: os.environ[name] = value
 
     def deny_and_limit():
         root = work/'ftp-limits'; root.mkdir(); p = port()
@@ -164,7 +182,7 @@ def run_checks(check, cli, service, port, work, thread):
                 assert (bytes(received) if upload else dest.read_bytes()) == payload
 
     check('FTP server interoperability: ftplib listings, binary/empty transfers, paths and no-clobber', server_files)
-    check('FTP named login, readonly server and password redaction', authentication)
+    check('FTP new/legacy password priority, explicit/empty variables, readonly and redaction', authentication)
     check('FTP source filtering and four-session limit', deny_and_limit)
     check('FTP IPv6 EPSV with independent client', ipv6)
     check('FTP client: independent multiline/EPSV binary download', independent_client_peer)

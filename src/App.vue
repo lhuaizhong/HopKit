@@ -3,12 +3,13 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { appearance } from './appearance'
 import { resultImage } from './result-image'
+import { preference, savePreference } from './preferences'
 
 type Row = Record<string, any>
 type TraceHop = {hop:number;probes:(Row|null)[];addresses:string[]}
 type Task = {id:string;tool:string;action:string;target:string;port?:number;status:string;started_at:string;seq:number;events:Row[];result:Row|null;request?:Row|null}
 const appInfo=ref({version:'',platform:'',os:''})
-const lang=ref(localStorage.getItem('netbox-language')==='zh-CN'?'zh-CN':'en-US')
+const lang=ref(preference('language')==='zh-CN'?'zh-CN':'en-US')
 const en=computed(()=>lang.value==='en-US')
 const t=(zh:string,english:string)=>en.value?english:zh
 const projectUrl='https://github.com/lhuaizhong/netbox'
@@ -31,7 +32,7 @@ const activeDetail=ref<Task|null>(null)
 const exportingImage=ref(false),imageSaved=ref(false),imageCopied=ref(false)
 const imageError=ref('')
 watch(active,()=>{imageSaved.value=false;imageCopied.value=false;imageError.value=''})
-const form=reactive({target:'127.0.0.1',port:443,count:4,timeout_ms:1000,interval_ms:1000,payload_size_bytes:32,ipv6:false,max_hops:30,record_type:'A',dns_server:'',dns_mode:'system',path:'',remote_name:'config.cfg',action:'get',listen:'0.0.0.0',allow:'',writable:false,overwrite:false,message:'netbox test',continuous:false,ntp_stratum:10,duration_secs:0,ftp_username:'anonymous',ftp_password:'',ftp_remote_path:''})
+const form=reactive({target:'127.0.0.1',port:443,count:4,timeout_ms:1000,interval_ms:1000,payload_size_bytes:32,ipv6:false,max_hops:30,record_type:'A',dns_server:'',dns_mode:'system',path:'',remote_name:'config.cfg',action:'get',listen:'0.0.0.0',allow:'',writable:false,overwrite:false,message:'HopKit test',continuous:false,ntp_stratum:10,duration_secs:0,ftp_username:'anonymous',ftp_password:'',ftp_remote_path:''})
 const current=computed(()=>tools.find(x=>x.id===selected.value)!)
 const task=computed(()=>activeDetail.value?.id===active.value?activeDetail.value:tasks.value.find(x=>x.id===active.value))
 const running=computed(()=>task.value?.status==='running'||task.value?.status==='cancelling')
@@ -69,8 +70,9 @@ const number=(n:any,suffix='')=>n==null?'—':`${Number(n).toFixed(2)}${suffix}`
 // older poll was already in flight while start_task was being submitted.
 const pendingTasks=new Map<string,Task>()
 function pickTool(id:string){selected.value=id;active.value='';rows.value=[];error.value='';expanded.value=false;if(id==='syslog'){form.action='listen';form.port=514;form.timeout_ms=1000}else if(id==='ftp'){form.action='list';form.port=21;form.timeout_ms=5000}else if(id==='tftp'){form.action='get';form.port=69}else if(id==='ntp'){form.action='query';form.port=123;form.timeout_ms=2000;form.interval_ms=2000}else{form.port=443;form.timeout_ms=1000;form.interval_ms=1000}}
-function language(){lang.value=en.value?'zh-CN':'en-US';localStorage.setItem('netbox-language',lang.value)}
+function language(){lang.value=en.value?'zh-CN':'en-US';savePreference('language',lang.value)}
 async function choose(){try{const kind=service.value?'directory':form.action==='get'?'save':'file';const path=await invoke<string|null>('choose_path',{kind});if(path)form.path=path}catch(e){error.value=String(e)}}
+async function browseLogs(){try{await invoke('browse_syslog_logs')}catch(e){error.value=String(e)}}
 async function start(){
  if(startDisabled.value)return
  error.value='';loading.value=true
@@ -122,7 +124,7 @@ async function exportImage(destination:'file'|'clipboard'='file'){
   }
   const blob=await image
   const png=Array.from(new Uint8Array(await blob.arrayBuffer()))
-  const filename=`netbox-${snapshot.tool}-${snapshot.id.slice(0,8)}.png`
+  const filename=`hopkit-${snapshot.tool}-${snapshot.id.slice(0,8)}.png`
   const saved=await invoke<boolean>('export_result_image',{png,filename})
   if(task.value?.id===snapshot.id)imageSaved.value=saved
  }catch(e){imageError.value=String(e)}finally{exportingImage.value=false}
@@ -136,7 +138,7 @@ onUnmounted(()=>clearInterval(timer))
 <template>
  <div class="shell">
   <aside class="sidebar">
-   <div class="brand"><div class="brand-icon"><span></span><span></span><span></span></div><div><b>netbox<span class="brand-dot">.</span></b><small>NETWORK TOOLKIT</small></div></div>
+   <div class="brand"><div class="brand-icon"><span></span><span></span><span></span></div><div><b>HopKit<span class="brand-dot">.</span></b><small>NETWORK TOOLKIT</small></div></div>
    <div class="nav-label">{{ t('网络工具','NETWORK TOOLS') }}</div>
    <nav><button v-for="item in tools" :key="item.id" :class="['nav-item',{active:selected===item.id}]" @click="pickTool(item.id)"><span class="nav-glyph">{{item.glyph}}</span><span><b>{{item.name}}</b><small>{{en?item.sub[1]:item.sub[0]}}</small></span><i v-if="tasks.some(x=>x.tool===item.id&&['running','cancelling'].includes(x.status))" class="live-dot"></i></button></nav>
    <div class="sidebar-bottom"><div class="preview-badge">{{appInfo.os.toUpperCase()}} PREVIEW</div><p>v{{appInfo.version}}</p><small>{{t('本地执行 · 离线可用','Local tools · Offline ready')}}</small></div>
@@ -172,12 +174,12 @@ onUnmounted(()=>clearInterval(timer))
        <template v-if="selected==='ping'"><label for="payload-size">{{t('测试包大小 / 字节','Packet size / bytes')}}</label><input id="payload-size" v-model.number="form.payload_size_bytes" type="number" min="0" max="65500" step="1" required aria-describedby="payload-help"><small id="payload-help" class="field-help">{{t('0–65500 字节，默认 32；仅 ICMP 数据部分，不含 IP 和 ICMP 头。','0–65500 bytes, default 32. ICMP data only; excludes IP and ICMP headers.')}}</small></template>
        <template v-if="selected==='trace'"><label for="hops">{{t('最大跳数','Maximum hops')}}</label><input id="hops" v-model.number="form.max_hops" type="number" min="1" max="64" required></template>
        <template v-if="!service&&['ping','trace','tcping','dns','ntp','ftp'].includes(selected)"><div class="field-pair"><div><label for="timeout">{{t('单次超时 / ms','Timeout / ms')}}</label><input id="timeout" v-model.number="form.timeout_ms" type="number" min="100" max="10000" step="100" required></div><div><label for="family">{{t('地址选择','Address family')}}</label><select id="family" v-model="form.ipv6"><option :value="false">{{t('自动 / IPv4','Auto / IPv4')}}</option><option :value="true">IPv6</option></select></div></div></template>
-       <template v-if="selected==='tftp'||selected==='ftp'&&form.action!=='list'||selected==='syslog'&&form.action==='listen'"><label for="path">{{service?t('服务目录','Service directory'):t('本地文件','Local file')}}</label><div class="path-input"><input id="path" v-model="form.path" required :placeholder="appInfo.os==='Windows'?(service?'D:\\netbox-files':'D:\\config.cfg'):(service?'/Users/yourname/netbox-files':'/Users/yourname/config.cfg')"><button type="button" class="browse" @click="choose" :aria-label="t('选择路径','Choose path')">···</button></div></template>
+       <template v-if="selected==='tftp'||selected==='ftp'&&form.action!=='list'||selected==='syslog'&&form.action==='listen'"><label for="path">{{service?t('服务目录','Service directory'):t('本地文件','Local file')}}</label><div class="path-input"><input id="path" v-model="form.path" required :placeholder="appInfo.os==='Windows'?(service?'D:\\hopkit-files':'D:\\config.cfg'):(service?'/Users/yourname/hopkit-files':'/Users/yourname/config.cfg')"><button type="button" class="browse" @click="choose" :aria-label="t('选择路径','Choose path')">···</button></div></template>
        <template v-if="isTransfer"><label for="remote">{{t('远端文件名','Remote filename')}}</label><input id="remote" v-model="form.remote_name" required placeholder="config.cfg"><label v-if="form.action==='get'" class="check"><input v-model="form.overwrite" type="checkbox">{{t('允许覆盖本地目标文件','Allow replacing the local destination')}}</label></template>
        <label v-if="['ftp','tftp'].includes(selected)&&form.action==='serve'" class="check"><input v-model="form.writable" type="checkbox">{{t('允许设备上传新文件（不覆盖）','Allow devices to create files (no overwrite)')}}</label>
        <template v-if="selected==='syslog'&&form.action==='send'"><label for="message">{{t('消息','Message')}}</label><textarea id="message" v-model="form.message" rows="3" required maxlength="60000"></textarea></template>
        <div v-if="selected==='tftp'" class="info-note">{{t('测试版：octet / 512 B / 单传输；文件小于 32 MiB。未启用块号回绕。','Preview: octet / 512 B / one transfer; file limit 33,553,919 bytes. No block rollover.')}}</div>
-       <div v-if="selected==='syslog'" class="info-note">{{t('UDP 不保证送达。预览采样显示，完整消息独立写入 JSONL 文件。','UDP delivery is not guaranteed. The preview is sampled; full messages are saved as JSONL.')}}</div>
+       <div v-if="selected==='syslog'" class="info-note">{{t('UDP 不保证送达。预览采样显示，完整消息写入 hopkit-syslog/。旧 netbox-syslog/ 日志保留原位。','UDP delivery is not guaranteed. Full messages are saved under hopkit-syslog/. Existing netbox-syslog/ logs stay in place.')}}<button type="button" class="browse" @click="browseLogs">{{t('浏览已有日志…','Browse existing logs…')}}</button></div>
        <div v-if="error" class="error" role="alert">{{error}}</div>
        <div class="run-actions"><button class="primary" type="submit" :disabled="startDisabled"><span>▶</span>{{startLabel}}</button><button v-if="stopTask" class="stop" type="button" :disabled="stopTask.status==='cancelling'" @click="stop">■ {{stopTask.status==='cancelling'?t('正在停止…','Stopping…'):t('停止','Stop')}}</button></div>
       </form>
@@ -190,7 +192,7 @@ onUnmounted(()=>clearInterval(timer))
       <section class="result-panel panel">
        <div class="panel-title"><h2>{{t('实时结果','Live results')}}<span v-if="task" :class="['status',task.status]">{{statusText(task.status)}}</span></h2><div class="result-tools"><button :disabled="!task?.result||exportingImage" @click="exportImage('file')">{{exportingImage?t('正在导出…','Exporting…'):t('导出图片','Export image')}}</button><button :disabled="!task?.result||exportingImage" @click="exportImage('clipboard')">{{imageCopied?t('图片已复制','Image copied'):t('复制图片','Copy image')}}</button><span v-if="imageSaved" role="status">{{t('图片已保存','Image saved')}}</span><button :disabled="!task" @click="copy">{{copied?t('已复制','Copied'):t('复制','Copy')}}</button><button :disabled="!task" @click="exportData">{{t('导出 JSON','Export JSON')}}</button></div></div>
        <div v-if="imageError" class="result-error" role="alert">{{imageError}}</div>
-       <div v-if="!active" class="empty-state"><div class="radar"><span></span><i></i><b>⌁</b></div><h3>{{t('准备就绪，开始第一次测试','Ready for your first test')}}</h3><p>{{t('配置左侧参数，结果将实时显示在这里。','Configure a task on the left. Results will appear here.')}}</p><div class="example">{{t('快速开始','QUICK START')}}<code>nb {{selected==='ntp'&&service?'ntp serve --help':['ftp','tftp'].includes(selected)?selected+' --help':selected==='syslog'?'syslog --help':selected+' 127.0.0.1'+(selected==='tcping'?' 443':'')}}</code></div></div>
+       <div v-if="!active" class="empty-state"><div class="radar"><span></span><i></i><b>⌁</b></div><h3>{{t('准备就绪，开始第一次测试','Ready for your first test')}}</h3><p>{{t('配置左侧参数，结果将实时显示在这里。','Configure a task on the left. Results will appear here.')}}</p><div class="example">{{t('快速开始','QUICK START')}}<code>hk {{selected==='ntp'&&service?'ntp serve --help':['ftp','tftp'].includes(selected)?selected+' --help':selected==='syslog'?'syslog --help':selected+' 127.0.0.1'+(selected==='tcping'?' 443':'')}}</code></div></div>
        <template v-else>
         <div class="result-meta"><code>{{task?.target}}</code><span v-if="task?.tool==='tcping'&&task.port!=null" class="tcp-port">{{t('TCP 端口','TCP port')}} {{task.port}}</span><span v-if="selected==='ping'&&probeSize!=null">{{t('测试包','Packet')}} {{probeSize}} B</span><span>{{active.slice(0,8)}} · {{t('本地任务','local task')}}</span></div>
         <div v-if="sampleRows.length&&['ping','tcping'].includes(selected)" class="sparkline"><div v-for="(s,i) in sampleRows.slice(-80)" :key="i" :class="{lost:!s.ok}" :style="{height:s.ok?Math.max(8,Math.min(64,8+Number(s.rtt_ms)*2))+'px':'8px'}" :title="s.status+' '+s.rtt_ms+'ms'"></div><small>RTT / ms</small></div>

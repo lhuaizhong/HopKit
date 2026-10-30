@@ -1,4 +1,4 @@
-"""Render the existing netbox mark as a macOS icon using only the stdlib."""
+"""Render the existing HopKit mark as a macOS icon using only the stdlib."""
 from pathlib import Path
 import math
 import struct

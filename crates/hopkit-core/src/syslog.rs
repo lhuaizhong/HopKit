@@ -50,7 +50,7 @@ pub fn lock_dir(path: &Path) -> Result<File, ToolError> {
         .truncate(false)
         .read(true)
         .write(true)
-        .open(path.join(".netbox.lock"))?;
+        .open(path.join(".hopkit.lock"))?;
     f.try_lock_exclusive().map_err(|_| {
         ToolError::new(
             "DIRECTORY_IN_USE",
@@ -109,7 +109,7 @@ pub fn run(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
         let dest = resolve(&r.target, if r.port == 0 { 514 } else { r.port }, r.ipv6, c)?;
         let socket = bind_udp(any_addr(dest.is_ipv6()))?;
         let text = format!(
-            "<13>{} netbox netbox: {}",
+            "<13>{} hopkit hopkit: {}",
             chrono::Local::now().format("%b %e %H:%M:%S"),
             r.message.replace(['\r', '\n'], " ")
         );
@@ -131,7 +131,7 @@ pub fn run(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
         ));
     }
     let nets = sources(r)?;
-    let path = Path::new(&r.path).join("netbox-syslog");
+    let path = Path::new(&r.path).join("hopkit-syslog");
     let _lock = lock_dir(&path)?;
     prune(&path)?;
     if fs2::available_space(&path)? < 1024 * 1024 * 1024 {

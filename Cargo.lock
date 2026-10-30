@@ -1345,6 +1345,43 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
+name = "hopkit-cli"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "clap",
+ "ctrlc",
+ "hopkit-core",
+ "serde_json",
+]
+
+[[package]]
+name = "hopkit-core"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "chrono",
+ "fs2",
+ "ipnet",
+ "serde",
+ "serde_json",
+ "socket2",
+ "uuid",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "hopkit-desktop"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "hopkit-core",
+ "rfd",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "uuid",
+]
+
+[[package]]
 name = "html5ever"
 version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2001,43 +2038,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys 0.3.1",
-]
-
-[[package]]
-name = "netbox-cli"
-version = "0.1.0-alpha.1"
-dependencies = [
- "clap",
- "ctrlc",
- "netbox-core",
- "serde_json",
-]
-
-[[package]]
-name = "netbox-core"
-version = "0.1.0-alpha.1"
-dependencies = [
- "chrono",
- "fs2",
- "ipnet",
- "serde",
- "serde_json",
- "socket2",
- "uuid",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "netbox-desktop"
-version = "0.1.0-alpha.1"
-dependencies = [
- "netbox-core",
- "rfd",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "uuid",
 ]
 
 [[package]]

@@ -13,7 +13,9 @@
       "infoPlist": "Info.plist"
     },
     "resources": {
-      "../target/release/netbox-cli": "netbox-cli",
+      "../target/release/hopkit-cli": "hopkit-cli",
+      "../target/release/hk": "shortcuts/hk",
+      "../MIGRATION.md": "MIGRATION.md",
       "../LICENSE": "LICENSE",
       "../release/metadata/licenses/": "licenses/",
       "../release/metadata/THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",

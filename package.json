@@ -1,13 +1,15 @@
 {
-  "name": "netbox-network-toolkit",
+  "name": "hopkit-network-toolkit",
   "version": "0.1.0-alpha.1",
   "private": true,
+  "engines": { "node": ">=24 <25" },
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vue-tsc --noEmit && vite build",
     "desktop": "tauri dev",
     "desktop:build": "tauri build --no-bundle",
+    "test:preferences": "node scripts/preferences-test.mjs",
     "test:ui": "node scripts/gui-test.mjs"
   },
   "dependencies": {

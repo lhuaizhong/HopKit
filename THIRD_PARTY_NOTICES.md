@@ -1,6 +1,6 @@
 # Third-party dependencies / 第三方依赖
 
-本清单记录构建时依赖和声明的许可证。原始许可文件保存在 `licenses/`；netbox 源码以 MIT 许可证发布；第三方依赖保留各自许可。
+本清单记录构建时依赖和声明的许可证。原始许可文件保存在 `licenses/`；HopKit 源码以 MIT 许可证发布；第三方依赖保留各自许可。
 
 | Package | Version | License | Source |
 | --- | --- | --- | --- |

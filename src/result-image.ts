@@ -40,6 +40,10 @@ export async function resultImage(source: HTMLElement, english: boolean): Promis
   const wrapper = document.createElement('div')
   wrapper.style.cssText = `position:fixed;left:-100000px;top:0;width:${width + 32}px;padding:16px;box-sizing:border-box;background:${getComputedStyle(document.documentElement).backgroundColor};pointer-events:none;`
   wrapper.setAttribute('aria-hidden', 'true')
+  const brand = document.createElement('div')
+  brand.textContent = 'HopKit · Network Toolkit'
+  brand.style.cssText = `font:600 16px sans-serif;color:${getComputedStyle(source).color};padding:0 0 12px;`
+  wrapper.append(brand)
   wrapper.append(clone)
   document.body.append(wrapper)
   let height: number

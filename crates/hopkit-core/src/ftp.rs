@@ -317,7 +317,7 @@ fn client(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
     let user = control.command(&format!("USER {}", r.ftp_username), c)?;
     if user.0 == 331 {
         let password = if r.ftp_username == "anonymous" && r.ftp_password.is_empty() {
-            "netbox@localhost"
+            "hopkit@localhost"
         } else {
             &r.ftp_password
         };
@@ -549,7 +549,7 @@ impl Session<'_> {
         let (r, c) = (self.request, self.cancel);
         let local = stream.local_addr()?;
         let mut control = Control::new(stream, Duration::from_secs(60))?;
-        control.send("220 netbox FTP ready", c)?;
+        control.send("220 HopKit FTP ready", c)?;
         let mut user = String::new();
         let mut logged_in = false;
         let mut binary = false;

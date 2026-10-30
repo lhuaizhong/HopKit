@@ -153,7 +153,7 @@ impl Drop for Temporary {
 }
 pub(crate) fn create_temp(dest: &Path) -> Result<(File, Temporary), ToolError> {
     let p = dest.parent().unwrap_or(Path::new("."));
-    let path = p.join(format!(".netbox-{}.part", uuid::Uuid::new_v4()));
+    let path = p.join(format!(".hopkit-{}.part", uuid::Uuid::new_v4()));
     let f = OpenOptions::new()
         .create_new(true)
         .write(true)
@@ -551,7 +551,7 @@ mod tests {
     }
     #[test]
     fn no_clobber_commit() {
-        let dir = std::env::temp_dir().join(format!("nb-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("hopkit-{}", uuid::Uuid::new_v4()));
         fs::create_dir(&dir).unwrap();
         let p = dir.join("test");
         let (f, t) = create_temp(&p).unwrap();

@@ -1,5 +1,5 @@
 use clap::{Args, Parser, Subcommand};
-use netbox_core::*;
+use hopkit_core::*;
 use serde_json::{Value, json};
 use std::{
     io::{self, IsTerminal, Write},
@@ -11,10 +11,11 @@ use std::{
 
 #[derive(Parser)]
 #[command(
-    name = "netbox-cli",
+    name = "hopkit-cli",
+    bin_name = "hopkit-cli",
     version,
-    about = "netbox Network Toolkit / 网络工具箱 · Windows / macOS preview",
-    long_about = "Windows / macOS preview: Ping / Trace / TCPing / DNS / NTP / FTP / TFTP / Syslog UDP.\nGUI is never launched by CLI. Ctrl+C cancels the current operation.\n命令行独立运行；Ctrl+C 取消。Run help <command> for arguments."
+    about = "HopKit Network Toolkit / 网络工具箱 · Windows / macOS preview",
+    long_about = "HopKit Network Toolkit / 开源网络排障工具箱\nWindows / macOS preview: Ping / Trace / TCPing / DNS / NTP / FTP / TFTP / Syslog UDP.\nGUI is never launched by CLI. Ctrl+C cancels the current operation.\n命令行独立运行；Ctrl+C 取消。Run help <command> for arguments."
 )]
 struct Cli {
     #[arg(long,global=true,default_value="text",value_parser=["text","json","jsonl"])]
@@ -150,8 +151,8 @@ struct FtpConnection {
     port: u16,
     #[arg(long, default_value = "anonymous")]
     user: String,
-    /// Read password from an environment variable / 从环境变量读取密码
-    #[arg(long, default_value = "NETBOX_FTP_PASSWORD")]
+    /// Password variable (legacy NETBOX_FTP_PASSWORD fallback for default only)
+    #[arg(long, default_value = "HOPKIT_FTP_PASSWORD")]
     password_env: String,
     #[arg(long, default_value_t = 5000)]
     timeout_ms: u64,
@@ -193,7 +194,8 @@ enum Ftp {
         allow: String,
         #[arg(long, default_value = "anonymous")]
         user: String,
-        #[arg(long, default_value = "NETBOX_FTP_PASSWORD")]
+        /// Password variable (legacy NETBOX_FTP_PASSWORD fallback for default only)
+        #[arg(long, default_value = "HOPKIT_FTP_PASSWORD")]
         password_env: String,
         #[arg(long)]
         write: bool,
@@ -204,7 +206,14 @@ enum Ftp {
     },
 }
 fn ftp_password(name: &str) -> Result<String, ToolError> {
-    match std::env::var(name) {
+    let value = std::env::var(name).or_else(|error| {
+        if name == "HOPKIT_FTP_PASSWORD" && error == std::env::VarError::NotPresent {
+            std::env::var("NETBOX_FTP_PASSWORD")
+        } else {
+            Err(error)
+        }
+    });
+    match value {
         Ok(value) => Ok(value),
         Err(std::env::VarError::NotPresent) => Ok(String::new()),
         Err(_) => Err(ToolError::new(
@@ -682,7 +691,7 @@ mod tests {
     #[test]
     fn ntp_query_stays_compatible_and_server_has_its_own_options() {
         let query = parse(&[
-            "netbox-cli",
+            "hopkit-cli",
             "ntp",
             "127.0.0.1",
             "-c",
@@ -694,7 +703,7 @@ mod tests {
         assert_eq!(query.count, 2);
         assert_eq!(query.port, 1123);
         let server = parse(&[
-            "netbox-cli",
+            "hopkit-cli",
             "ntp",
             "serve",
             "--listen",
@@ -714,23 +723,23 @@ mod tests {
         assert_eq!(server.allow, "::1/128");
         assert_eq!(server.ntp_stratum, 5);
         assert_eq!(server.duration_secs, 1);
-        let defaults = parse(&["netbox-cli", "ntp", "serve"]);
+        let defaults = parse(&["hopkit-cli", "ntp", "serve"]);
         assert_eq!(defaults.port, 123);
         assert_eq!(defaults.ntp_stratum, 10);
     }
 
     #[test]
     fn ntp_rejects_missing_target_and_conflicting_or_invalid_arguments() {
-        let cli = Cli::try_parse_from(["netbox-cli", "ntp"]).unwrap();
+        let cli = Cli::try_parse_from(["hopkit-cli", "ntp"]).unwrap();
         assert_eq!(
             request(cli.command.unwrap()).unwrap_err().code,
             "INVALID_ARGUMENT"
         );
         for args in [
-            vec!["netbox-cli", "ntp", "serve", "--stratum", "0"],
-            vec!["netbox-cli", "ntp", "serve", "--stratum", "16"],
-            vec!["netbox-cli", "ntp", "127.0.0.1", "serve"],
-            vec!["netbox-cli", "ntp", "-c", "2", "serve"],
+            vec!["hopkit-cli", "ntp", "serve", "--stratum", "0"],
+            vec!["hopkit-cli", "ntp", "serve", "--stratum", "16"],
+            vec!["hopkit-cli", "ntp", "127.0.0.1", "serve"],
+            vec!["hopkit-cli", "ntp", "-c", "2", "serve"],
         ] {
             if let Ok(cli) = Cli::try_parse_from(&args) {
                 assert!(

@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use netbox_core::*;
+use hopkit_core::*;
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
@@ -224,10 +224,16 @@ async fn export_result_image(png: Vec<u8>, filename: String) -> Result<bool, Str
     if png.len() > 16 * 1024 * 1024 || !png.starts_with(b"\x89PNG\r\n\x1a\n") {
         return Err("Invalid PNG or image exceeds 16 MiB".into());
     }
-    let safe_name = if filename.starts_with("netbox-")
+    let safe_name = if filename.starts_with("hopkit-")
         && filename.ends_with(".png")
-        && filename.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
-    { filename } else { "netbox-result.png".into() };
+        && filename
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+    {
+        filename
+    } else {
+        "hopkit-result.png".into()
+    };
     tauri::async_runtime::spawn_blocking(move || {
         if let Some(path) = rfd::FileDialog::new()
             .set_file_name(safe_name)
@@ -236,8 +242,12 @@ async fn export_result_image(png: Vec<u8>, filename: String) -> Result<bool, Str
         {
             std::fs::write(path, png).map_err(|e| e.to_string())?;
             Ok(true)
-        } else { Ok(false) }
-    }).await.map_err(|e| e.to_string())?
+        } else {
+            Ok(false)
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 #[tauri::command]
 async fn export_result(content: String) -> Result<bool, String> {
@@ -246,7 +256,7 @@ async fn export_result(content: String) -> Result<bool, String> {
     }
     tauri::async_runtime::spawn_blocking(move || {
         if let Some(path) = rfd::FileDialog::new()
-            .set_file_name("netbox-result.json")
+            .set_file_name("hopkit-result.json")
             .add_filter("JSON", &["json"])
             .save_file()
         {
@@ -290,6 +300,31 @@ async fn open_project() -> Result<(), String> {
         } else {
             Err("Could not open the project in the default browser".into())
         }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+async fn browse_syslog_logs() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let Some(path) = rfd::FileDialog::new()
+            .set_title("选择已有日志目录 / Select saved log directory")
+            .pick_folder()
+        else {
+            return Ok(());
+        };
+        let program = if cfg!(target_os = "macos") {
+            "/usr/bin/open"
+        } else if cfg!(windows) {
+            "explorer.exe"
+        } else {
+            "xdg-open"
+        };
+        std::process::Command::new(program)
+            .arg(path)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| e.to_string())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -358,10 +393,11 @@ fn main() {
             export_result,
             export_result_image,
             open_project,
+            browse_syslog_logs,
             app_info
         ])
         .build(tauri::generate_context!())
-        .expect("Cannot start netbox; check the platform WebView runtime");
+        .expect("Cannot start HopKit; check the platform WebView runtime");
     app.run(|app, event| {
         // macOS normally keeps an app alive after the last window closes.
         // This temporary toolbox must stop its listeners when its window closes.
@@ -402,7 +438,7 @@ fn main() {
                         };
                         let decision = rfd::AsyncMessageDialog::new()
                             .set_parent(&window)
-                            .set_title("退出 netbox / Quit netbox")
+                            .set_title("退出 HopKit / Quit HopKit")
                             .set_description("退出会停止本窗口的全部测试、文件传输和临时监听。其他终端中的独立 CLI 不受影响。\nQuitting stops this window's diagnostics, transfers and listeners. Independent CLI processes remain running.")
                             .set_level(rfd::MessageLevel::Warning)
                             .set_buttons(rfd::MessageButtons::OkCancelCustom("停止并退出 / Stop and quit".into(), "取消 / Cancel".into()))

@@ -98,7 +98,7 @@ impl Default for Request {
             allow: String::new(),
             writable: false,
             overwrite: false,
-            message: "netbox test".into(),
+            message: "HopKit test".into(),
             duration_secs: 0,
             ntp_stratum: 10,
             ftp_username: "anonymous".into(),

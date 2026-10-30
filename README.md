@@ -1,12 +1,14 @@
-# netbox Network Toolkit — Windows / macOS Preview
+# HopKit Network Toolkit — Windows / macOS Preview
 
 [简体中文](README.zh-CN.md)
 
 Version: `0.1.0-alpha.1`. This source tree provides a desktop GUI and standalone CLI for network diagnostics and temporary NTP/FTP/TFTP/Syslog services. See [README-macOS.md](README-macOS.md) for macOS startup, build, architecture, and validation details. The Windows instructions are below.
 
-## Downloads
+## Historical downloads
 
-[Release v0.1.0-alpha.1](https://github.com/lhuaizhong/netbox/releases/tag/v0.1.0-alpha.1) · [SHA256SUMS.txt](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt)
+**This branch is HopKit (formerly netbox). No HopKit release is published yet. The following downloads are historical netbox builds and do not include `hk`; build this branch for the new names.**
+
+[Historical release v0.1.0-alpha.1](https://github.com/lhuaizhong/netbox/releases/tag/v0.1.0-alpha.1) · [SHA256SUMS.txt](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt)
 
 | Platform / format | Download |
 | --- | --- |
@@ -16,11 +18,11 @@ Version: `0.1.0-alpha.1`. This source tree provides a desktop GUI and standalone
 | macOS Apple Silicon DMG | [netbox-0.1.0-alpha.1-macos-arm64.dmg](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg) |
 | macOS Intel DMG | [netbox-0.1.0-alpha.1-macos-x86_64.dmg](https://github.com/lhuaizhong/netbox/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg) |
 
-The Release page also includes macOS ZIPs with the CLI and per-file SHA-256 checksums. The Windows installer includes the GUI and CLI and downloads WebView2 if missing. Run the portable EXE directly; the ZIP also includes the CLI. Open the macOS DMG and drag netbox to Applications. This is a prerelease: Windows binaries are unsigned; macOS apps are ad-hoc signed without Apple notarization, so the OS may warn about an unverified publisher. Both macOS architectures target macOS 11.0 or later; the minimum OS has not been tested on hardware.
+The Release page also includes macOS ZIPs with the CLI and per-file SHA-256 checksums. The Windows installer includes the GUI and CLI and downloads WebView2 if missing. Run the portable EXE directly; the ZIP also includes the CLI. Open the macOS DMG and drag HopKit to Applications. This is a prerelease: Windows binaries are unsigned; macOS apps are ad-hoc signed without Apple notarization, so the OS may warn about an unverified publisher. Both macOS architectures target macOS 11.0 or later; the minimum OS has not been tested on hardware.
 
 ## Getting started
 
-Extract the release archive into a writable local directory and run `netbox.exe`. The GUI requires the system Microsoft Edge WebView2 Runtime, which is usually installed on recent Windows systems. If the GUI cannot start, use `netbox-cli.exe` independently and install the runtime from [Microsoft's WebView2 page](https://developer.microsoft.com/microsoft-edge/webview2/).
+Extract the release archive into a writable local directory and run `HopKit.exe`. The GUI requires the system Microsoft Edge WebView2 Runtime, which is usually installed on recent Windows systems. If the GUI cannot start, use `hopkit-cli.exe` independently and install the runtime from [Microsoft's WebView2 page](https://developer.microsoft.com/microsoft-edge/webview2/).
 
 The package does not modify PATH, install system services, add firewall rules, or contact update servers automatically. Basic tools run as an ordinary user. To let devices access temporary listeners, allow inbound traffic according to your local firewall policy.
 
@@ -54,27 +56,27 @@ After a task finishes, use **Export image** or **Copy image** in Live results to
 Run these commands in PowerShell from the release directory:
 
 ```powershell
-.\netbox-cli.exe ping 127.0.0.1
-.\netbox-cli.exe ping 127.0.0.1 --size 1472
-.\netbox-cli.exe ping ::1 -6 -c 4 --format json
-.\netbox-cli.exe trace 192.168.1.1 --max-hops 15
-.\netbox-cli.exe tcping 192.168.1.1 443 -c 10
-.\netbox-cli.exe dns example.com
-.\netbox-cli.exe dns example.com AAAA -s 192.168.1.1
-.\netbox-cli.exe ntp 192.168.1.10 -c 4
-.\netbox-cli.exe ntp serve --listen 192.168.1.100 --allow 192.168.1.0/24
-.\netbox-cli.exe ntp serve --listen 127.0.0.1 --port 1123 --duration 60 --format jsonl
-.\netbox-cli.exe ftp list 192.168.1.10 /backups --user operator
-.\netbox-cli.exe ftp get 192.168.1.10 /backups/config.cfg -o .\config.cfg
-.\netbox-cli.exe ftp put 192.168.1.10 .\config.cfg --remote-name /backups/config.cfg
-.\netbox-cli.exe ftp serve --root D:\FtpFiles --port 2121 --allow 192.168.1.0/24 --write
-.\netbox-cli.exe tftp get 192.168.1.10 config.cfg -o .\config.cfg
-.\netbox-cli.exe tftp put 192.168.1.10 .\config.cfg
-.\netbox-cli.exe tftp serve --root D:\TftpFiles --listen 192.168.1.100 --allow 192.168.1.0/24
-.\netbox-cli.exe syslog listen --listen 192.168.1.100 --allow 192.168.1.0/24 --dir D:\DeviceLogs
-.\netbox-cli.exe syslog send 192.168.1.10 "netbox test"
-.\netbox-cli.exe doctor --format json
-.\netbox-cli.exe --help
+.\hopkit-cli.exe ping 127.0.0.1
+.\hopkit-cli.exe ping 127.0.0.1 --size 1472
+.\hopkit-cli.exe ping ::1 -6 -c 4 --format json
+.\hopkit-cli.exe trace 192.168.1.1 --max-hops 15
+.\hopkit-cli.exe tcping 192.168.1.1 443 -c 10
+.\hopkit-cli.exe dns example.com
+.\hopkit-cli.exe dns example.com AAAA -s 192.168.1.1
+.\hopkit-cli.exe ntp 192.168.1.10 -c 4
+.\hopkit-cli.exe ntp serve --listen 192.168.1.100 --allow 192.168.1.0/24
+.\hopkit-cli.exe ntp serve --listen 127.0.0.1 --port 1123 --duration 60 --format jsonl
+.\hopkit-cli.exe ftp list 192.168.1.10 /backups --user operator
+.\hopkit-cli.exe ftp get 192.168.1.10 /backups/config.cfg -o .\config.cfg
+.\hopkit-cli.exe ftp put 192.168.1.10 .\config.cfg --remote-name /backups/config.cfg
+.\hopkit-cli.exe ftp serve --root D:\FtpFiles --port 2121 --allow 192.168.1.0/24 --write
+.\hopkit-cli.exe tftp get 192.168.1.10 config.cfg -o .\config.cfg
+.\hopkit-cli.exe tftp put 192.168.1.10 .\config.cfg
+.\hopkit-cli.exe tftp serve --root D:\TftpFiles --listen 192.168.1.100 --allow 192.168.1.0/24
+.\hopkit-cli.exe syslog listen --listen 192.168.1.100 --allow 192.168.1.0/24 --dir D:\DeviceLogs
+.\hopkit-cli.exe syslog send 192.168.1.10 "HopKit test"
+.\hopkit-cli.exe doctor --format json
+.\hopkit-cli.exe --help
 ```
 
 LAN addresses are examples: replace them with the actual target or local interface address. FTP defaults to TCP 21, NTP to UDP 123, TFTP to UDP 69 and Syslog to UDP 514. Use `--port 2121`, `--port 1123`, `--port 1069` or `--port 1514` to test alternate ports.
@@ -85,9 +87,11 @@ In the GUI, select **NTP → NTP Server**, set the listen address/port, source C
 
 The temporary server uses the host system clock as a local reference, with an advertised stratum of 10 by default (`--stratum 1..15`). It does not verify upstream synchronization or adjust the clock; its accuracy depends on the host. It supports only basic 48-byte, unauthenticated NTPv3/v4 client requests and server replies, following the timestamp layout in [RFC 5905](https://www.rfc-editor.org/rfc/rfc5905.html#section-8). Authentication/NTS, extension fields, broadcast, peer and control modes are unsupported. Request previews are sampled; counters include every received datagram, with a final `stopped` event on cancellation or duration expiry. These source changes do not alter the previously published release binaries.
 
-Select **FTP** immediately below **TFTP** in the GUI for **List / Download / Upload / Server**. Choose the local root, listen address, port, credentials, source CIDRs and duration for a server. Anonymous read-only access is the default; enable uploads explicitly to create new files. A named account requires a password. Server counters, task cancellation and JSON export use the same task center as the other tools. Passwords are omitted from serialized requests and results. CLI passwords come from `NETBOX_FTP_PASSWORD`, or the variable named by `--password-env`; for example, set `$env:NETBOX_FTP_PASSWORD='your-password'` in PowerShell before using `--user operator`. Do not put a password in a target URL.
+Select **FTP** immediately below **TFTP** in the GUI for **List / Download / Upload / Server**. Choose the local root, listen address, port, credentials, source CIDRs and duration for a server. Anonymous read-only access is the default; enable uploads explicitly to create new files. A named account requires a password. Server counters, task cancellation and JSON export use the same task center as the other tools. Passwords are omitted from serialized requests and results. CLI passwords come from `HOPKIT_FTP_PASSWORD` (falling back to `NETBOX_FTP_PASSWORD` only when absent), or the variable named by `--password-env`; for example, set `$env:HOPKIT_FTP_PASSWORD='your-password'` in PowerShell before using `--user operator`. Do not put a password in a target URL.
 
-`shortcuts/nb.exe` is an optional short entry point for the same version. Invoke it by relative path or add it to your own PATH after checking for an existing `nb` command. The full executable works independently of this shortcut.
+`shortcuts/hk.exe` is a copy of `hopkit-cli.exe`, with identical arguments, output and exit codes. Use `.\shortcuts\hk.exe --help` without changing PATH. Check for an existing `hk` before adding the shortcuts directory yourself; installers never change PATH or overwrite a system command. New packages do not distribute `nb`.
+
+See [migration and compatibility](MIGRATION.md) for legacy settings, FTP password priority, log directories and package contents. New Windows installers and portable ZIPs contain both CLI entries; the single portable EXE contains only the GUI. macOS ZIPs contain both CLI entries; release DMGs include them in `HopKit.app/Contents/Resources/`.
 
 `--format json` emits one object for a finite task. `--format jsonl` emits events line by line for continuous probes and services. For services, `--duration <seconds>` enables automatic stopping; the default of 0 runs until Ctrl+C. A duration-limited service can also emit a final JSON object.
 
@@ -100,7 +104,7 @@ Exit codes: 0 = diagnostic criterion met; 1 = network/remote result did not meet
 - FTP is plaintext, following basic [RFC 959](https://www.rfc-editor.org/rfc/rfc959.html) commands and [RFC 2428](https://www.rfc-editor.org/rfc/rfc2428.html) EPSV, with IPv4 PASV fallback. There is no FTPS/SFTP, active mode, resume, ASCII file conversion, deletion, rename or directory creation. The server permits four concurrent control sessions, supports LIST/NLST/MLSD and existing subdirectories, and hides unsafe filenames and symbolic links. Select a trusted local root without concurrent external path changes. Uploads create new files atomically and never replace server files; local downloads replace files only with `--overwrite` and after a successful final reply. Other FTP servers may replace their files on upload. Listings are limited to 10,000 entries / 4 MiB. Data ports are dynamically assigned by the OS; LAN firewall rules must allow the application's TCP data connections. After an interrupted upload, check the remote file before retrying. Published release binaries do not include these new source changes.
 - TFTP supports octet mode, 512-byte blocks, one active transfer, and single-component filenames within the selected root. There is no blksize negotiation, block-number rollover, netascii, or resume support. The maximum file size is 33,553,919 bytes. Server uploads only create new files and never overwrite existing files. Transfer ports are allocated by the OS rather than a fixed TID range; LAN firewall rules must permit the application's actual UDP traffic.
 - TFTP waits one second per block and retries up to five times. The receiver waits two seconds after committing a transfer. If an upload's final ACK is lost, the remote file may already exist. Choose a trusted local directory for the server root.
-- Syslog uses UDP and a dedicated receive/write thread, without the planned asynchronous queue, SQLite index, or advanced queries. Production throughput is not guaranteed. After the first ten messages, the preview is sampled at approximately 20 messages per second. The GUI filters the latest 200 preview events; full received messages are saved under `netbox-syslog/` in the selected directory.
+- Syslog uses UDP and a dedicated receive/write thread, without the planned asynchronous queue, SQLite index, or advanced queries. Production throughput is not guaranteed. After the first ten messages, the preview is sampled at approximately 20 messages per second. The GUI filters the latest 200 preview events; full received messages are saved under `hopkit-syslog/` in the selected directory.
 - Syslog preserves original bytes as `raw_hex` alongside decoded text with UTF-8 replacement. Segments are 64 MiB, with a seven-day / approximately 2 GiB retention cap. Cleanup occurs when a segment closes, allowing a temporary overrun of up to one segment. Writes are synchronized every second and again on normal shutdown. Strict crash recovery and index rebuilding are not guaranteed; forced termination can leave a partial final line. Writing stops below 1 GiB of free disk space.
 - ICMP and TCP connect calls may wait for the configured timeout, one second by default. Cancellation takes effect when the current call returns. DNS TCP fallback can also wait for read/write timeouts. A cancellation P95 of at most one second is not guaranteed for all settings.
 - AI/MCP, automatic updates, update signature verification, permanent history, configuration import/export, and Syslog TCP/TLS are outside this evaluation build. Telemetry is disabled. Diagnostic network requests are initiated by user actions.
@@ -119,17 +123,18 @@ When reporting an issue, include the app version, Windows version, tool paramete
 
 ## Development and verification
 
-The verified Windows toolchain uses Rust 1.94.0, Node 24.3.0, and Visual Studio 2022 Build Tools. Dependencies are locked by `Cargo.lock` and `package-lock.json`. The original Windows package uses Rust 1.94.0; `rust-toolchain.toml` currently pins 1.96.0 for the macOS extension. GitHub release builds use the pinned toolchain and run core tests, local protocol integration tests, and installer/GUI launch smoke checks. Keep the dependency lockfiles intact.
+Use Node 24 (`.nvmrc`: 24.14.0) and the pinned Rust 1.96.0 toolchain. The historical Windows package used Rust 1.94.0, Node 24.3.0, and Visual Studio 2022 Build Tools. Dependencies are locked by `Cargo.lock` and `package-lock.json`. The original Windows package uses Rust 1.94.0; `rust-toolchain.toml` currently pins 1.96.0 for the macOS extension. GitHub release builds use the pinned toolchain and run core tests, local protocol integration tests, and installer/GUI launch smoke checks. Keep the dependency lockfiles intact.
 
 ```powershell
+# Node 24 (see .nvmrc); select Node 24 before installing.
 npm ci
 npm run build
 # Appearance checks require development-only puppeteer-core and a browser:
-# $env:NETBOX_BROWSER='absolute path to your Chrome/Chromium executable'
+# $env:HOPKIT_BROWSER='absolute path to your Chrome/Chromium executable'
 # node scripts/appearance-test.mjs
-cargo test -p netbox-core
-cargo build --release --features netbox-desktop/custom-protocol -p netbox-desktop -p netbox-cli
-python scripts/integration_test.py --exe target/release/netbox-cli.exe
+cargo test -p hopkit-core
+cargo build --release --features hopkit-desktop/custom-protocol -p hopkit-desktop -p hopkit-cli
+python scripts/integration_test.py --exe target/release/hopkit-cli.exe
 powershell -NoProfile -File scripts/package.ps1
 ```
 

@@ -1,5 +1,5 @@
 #![allow(clippy::field_reassign_with_default)]
-use netbox_core::*;
+use hopkit_core::*;
 use std::{
     net::UdpSocket,
     path::PathBuf,
@@ -14,7 +14,7 @@ fn cancel() -> Cancel {
     Arc::new(AtomicBool::new(false))
 }
 fn dir() -> PathBuf {
-    let p = std::env::temp_dir().join(format!("netbox-lifecycle-{}", uuid::Uuid::new_v4()));
+    let p = std::env::temp_dir().join(format!("hopkit-lifecycle-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir(&p).unwrap();
     p
 }
@@ -58,7 +58,7 @@ fn syslog_cancel_releases_socket_and_directory() {
     assert!(start.elapsed() < Duration::from_secs(1));
     let socket = UdpSocket::bind(("127.0.0.1", port)).unwrap();
     drop(socket);
-    let lock = netbox_core::syslog::lock_dir(&path.join("netbox-syslog")).unwrap();
+    let lock = hopkit_core::syslog::lock_dir(&path.join("hopkit-syslog")).unwrap();
     drop(lock);
     std::fs::remove_dir_all(path).unwrap();
 }
@@ -111,9 +111,9 @@ fn diagnostic_cancellation_does_not_wait_for_interval() {
 #[test]
 fn duplicate_directory_lock_is_rejected() {
     let p = dir();
-    let first = netbox_core::syslog::lock_dir(&p).unwrap();
+    let first = hopkit_core::syslog::lock_dir(&p).unwrap();
     assert_eq!(
-        netbox_core::syslog::lock_dir(&p).unwrap_err().code,
+        hopkit_core::syslog::lock_dir(&p).unwrap_err().code,
         "DIRECTORY_IN_USE"
     );
     drop(first);

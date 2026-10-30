@@ -1,4 +1,4 @@
-use netbox_core::*;
+use hopkit_core::*;
 use std::{
     io::{BufRead, BufReader, Read, Write},
     net::{TcpListener, TcpStream},
@@ -13,7 +13,7 @@ use std::{
 
 #[test]
 fn cancellation_cleans_partial_uploads_and_closes_idle_and_passive_connections() {
-    let root = std::env::temp_dir().join(format!("netbox-ftp-{}", uuid::Uuid::new_v4()));
+    let root = std::env::temp_dir().join(format!("hopkit-ftp-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir(&root).unwrap();
     let port = TcpListener::bind("127.0.0.1:0")
         .unwrap()

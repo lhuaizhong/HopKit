@@ -28,7 +28,7 @@ const errors = []
 const check = async (name, fn) => { await fn(); report.push({ name, status: 'passed' }); console.log('PASS ' + name) }
 try {
   browser = await puppeteer.launch({
-    executablePath: process.env.NETBOX_BROWSER || 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+    executablePath: process.env.HOPKIT_BROWSER || 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
     headless: true,
     args: ['--no-first-run', '--disable-extensions'],
   })
@@ -203,7 +203,7 @@ try {
     for (const width of [960, 1220, 1440]) {
       await page.setViewport({ width, height: 820 })
       for (const english of [false, true]) {
-        await page.evaluate(english => { localStorage.setItem('netbox-language', english ? 'en-US' : 'zh-CN') }, english)
+        await page.evaluate(english => { localStorage.setItem('hopkit-language', english ? 'en-US' : 'zh-CN') }, english)
         await page.reload(); await assertTheme('readable')
         for (const name of ['Ping', 'Traceroute', 'TCPing', 'DNS', 'NTP', 'TFTP', 'FTP', 'Syslog']) {
           await pick(name); await noOverflow(); await contrast()
@@ -229,13 +229,13 @@ try {
     await page.screenshot({ path: path.join(out, 'readable-narrow.png'), fullPage: true })
   })
   await check('Invalid stored appearance falls back to Fresh', async () => {
-    await page.evaluate(() => localStorage.setItem('netbox-appearance', 'invalid')); await page.reload(); await assertTheme('fresh')
+    await page.evaluate(() => localStorage.setItem('hopkit-appearance', 'invalid')); await page.reload(); await assertTheme('fresh')
   })
   await check('Switch remains usable when preference storage is unavailable', async () => {
     await page.evaluateOnNewDocument(() => {
       const get = Storage.prototype.getItem, set = Storage.prototype.setItem
-      Storage.prototype.getItem = function (key) { if (key === 'netbox-appearance') throw new Error('Storage blocked'); return get.call(this, key) }
-      Storage.prototype.setItem = function (key, value) { if (key === 'netbox-appearance') throw new Error('Storage blocked'); return set.call(this, key, value) }
+      Storage.prototype.getItem = function (key) { if (key === 'hopkit-appearance') throw new Error('Storage blocked'); return get.call(this, key) }
+      Storage.prototype.setItem = function (key, value) { if (key === 'hopkit-appearance') throw new Error('Storage blocked'); return set.call(this, key, value) }
     })
     await page.reload(); await assertTheme('fresh')
     await page.click('.appearance-switch button:last-child'); await assertTheme('readable')

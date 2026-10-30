@@ -46,8 +46,10 @@ jobs:
           key: ${{ matrix.target }}
           cache-on-failure: true
       - run: npm ci
-      - run: cargo test -p netbox-core --locked
-      - run: cargo build --release --locked -p netbox-cli
+      - run: npm run test:preferences
+      - run: cargo test -p hopkit-core --locked
+      - run: cargo build --release --locked -p hopkit-cli
+      - run: python scripts/prepare-cli.py
       - name: Build desktop executable
         run: npx tauri build --no-bundle --config ${{ matrix.build-config }} -- --locked
       - name: Protocol regression
@@ -55,7 +57,7 @@ jobs:
         run: |
           suffix=""
           if [[ "$RUNNER_OS" == Windows ]]; then suffix=".exe"; fi
-          python scripts/integration_test.py --exe "target/release/netbox-cli$suffix" --output test-output/integration-release.json
+          python scripts/integration_test.py --exe "target/release/hopkit-cli$suffix" --output test-output/integration-release.json
       - name: Generate build metadata and dependency licenses
         run: python scripts/build-info.py --target ${{ matrix.target }} --build-dir target/release --output-dir release/metadata
       - name: Bundle installer
@@ -64,7 +66,7 @@ jobs:
         run: python scripts/release-assets.py --platform ${{ matrix.platform }}
       - uses: actions/upload-artifact@v4
         with:
-          name: netbox-${{ matrix.platform }}
+          name: hopkit-${{ matrix.platform }}
           path: release/assets/*
           if-no-files-found: error
           retention-days: 14

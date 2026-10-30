@@ -2,6 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>NSLocalNetworkUsageDescription</key>
-  <string>netbox 在你启动测试或临时服务时访问指定的网络设备。netbox accesses network devices when you start a diagnostic or temporary service.</string>
+  <string>HopKit 在你启动测试或临时服务时访问指定的网络设备。HopKit accesses network devices when you start a diagnostic or temporary service.</string>
   <key>NSHighResolutionCapable</key><true/>
 </dict></plist>

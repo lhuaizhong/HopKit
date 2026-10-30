@@ -30,7 +30,7 @@ def visit(key):
     used.add(key)
     for d in nodes.get(key,{}).get('deps',[]):visit(d['pkg'])
 for p in metadata['workspace_members']:visit(p)
-lines=['# Third-party dependencies / 第三方依赖','', '本清单记录构建时依赖和声明的许可证。原始许可文件保存在 `licenses/`；netbox 源码以 MIT 许可证发布；第三方依赖保留各自许可。','', '| Package | Version | License | Source |','| --- | --- | --- | --- |']
+lines=['# Third-party dependencies / 第三方依赖','', '本清单记录构建时依赖和声明的许可证。原始许可文件保存在 `licenses/`；HopKit 源码以 MIT 许可证发布；第三方依赖保留各自许可。','', '| Package | Version | License | Source |','| --- | --- | --- | --- |']
 licenses=output/'licenses';licenses.mkdir(exist_ok=True)
 components=[]
 for p in sorted((packages[k] for k in used if packages[k].get('source')),key=lambda p:p['name']):
@@ -56,19 +56,25 @@ for name in ['vue','@vue/runtime-core','@vue/runtime-dom','@vue/reactivity','@vu
         if f.is_file()and f.name.lower().startswith(('license','notice')):shutil.copy2(f,target/f.name)
     components.append({'type':'library','name':name,'version':p['version'],'purl':f"pkg:npm/{name}@{p['version']}"})
 (output/'THIRD_PARTY_NOTICES.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
-(output/'SBOM.cdx.json').write_text(json.dumps({'bomFormat':'CycloneDX','specVersion':'1.5','version':1,'components':components},ensure_ascii=False,indent=2),encoding='utf-8')
+(output/'SBOM.cdx.json').write_text(json.dumps({'bomFormat':'CycloneDX','specVersion':'1.5','version':1,'metadata':{'component':{'type':'application','name':'HopKit','version':json.loads((root/'package.json').read_text())['version']}},'components':components},ensure_ascii=False,indent=2),encoding='utf-8')
 def version(cmd):return subprocess.check_output(cmd,cwd=root,text=True,encoding='utf-8').strip()
 suffix='.exe' if platform.system()=='Windows' else ''
-binaries = [build/('netbox-desktop'+suffix),build/('netbox-cli'+suffix)]
-if platform.system()=='Darwin':
-    # Tauri patches/signs the .app binary after compilation. Record shipped files.
-    binaries = ([output/'netbox.app/Contents/MacOS/netbox-desktop'] if (output/'netbox.app').exists() else [build/'netbox-desktop'])+[output/'netbox-cli' if (output/'netbox-cli').exists() else build/'netbox-cli']
-files={p.name:{'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size}for p in binaries}
+binaries = {}
+gui = output / ('HopKit'+suffix)
+if platform.system() == 'Darwin':gui = output/'HopKit.app/Contents/MacOS/HopKit'
+if gui.exists():binaries[gui.relative_to(output).as_posix()] = gui
+elif output.name == 'metadata':binaries['HopKit'+suffix] = build/('HopKit'+suffix)
+cli = output/('hopkit-cli'+suffix)
+binaries['hopkit-cli'+suffix] = cli if cli.exists() else build/cli.name
+shortcut = output/'shortcuts'/('hk'+suffix)
+if shortcut.exists():binaries['shortcuts/hk'+suffix] = shortcut
+elif (build/('hk'+suffix)).exists():binaries['shortcuts/hk'+suffix] = build/('hk'+suffix)
+files={name:{'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size}for name,p in binaries.items()}
 source_files=sorted(p for p in root.rglob('*') if p.is_file() and not any(x in p.relative_to(root).parts for x in ['.git','target','node_modules','dist','release','test-output','licenses','__pycache__']) and p.name not in ['BUILD_INFO.json','THIRD_PARTY_NOTICES.md','SBOM.cdx.json','.DS_Store'])
 source_digest=hashlib.sha256()
 for p in source_files:
     source_digest.update(p.relative_to(root).as_posix().encode()+b'\0'+p.read_bytes())
-info={'metadata_stage':'pre-bundle' if output.name == 'metadata' else 'packaged','product':'netbox Network Toolkit','version':json.loads((root/'package.json').read_text())['version'],'build_host':platform.platform(),'target':args.target,'architecture':{'aarch64-apple-darwin':'arm64','x86_64-apple-darwin':'x86_64'}.get(args.target,platform.machine()),'minimum_system_target':args.minimum_system,'minimum_system_runtime_verified':False,'rustc':version(['rustc','--version']),'node':version(['node','--version']),'source_commit':version(['git','rev-parse','HEAD']),'source_dirty':bool(version(['git','status','--porcelain','--untracked-files=no'])),'source_sha256':source_digest.hexdigest(),'build_features':['netbox-desktop/custom-protocol'],'files':files,'dependency_locks':{f:hashlib.sha256((root/f).read_bytes()).hexdigest()for f in['Cargo.lock','package-lock.json']},'commercial_code_signing':False,'update_signature_verification':False,'preview':True}
+info={'metadata_stage':'pre-bundle' if output.name == 'metadata' else 'packaged','product':'HopKit Network Toolkit','version':json.loads((root/'package.json').read_text())['version'],'build_host':platform.platform(),'target':args.target,'architecture':{'aarch64-apple-darwin':'arm64','x86_64-apple-darwin':'x86_64'}.get(args.target,platform.machine()),'minimum_system_target':args.minimum_system,'minimum_system_runtime_verified':False,'rustc':version(['rustc','--version']),'node':version(['node','--version']),'source_commit':version(['git','rev-parse','HEAD']),'source_dirty':bool(version(['git','status','--porcelain','--untracked-files=no'])),'source_sha256':source_digest.hexdigest(),'build_features':['hopkit-desktop/custom-protocol'],'files':files,'dependency_locks':{f:hashlib.sha256((root/f).read_bytes()).hexdigest()for f in['Cargo.lock','package-lock.json']},'commercial_code_signing':False,'update_signature_verification':False,'preview':True}
 if platform.system()=='Darwin':
     info.update(sdk=version(['xcrun','--show-sdk-version']),code_signing='ad-hoc',notarized=False,webview='System WKWebView')
 else:

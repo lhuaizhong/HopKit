@@ -16,13 +16,13 @@ from ftp_tests import run_checks as ftp_checks
 
 ROOT = Path(__file__).resolve().parents[1]
 args = argparse.ArgumentParser()
-args.add_argument('--exe', default=str(ROOT/'target/debug'/('netbox-cli.exe' if os.name == 'nt' else 'netbox-cli')))
+args.add_argument('--exe', default=str(ROOT/'target/debug'/('hopkit-cli.exe' if os.name == 'nt' else 'hopkit-cli')))
 args.add_argument('--output', default=str(ROOT/'test-output/integration.json'))
 opts = args.parse_args()
 EXE = str(Path(opts.exe).resolve())
 results = []
 (ROOT/'test-output').mkdir(exist_ok=True)
-work = Path(tempfile.mkdtemp(prefix='netbox-tests-', dir=ROOT/'test-output'))
+work = Path(tempfile.mkdtemp(prefix='hopkit-tests-', dir=ROOT/'test-output'))
 
 def check(name, fn):
     started = time.monotonic()
@@ -243,7 +243,7 @@ def syslog():
         cli('syslog','send','127.0.0.1','independent sender test','--port',p)
         time.sleep(.2)
         assert cli('syslog','listen','--dir',directory,'--port',port(True),'--duration',1,code=3)['error']['code']=='DIRECTORY_IN_USE'
-    records=[json.loads(line) for f in(directory/'netbox-syslog').glob('*.jsonl')for line in f.read_text(encoding='utf-8').splitlines()]
+    records=[json.loads(line) for f in(directory/'hopkit-syslog').glob('*.jsonl')for line in f.read_text(encoding='utf-8').splitlines()]
     assert len(records)==3,len(records)
     assert bytes.fromhex(records[0]['raw_hex'])==b'<13>hello\xff\x00world'
     assert records[1]['facility']==23 and records[1]['severity']==7

@@ -90,8 +90,8 @@ def broken_pipe():
     finally:
         if process.poll() is None:process.kill();process.wait()
 def services():
-    with tempfile.TemporaryDirectory(prefix='netbox macOS 中文 ') as tmp:
-        rootpath = Path(tmp); (rootpath/'源文件.cfg').write_bytes(b'netbox\0config\xff')
+    with tempfile.TemporaryDirectory(prefix='HopKit macOS 中文 ') as tmp:
+        rootpath = Path(tmp); (rootpath/'源文件.cfg').write_bytes(b'HopKit\0config\xff')
         def serve(args):
             proc = subprocess.Popen([exe,*map(str,args),'--duration','10','--format','jsonl'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             line = proc.stdout.readline()
@@ -119,7 +119,7 @@ def services():
                 time.sleep(.15)
             finally:
                 syslog.send_signal(signal.SIGINT);syslog.communicate(timeout=3)
-            records=[json.loads(line) for f in (logs/'netbox-syslog').glob('*.jsonl') for line in f.read_text().splitlines()]
+            records=[json.loads(line) for f in (logs/'hopkit-syslog').glob('*.jsonl') for line in f.read_text().splitlines()]
             assert len(records)==1 and '中文 IPv6 日志' in records[0]['text'],records
             with socket.socket(family,socket.SOCK_DGRAM) as s:s.bind((host,tftp_port))
             with socket.socket(family,socket.SOCK_DGRAM) as s:s.bind((host,syslog_port))
@@ -130,9 +130,9 @@ def outward_services():
         lan=route.getsockname()[0]
     assert not lan.startswith('127.'),lan
     observations=[]
-    with tempfile.TemporaryDirectory(prefix='netbox-default-services-') as tmp:
+    with tempfile.TemporaryDirectory(prefix='hopkit-default-services-') as tmp:
         rootpath=Path(tmp);files=rootpath/'files';files.mkdir()
-        content=b'netbox wildcard listener test\n'
+        content=b'HopKit wildcard listener test\n'
         (files/'probe.cfg').write_bytes(content)
         for family,host,listen in [(socket.AF_INET,lan,None),(socket.AF_INET6,'::1','::')]:
             wildcard='0.0.0.0' if family==socket.AF_INET else '::'
@@ -167,7 +167,7 @@ def outward_services():
                 for proc in processes:
                     if proc.poll() is None:proc.send_signal(signal.SIGINT)
                     proc.communicate(timeout=3)
-            records=[json.loads(line) for f in (logs/'netbox-syslog').glob('*.jsonl') for line in f.read_text().splitlines()]
+            records=[json.loads(line) for f in (logs/'hopkit-syslog').glob('*.jsonl') for line in f.read_text().splitlines()]
             assert len(records)==1 and 'default outward listener' in records[0]['text'],records
             for port in [tftp_port,syslog_port]:
                 with socket.socket(family,socket.SOCK_DGRAM) as s:s.bind((wildcard,port))
@@ -175,7 +175,7 @@ def outward_services():
     return dict(observations=observations,ipv4_default_without_flags=True,ipv6_explicit_wildcard=True,scope='Same-host non-loopback IPv4 access; no separate physical device used')
 def standard_ports():
     observations=[]
-    with tempfile.TemporaryDirectory(prefix='netbox-standard-ports-') as tmp:
+    with tempfile.TemporaryDirectory(prefix='hopkit-standard-ports-') as tmp:
         for command,port in [('tftp',69),('syslog',514)]:
             operation=['tftp','serve','--root',tmp] if command=='tftp' else ['syslog','listen','--dir',tmp]
             proc=subprocess.run([exe,*operation,'--port',str(port),'--duration','1','--format','json'],capture_output=True,timeout=4)
