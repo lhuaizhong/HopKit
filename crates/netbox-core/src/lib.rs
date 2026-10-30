@@ -1,5 +1,6 @@
 pub mod diagnostics;
 pub mod dns;
+pub mod ftp;
 #[cfg(target_os = "macos")]
 mod macos_icmp;
 pub mod ntp;

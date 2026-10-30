@@ -308,7 +308,7 @@ fn app_info() -> Value {
         "x86_64" => "x64",
         other => other,
     };
-    json!({"version":env!("CARGO_PKG_VERSION"),"platform":format!("{os} {arch}"),"os":os,"architecture":std::env::consts::ARCH,"portable":true,"tools":7})
+    json!({"version":env!("CARGO_PKG_VERSION"),"platform":format!("{os} {arch}"),"os":os,"architecture":std::env::consts::ARCH,"portable":true,"tools":8})
 }
 fn chrono_now() -> String {
     format!(

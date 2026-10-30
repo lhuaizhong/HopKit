@@ -47,7 +47,7 @@ impl std::fmt::Display for ToolError {
 }
 impl std::error::Error for ToolError {}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Request {
     pub tool: String,
@@ -73,6 +73,9 @@ pub struct Request {
     pub duration_secs: u64,
     /// Advertised local-clock stratum for the temporary NTP server.
     pub ntp_stratum: u8,
+    pub ftp_username: String,
+    #[serde(skip_serializing)]
+    pub ftp_password: String,
 }
 impl Default for Request {
     fn default() -> Self {
@@ -98,7 +101,16 @@ impl Default for Request {
             message: "netbox test".into(),
             duration_secs: 0,
             ntp_stratum: 10,
+            ftp_username: "anonymous".into(),
+            ftp_password: String::new(),
         }
+    }
+}
+impl std::fmt::Debug for Request {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Request")
+            .field(&serde_json::to_value(self).map_err(|_| std::fmt::Error)?)
+            .finish()
     }
 }
 pub fn cancelled(c: &Cancel) -> Result<(), ToolError> {
@@ -253,7 +265,7 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
     }
     if req.count == 0
         && !matches!(req.tool.as_str(), "ping" | "tcping" | "syslog" | "tftp")
-        && !(req.tool == "ntp" && req.action == "serve")
+        && !(matches!(req.tool.as_str(), "ntp" | "ftp") && req.action == "serve")
     {
         return Err(ToolError::new(
             "INVALID_ARGUMENT",
@@ -264,10 +276,11 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
         "ping" | "trace" | "tcping" => crate::diagnostics::probe(req, c, emit),
         "dns" => crate::dns::query(req, c, emit),
         "ntp" => crate::ntp::run(req, c, emit),
+        "ftp" => crate::ftp::run(req, c, emit),
         "syslog" => crate::syslog::run(req, c, emit),
         "tftp" => crate::tftp::run(req, c, emit),
         "doctor" => Ok(
-            json!({"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"version":env!("CARGO_PKG_VERSION"),"gui_required":false,"icmp_adapter":if cfg!(windows){"windows-iphelper"}else if cfg!(target_os="macos"){"darwin-datagram"}else{"unavailable"},"tools":["ping","trace","tcping","dns","ntp","tftp","syslog"],"preview":true}),
+            json!({"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"version":env!("CARGO_PKG_VERSION"),"gui_required":false,"icmp_adapter":if cfg!(windows){"windows-iphelper"}else if cfg!(target_os="macos"){"darwin-datagram"}else{"unavailable"},"tools":["ping","trace","tcping","dns","ntp","ftp","tftp","syslog"],"preview":true}),
         ),
         _ => Err(ToolError::new("INVALID_ARGUMENT", "Unknown tool")),
     }

@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-版本：`0.1.0-alpha.1`。当前源码提供用于操作测试和评估的网络诊断工具、临时 NTP/TFTP/Syslog 服务，包含桌面 GUI 和独立 CLI。macOS 的启动、构建、架构和验证边界见 [README-macOS.md](README-macOS.md)；下列 Windows 操作说明继续保留。
+版本：`0.1.0-alpha.1`。当前源码提供用于操作测试和评估的网络诊断工具、临时 NTP/FTP/TFTP/Syslog 服务，包含桌面 GUI 和独立 CLI。macOS 的启动、构建、架构和验证边界见 [README-macOS.md](README-macOS.md)；下列 Windows 操作说明继续保留。
 
 ## 下载
 
@@ -33,6 +33,7 @@ macOS 含 CLI 的 ZIP 及每个文件的 SHA-256 也在 Release 页面提供。W
 | TCPing | 指定端口 TCP connect，区分连接成功、拒绝、超时 |
 | DNS | 系统解析；指定 DNS 的 A/AAAA/CNAME/MX/TXT/NS/PTR/SOA 查询，UDP 截断回退 TCP |
 | NTP | 客户端 1～20 次采样、偏差/延迟/stratum、KoD；临时 NTPv3/v4 UDP 服务，支持 IPv4/IPv6、来源 CIDR 和统计；不修改系统时间 |
+| FTP | 被动模式二进制客户端：目录列表、上传、下载；临时 IPv4/IPv6 服务，匿名或账号密码登录、来源 CIDR、默认只读 |
 | TFTP | octet/512 字节，上传、下载、临时服务；本地原子提交，默认不覆盖，服务默认只读 |
 | Syslog | UDP 发送/接收、优先级提取、实时采样预览、带原始字节的 JSONL、按段轮转 |
 
@@ -59,6 +60,10 @@ Ping 的“测试包大小 / 字节”支持 0～65500 的整数，默认 32，�
 .\netbox-cli.exe ntp 192.168.1.10 -c 4
 .\netbox-cli.exe ntp serve --listen 192.168.1.100 --allow 192.168.1.0/24
 .\netbox-cli.exe ntp serve --listen 127.0.0.1 --port 1123 --duration 60 --format jsonl
+.\netbox-cli.exe ftp list 192.168.1.10 /backups --user operator
+.\netbox-cli.exe ftp get 192.168.1.10 /backups/config.cfg -o .\config.cfg
+.\netbox-cli.exe ftp put 192.168.1.10 .\config.cfg --remote-name /backups/config.cfg
+.\netbox-cli.exe ftp serve --root D:\FtpFiles --port 2121 --allow 192.168.1.0/24 --write
 .\netbox-cli.exe tftp get 192.168.1.10 config.cfg -o .\config.cfg
 .\netbox-cli.exe tftp put 192.168.1.10 .\config.cfg
 .\netbox-cli.exe tftp serve --root D:\TftpFiles --listen 192.168.1.100 --allow 192.168.1.0/24
@@ -68,11 +73,13 @@ Ping 的“测试包大小 / 字节”支持 0～65500 的整数，默认 32，�
 .\netbox-cli.exe --help
 ```
 
-局域网 IP 均为示例，必须替换为实际目标/本机地址。NTP 默认 UDP 123、TFTP 默认 UDP 69、Syslog 默认 UDP 514；可用 `--port 1123`、`--port 1069`、`--port 1514` 测试自定义端口。GUI / CLI 服务默认监听 `0.0.0.0`（所有 IPv4 网卡），对外监听时来源留空表示允许所有来源；可用 `--allow` 指定来源网段，多个 CIDR 用逗号分隔。`--listen` 可指定本机网卡 IP，`::` 表示所有 IPv6 网卡，`127.0.0.1` / `::1` 表示仅本机。
+局域网 IP 均为示例，必须替换为实际目标/本机地址。FTP 默认 TCP 21、NTP 默认 UDP 123、TFTP 默认 UDP 69、Syslog 默认 UDP 514；可用 `--port 2121`、`--port 1123`、`--port 1069`、`--port 1514` 测试自定义端口。GUI / CLI 服务默认监听 `0.0.0.0`（所有 IPv4 网卡），对外监听时来源留空表示允许所有来源；可用 `--allow` 指定来源网段，多个 CIDR 用逗号分隔。`--listen` 可指定本机网卡 IP，`::` 表示所有 IPv6 网卡，`127.0.0.1` / `::1` 表示仅本机。
 
 GUI 在 **NTP → 时间服务** 中设置监听地址、端口、允许来源、服务层级和运行时长，然后点击“启动服务”。时长 0 表示运行至手动停止。实时统计显示请求、响应、来源拒绝和无效报文，预览下方显示发送失败次数。“停止”“停止全部”和退出 GUI 都会释放本窗口的服务端口；服务运行时仍可切换到“时间测量”执行客户端测试。
 
 临时 NTP 服务以本机系统时钟为本地参考，默认声明层级 10（`--stratum` 可选 1～15），不校验上游同步、不修改系统时间，精度取决于本机时钟。支持基本 48 字节、无认证的 NTPv3/v4 客户端请求和服务器响应，时间戳布局参照 [RFC 5905](https://www.rfc-editor.org/rfc/rfc5905.html#section-8)；不支持认证/NTS、扩展字段、广播、对等和控制模式。请求预览采用采样，计数覆盖全部收到的数据报；取消或限时停止时输出最终 `stopped` 事件。本次源码新增能力不会改变此前发布的二进制包。
+
+GUI 左侧 **FTP** 位于 **TFTP** 正下方，提供“目录 / 下载 / 上传 / 文件服务”。服务可设置根目录、监听地址和端口、账号密码、允许来源和运行时长；默认匿名只读，勾选后才允许上传新文件，指定非 anonymous 账号时必须设置密码。连接及传输统计、停止、任务中心和 JSON 导出沿用现有流程；序列化请求及结果不包含密码。CLI 从 `NETBOX_FTP_PASSWORD` 环境变量读取密码，也可用 `--password-env` 指定其他变量名；例如 PowerShell 先设置 `$env:NETBOX_FTP_PASSWORD='你的密码'` 再使用 `--user operator`。目标参数填写主机名或 IP，不使用含密码的 URL。
 
 `shortcuts/nb.exe` 是相同版本的可选短入口，可直接相对调用或自行加入用户 PATH；先检查是否已存在其他 `nb` 命令。完整入口不依赖这个短名。
 
@@ -84,12 +91,13 @@ GUI 在 **NTP → 时间服务** 中设置监听地址、端口、允许来源�
 
 - Windows 包交付 x64；macOS 包和运行范围见 `README-macOS.md`。实际验证系统及产物哈希见 `测试报告.md` 和 `validation/`；尚未完成旧 LTSC、Windows 10 最低端、其他架构和真实设备型号认证。
 - GUI 是使用已安装 WebView2 的轻量便携包，未附私有 Fixed Version 运行时；CLI 不依赖 WebView2、Node、Python 或开发工具。
+- FTP 为明文协议，采用基本 [RFC 959](https://www.rfc-editor.org/rfc/rfc959.html) 命令及 [RFC 2428](https://www.rfc-editor.org/rfc/rfc2428.html) EPSV，IPv4 可回退 PASV；不支持 FTPS/SFTP、主动模式、续传、ASCII 文件转换、删除、重命名或新建目录。服务器最多 4 个并发连接，支持 LIST/NLST/MLSD 和已有子目录，隐藏不安全文件名及符号链接。请选择可信本地根目录，避免其他进程同时更改路径。服务器上传只原子新建、不覆盖；本地下载仅显式启用覆盖且收到成功结束响应后替换。向其他 FTP 服务器上传时是否覆盖由远端决定。目录列表限 10000 项 / 4 MiB；系统分配动态数据端口，防火墙须允许本程序 TCP 数据连接。上传中断后应先核查远端文件再重试；此前发布包不包含本次源码新增功能。
 - TFTP 仅 octet，512 字节、一次一个活动传输、根目录内单层文件名；不协商 blksize、不回绕、不支持 netascii/断点续传。最大文件 33,553,919 字节。服务允许上传也只新建，始终不覆盖已有文件。传输端口由 OS 分配，不限制在 v0.3 规划的固定 TID 范围；局域网防火墙需允许本程序的实际 UDP 流量。
 - TFTP 每块等待 1 秒、最多重传 5 次，接收端提交后结束等待 2 秒。上传最终 ACK 未收到时，远端文件可能已存在，不能直接假定上传没有发生。用户选择的本地磁盘根目录必须可信。
 - Syslog 仅 UDP，接收与文件写入在一个独立工作线程执行，没有正式版的异步队列/SQLite 索引/高级查询。不承诺正式版吞吐量。预览前 10 条后最高约 20 条/秒；UI 可筛选当前 200 条预览，完整接收内容保存在指定目录的 `netbox-syslog/`。
 - Syslog 原始字节以 `raw_hex` 保留；同时保存 UTF-8 容错展示文本。每段 64 MiB，7 天/约 2 GiB 总上限，封段时清理，允许最多一段的临时超额；每秒同步，正常停止再次同步。没有严格崩溃恢复/索引重建保证，强制退出的尾段可能有不完整行。剩余磁盘小于 1 GiB 停止写入。
 - ICMP 和 TCP connect 的单次系统调用最久等至所选 timeout，默认 1 秒；取消在当前调用返回后生效。DNS TCP 回退也可能等至读写 timeout，默认不承诺所有参数下取消 P95≤1 秒。
-- 不提供 AI/MCP、自动更新、签名更新验证、永久历史、配置导入导出、FTP、Syslog TCP/TLS；这些不属于本次基础评估包。未启用遥测，诊断只有用户主动操作才产生相关网络请求。
+- 不提供 AI/MCP、自动更新、签名更新验证、永久历史、配置导入导出、Syslog TCP/TLS；这些不属于本次基础评估包。未启用遥测，诊断只有用户主动操作才产生相关网络请求。
 - 可执行文件未做商业代码签名；应用展示身份使用本地预览命名空间。首次测试版不代表 v0.3 正式版验收已经全部通过。
 
 ## 建议首次评估顺序

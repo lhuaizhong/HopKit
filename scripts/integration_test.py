@@ -12,6 +12,7 @@ import tempfile
 import threading
 import time
 import traceback
+from ftp_tests import run_checks as ftp_checks
 
 ROOT = Path(__file__).resolve().parents[1]
 args = argparse.ArgumentParser()
@@ -257,6 +258,7 @@ check('NTP offset with independent responder',lambda:ntp())
 check('NTP RATE KoD handling',lambda:ntp(kod=True))
 check('NTP server v3/v4 with independent client, statistics and finite JSON',ntp_server)
 check('NTP server source CIDR filtering',ntp_server_denied)
+ftp_checks(check,cli,service,port,work,thread)
 for n in [0,512,513,4097]:
     check(f'TFTP download {n} bytes / exact-block boundary',lambda n=n:tftp_client(bytes(i%251 for i in range(n))))
 check('TFTP upload to independent Python receiver',lambda:tftp_client(b'upload\0\xff'*150,put=True))

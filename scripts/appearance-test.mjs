@@ -199,13 +199,13 @@ try {
     await page.click('.task-row'); await page.waitForSelector('.raw-result')
     assert.equal(await page.$$eval('tbody tr',rows=>rows.length),2,'Reopening history must fetch preview again')
   })
-  await check('Both languages and all seven tools fit at 960, 1220 and 1440px', async () => {
+  await check('Both languages and all eight tools fit at 960, 1220 and 1440px', async () => {
     for (const width of [960, 1220, 1440]) {
       await page.setViewport({ width, height: 820 })
       for (const english of [false, true]) {
         await page.evaluate(english => { localStorage.setItem('netbox-language', english ? 'en-US' : 'zh-CN') }, english)
         await page.reload(); await assertTheme('readable')
-        for (const name of ['Ping', 'Traceroute', 'TCPing', 'DNS', 'NTP', 'TFTP', 'Syslog']) {
+        for (const name of ['Ping', 'Traceroute', 'TCPing', 'DNS', 'NTP', 'TFTP', 'FTP', 'Syslog']) {
           await pick(name); await noOverflow(); await contrast()
           if (['Ping', 'Traceroute', 'TCPing', 'DNS', 'NTP'].includes(name)) {
             await page.click('form .primary'); await page.waitForSelector('.raw-result'); await contrast(); await noOverflow()
@@ -216,7 +216,7 @@ try {
               assert((await page.$eval('.tcp-port',e=>e.textContent)).endsWith(actual),'Result port followed edited input')
             }
           }
-          if (name === 'TFTP' || name === 'Syslog' || name === 'DNS') {
+          if (name === 'FTP' || name === 'TFTP' || name === 'Syslog' || name === 'DNS') {
             const count = await page.$$eval('.segmented button', x => x.length)
             for (let i = 0; i < count; i++) { await page.click(`.segmented button:nth-child(${i + 1})`); await noOverflow(); await contrast() }
           }

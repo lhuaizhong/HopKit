@@ -49,7 +49,7 @@ pub fn safe_name(n: &str) -> Result<(), ToolError> {
     }
     Ok(())
 }
-fn no_link(p: &Path) -> Result<(), ToolError> {
+pub(crate) fn no_link(p: &Path) -> Result<(), ToolError> {
     let m = fs::symlink_metadata(p)?;
     #[cfg(windows)]
     {
@@ -72,7 +72,7 @@ fn no_link(p: &Path) -> Result<(), ToolError> {
 
 // Hold every canonical ancestor open without FILE_SHARE_DELETE. Remote requests
 // cannot race a parent-directory rename/junction replacement on Windows.
-fn guard_directory(path: &Path) -> Result<Vec<File>, ToolError> {
+pub(crate) fn guard_directory(path: &Path) -> Result<Vec<File>, ToolError> {
     let canonical = path.canonicalize()?;
     let mut held = Vec::new();
     #[cfg(windows)]
@@ -105,7 +105,14 @@ fn guard_directory(path: &Path) -> Result<Vec<File>, ToolError> {
     }
     Ok(held)
 }
-fn read_file(path: &Path) -> Result<File, ToolError> {
+pub(crate) fn read_file(path: &Path) -> Result<File, ToolError> {
+    no_link(path)?;
+    if !fs::symlink_metadata(path)?.is_file() {
+        return Err(ToolError::new(
+            "INVALID_ARGUMENT",
+            "Only regular files are supported",
+        ));
+    }
     let mut opts = OpenOptions::new();
     opts.read(true);
     #[cfg(windows)]
@@ -133,7 +140,7 @@ fn read_file(path: &Path) -> Result<File, ToolError> {
     }
     Ok(file)
 }
-struct Temporary {
+pub(crate) struct Temporary {
     path: PathBuf,
     committed: bool,
 }
@@ -144,7 +151,7 @@ impl Drop for Temporary {
         }
     }
 }
-fn create_temp(dest: &Path) -> Result<(File, Temporary), ToolError> {
+pub(crate) fn create_temp(dest: &Path) -> Result<(File, Temporary), ToolError> {
     let p = dest.parent().unwrap_or(Path::new("."));
     let path = p.join(format!(".netbox-{}.part", uuid::Uuid::new_v4()));
     let f = OpenOptions::new()
@@ -159,7 +166,7 @@ fn create_temp(dest: &Path) -> Result<(File, Temporary), ToolError> {
         },
     ))
 }
-fn commit(mut temp: Temporary, dest: &Path, overwrite: bool) -> Result<(), ToolError> {
+pub(crate) fn commit(mut temp: Temporary, dest: &Path, overwrite: bool) -> Result<(), ToolError> {
     #[cfg(windows)]
     {
         use std::os::windows::ffi::OsStrExt;

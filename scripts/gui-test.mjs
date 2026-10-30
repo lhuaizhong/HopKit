@@ -27,7 +27,7 @@ try{
  await page.waitForSelector('nav .nav-item')
  await page.evaluate(()=>localStorage.setItem('netbox-language','zh-CN'));await page.reload()
  await page.waitForSelector('nav .nav-item');await pause(500)
- await check('Native WebView loads bundled assets and all 7 tools',async()=>{assert.equal(await page.$$eval('nav .nav-item',x=>x.length),7);assert((await page.content()).includes('NETWORK TOOLKIT'));assert(await page.evaluate(()=>!!window.__TAURI_INTERNALS__))})
+ await check('Native WebView loads bundled assets and all 8 tools, FTP immediately below TFTP',async()=>{assert.deepEqual(await page.$$eval('nav .nav-item b',x=>x.map(e=>e.textContent)),['Ping','Traceroute','TCPing','DNS','NTP','TFTP','FTP','Syslog']);assert((await page.content()).includes('NETWORK TOOLKIT'));assert(await page.evaluate(()=>!!window.__TAURI_INTERNALS__))})
  await check('Native appearance switch persists and keeps readable fields',async()=>{
   await page.click('.appearance-switch button:last-child')
   await page.waitForFunction(()=>document.documentElement.dataset.theme==='readable')
@@ -113,6 +113,21 @@ try{
  await check('GUI NTP measures an independent responder',async()=>{const socket=dgram.createSocket('udp4');await new Promise(r=>socket.bind(0,'127.0.0.1',r));socket.on('message',(q,peer)=>{const b=Buffer.alloc(48);b[0]=0x24;b[1]=2;q.copy(b,24,40,48);const stamp=q.readBigUInt64BE(40)+214748365n;b.writeBigUInt64BE(stamp,32);b.writeBigUInt64BE(stamp,40);socket.send(b,peer.port,peer.address)});try{await clickText('nav .nav-item','NTP');await field('#target','127.0.0.1');await field('#port',socket.address().port);await field('#count',1);const t=await uiTask();assert.equal((await taskFinished(t.id)).result.data.valid_samples,1)}finally{socket.close()}})
  await check('GUI starts/stops Syslog and renders external text without HTML',async()=>{await clickText('nav .nav-item','Syslog');const logPath=path.join(out,'gui-syslog');await field('#path',logPath);await field('#port',15514);const t=await uiTask();await pause(300);const socket=dgram.createSocket('udp4');await new Promise((res,rej)=>socket.send(Buffer.from('<13><script>alert(1)</script> GUI日志'),15514,'127.0.0.1',e=>e?rej(e):res()));socket.close();await pause(800);assert((await page.$eval('tbody',e=>e.textContent)).includes('<script>alert(1)</script>'));assert.equal(await page.$$('tbody script').then(x=>x.length),0);await page.screenshot({path:path.join(out,'gui-syslog.png'),fullPage:true});await clickText('form .stop','Stop');assert.equal((await taskFinished(t.id)).status,'cancelled');assert(fs.readdirSync(path.join(logPath,'netbox-syslog')).some(x=>x.endsWith('.jsonl')))})
  await check('GUI starts and cancels continuous diagnostic',async()=>{await clickText('nav .nav-item','Ping');await page.click('label.check input');const t=await uiTask();await pause(400);await clickText('form .stop','Stop');assert.equal((await taskFinished(t.id)).status,'cancelled')})
+ await check('FTP server, listing, binary upload/download and stop through the native frontend',async()=>{
+  await clickText('nav .nav-item','FTP');await clickText('.segmented button','Server')
+  const dir=path.join(out,`gui-ftp-${Date.now()}`);fs.mkdirSync(dir,{recursive:true})
+  const content=Buffer.from('FTP GUI binary\x00\xff 中文');fs.writeFileSync(path.join(dir,'source.bin'),content)
+  const reservation=net.createServer();await new Promise(r=>reservation.listen(0,'127.0.0.1',r));const port=reservation.address().port;await new Promise(r=>reservation.close(r))
+  await field('#listen','127.0.0.1');await field('#port',port);await field('#path',dir)
+  await page.click('form .check input');const server=await uiTask()
+  try{
+   await page.waitForFunction(()=>document.querySelector('tbody')?.textContent.includes('ready'))
+   await clickText('.segmented button','List');const list=await uiTask();assert((await taskFinished(list.id)).result.data.entries.some(x=>x.includes('source.bin')))
+   await clickText('.segmented button','Download');const dest=path.join(out,`gui-ftp-download-${Date.now()}.bin`);await field('#path',dest);await field('#remote','source.bin');const get=await uiTask();assert.equal((await taskFinished(get.id)).status,'succeeded');assert.deepEqual(fs.readFileSync(dest),content)
+   await clickText('.segmented button','Upload');await field('#remote','uploaded.bin');const put=await uiTask();assert.equal((await taskFinished(put.id)).status,'succeeded');assert.deepEqual(fs.readFileSync(path.join(dir,'uploaded.bin')),content)
+   await clickText('.segmented button','Server');assert(await page.$eval('form .primary',e=>e.disabled));await clickText('form .stop','Stop');assert.equal((await taskFinished(server.id)).status,'cancelled')
+  }finally{await invoke('cancel_task',{id:server.id});await taskFinished(server.id)}
+ })
  await check('TFTP server lifecycle through the native frontend',async()=>{await clickText('nav .nav-item','TFTP');await clickText('.segmented button','Server');const dir=path.join(out,'gui-tftp');fs.mkdirSync(dir,{recursive:true});await field('#path',dir);await field('#port',15669);const t=await uiTask();await pause(300);const s=await invoke('task_poll',{id:t.id,after:0});assert(s.events.some(e=>e.event_type==='ready'));await clickText('form .stop','Stop');assert.equal((await taskFinished(t.id)).status,'cancelled')})
  await check('Backend rejects a fifth concurrent task and stop-all cleans up',async()=>{const started=[];try{for(let i=0;i<4;i++)started.push(await invoke('start_task',{request:{tool:'ping',target:'127.0.0.1',count:0,interval_ms:1000}}));let rejected=false;try{await invoke('start_task',{request:{tool:'ping',target:'127.0.0.1'}})}catch{rejected=true}assert(rejected);await invoke('stop_all');for(const id of started)assert.equal((await taskFinished(id)).status,'cancelled')}finally{await invoke('stop_all')}})
  await check('GUI NTP Server responds, supports concurrent client mode and releases its port',async()=>{

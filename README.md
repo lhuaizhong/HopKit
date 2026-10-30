@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-Version: `0.1.0-alpha.1`. This source tree provides a desktop GUI and standalone CLI for network diagnostics and temporary NTP/TFTP/Syslog services. See [README-macOS.md](README-macOS.md) for macOS startup, build, architecture, and validation details. The Windows instructions are below.
+Version: `0.1.0-alpha.1`. This source tree provides a desktop GUI and standalone CLI for network diagnostics and temporary NTP/FTP/TFTP/Syslog services. See [README-macOS.md](README-macOS.md) for macOS startup, build, architecture, and validation details. The Windows instructions are below.
 
 ## Downloads
 
@@ -33,6 +33,7 @@ The package does not modify PATH, install system services, add firewall rules, o
 | TCPing | TCP connect timing to a specified port, distinguishing successful connections, refusals, and timeouts |
 | DNS | System resolver or a specified DNS server; A/AAAA/CNAME/MX/TXT/NS/PTR/SOA queries, with TCP fallback for truncated UDP replies |
 | NTP | Client: 1–20 samples, offset/delay/stratum and KoD; temporary NTPv3/v4 UDP server with IPv4/IPv6, source CIDRs and statistics; never changes the system clock |
+| FTP | Passive binary client: directory listing, upload and download; temporary IPv4/IPv6 server, anonymous or password login, source CIDRs, read-only by default |
 | TFTP | octet/512-byte transfers, upload/download, and a temporary server; atomic local writes, no overwrite by default, read-only server by default |
 | Syslog | UDP send/receive, priority extraction, sampled live preview, JSONL files with original message bytes, and segment rotation |
 
@@ -63,6 +64,10 @@ Run these commands in PowerShell from the release directory:
 .\netbox-cli.exe ntp 192.168.1.10 -c 4
 .\netbox-cli.exe ntp serve --listen 192.168.1.100 --allow 192.168.1.0/24
 .\netbox-cli.exe ntp serve --listen 127.0.0.1 --port 1123 --duration 60 --format jsonl
+.\netbox-cli.exe ftp list 192.168.1.10 /backups --user operator
+.\netbox-cli.exe ftp get 192.168.1.10 /backups/config.cfg -o .\config.cfg
+.\netbox-cli.exe ftp put 192.168.1.10 .\config.cfg --remote-name /backups/config.cfg
+.\netbox-cli.exe ftp serve --root D:\FtpFiles --port 2121 --allow 192.168.1.0/24 --write
 .\netbox-cli.exe tftp get 192.168.1.10 config.cfg -o .\config.cfg
 .\netbox-cli.exe tftp put 192.168.1.10 .\config.cfg
 .\netbox-cli.exe tftp serve --root D:\TftpFiles --listen 192.168.1.100 --allow 192.168.1.0/24
@@ -72,13 +77,15 @@ Run these commands in PowerShell from the release directory:
 .\netbox-cli.exe --help
 ```
 
-LAN addresses are examples: replace them with the actual target or local interface address. NTP defaults to UDP 123, TFTP to UDP 69 and Syslog to UDP 514. Use `--port 1123`, `--port 1069` or `--port 1514` to test alternate ports.
+LAN addresses are examples: replace them with the actual target or local interface address. FTP defaults to TCP 21, NTP to UDP 123, TFTP to UDP 69 and Syslog to UDP 514. Use `--port 2121`, `--port 1123`, `--port 1069` or `--port 1514` to test alternate ports.
 
 GUI and CLI listeners bind to `0.0.0.0` (all IPv4 interfaces) by default. An empty source allowlist accepts all sources. Use `--allow` with comma-separated CIDRs to restrict access. Set `--listen` to a local interface IP, `::` for all IPv6 interfaces, or `127.0.0.1` / `::1` for local-only access.
 
 In the GUI, select **NTP → NTP Server**, set the listen address/port, source CIDRs, stratum and duration, then click **Start service**. A duration of 0 runs until stopped. Live counters show received/replied requests, denied sources and invalid packets; send failures are shown below the preview. Stop, Stop all and quitting the GUI release its listener. Client measurements remain available while the server runs.
 
 The temporary server uses the host system clock as a local reference, with an advertised stratum of 10 by default (`--stratum 1..15`). It does not verify upstream synchronization or adjust the clock; its accuracy depends on the host. It supports only basic 48-byte, unauthenticated NTPv3/v4 client requests and server replies, following the timestamp layout in [RFC 5905](https://www.rfc-editor.org/rfc/rfc5905.html#section-8). Authentication/NTS, extension fields, broadcast, peer and control modes are unsupported. Request previews are sampled; counters include every received datagram, with a final `stopped` event on cancellation or duration expiry. These source changes do not alter the previously published release binaries.
+
+Select **FTP** immediately below **TFTP** in the GUI for **List / Download / Upload / Server**. Choose the local root, listen address, port, credentials, source CIDRs and duration for a server. Anonymous read-only access is the default; enable uploads explicitly to create new files. A named account requires a password. Server counters, task cancellation and JSON export use the same task center as the other tools. Passwords are omitted from serialized requests and results. CLI passwords come from `NETBOX_FTP_PASSWORD`, or the variable named by `--password-env`; for example, set `$env:NETBOX_FTP_PASSWORD='your-password'` in PowerShell before using `--user operator`. Do not put a password in a target URL.
 
 `shortcuts/nb.exe` is an optional short entry point for the same version. Invoke it by relative path or add it to your own PATH after checking for an existing `nb` command. The full executable works independently of this shortcut.
 
@@ -90,12 +97,13 @@ Exit codes: 0 = diagnostic criterion met; 1 = network/remote result did not meet
 
 - The Windows package targets x64. See `README-macOS.md` for macOS packages and supported execution scope. Verified systems and artifact hashes are recorded in `测试报告.md` and `validation/`. Older LTSC releases, minimum Windows 10 configurations, other architectures, and real device models have not been certified.
 - The GUI is portable and uses the installed WebView2 Runtime; no private Fixed Version runtime is bundled. The CLI requires no WebView2, Node, Python, or development tools.
+- FTP is plaintext, following basic [RFC 959](https://www.rfc-editor.org/rfc/rfc959.html) commands and [RFC 2428](https://www.rfc-editor.org/rfc/rfc2428.html) EPSV, with IPv4 PASV fallback. There is no FTPS/SFTP, active mode, resume, ASCII file conversion, deletion, rename or directory creation. The server permits four concurrent control sessions, supports LIST/NLST/MLSD and existing subdirectories, and hides unsafe filenames and symbolic links. Select a trusted local root without concurrent external path changes. Uploads create new files atomically and never replace server files; local downloads replace files only with `--overwrite` and after a successful final reply. Other FTP servers may replace their files on upload. Listings are limited to 10,000 entries / 4 MiB. Data ports are dynamically assigned by the OS; LAN firewall rules must allow the application's TCP data connections. After an interrupted upload, check the remote file before retrying. Published release binaries do not include these new source changes.
 - TFTP supports octet mode, 512-byte blocks, one active transfer, and single-component filenames within the selected root. There is no blksize negotiation, block-number rollover, netascii, or resume support. The maximum file size is 33,553,919 bytes. Server uploads only create new files and never overwrite existing files. Transfer ports are allocated by the OS rather than a fixed TID range; LAN firewall rules must permit the application's actual UDP traffic.
 - TFTP waits one second per block and retries up to five times. The receiver waits two seconds after committing a transfer. If an upload's final ACK is lost, the remote file may already exist. Choose a trusted local directory for the server root.
 - Syslog uses UDP and a dedicated receive/write thread, without the planned asynchronous queue, SQLite index, or advanced queries. Production throughput is not guaranteed. After the first ten messages, the preview is sampled at approximately 20 messages per second. The GUI filters the latest 200 preview events; full received messages are saved under `netbox-syslog/` in the selected directory.
 - Syslog preserves original bytes as `raw_hex` alongside decoded text with UTF-8 replacement. Segments are 64 MiB, with a seven-day / approximately 2 GiB retention cap. Cleanup occurs when a segment closes, allowing a temporary overrun of up to one segment. Writes are synchronized every second and again on normal shutdown. Strict crash recovery and index rebuilding are not guaranteed; forced termination can leave a partial final line. Writing stops below 1 GiB of free disk space.
 - ICMP and TCP connect calls may wait for the configured timeout, one second by default. Cancellation takes effect when the current call returns. DNS TCP fallback can also wait for read/write timeouts. A cancellation P95 of at most one second is not guaranteed for all settings.
-- AI/MCP, automatic updates, update signature verification, permanent history, configuration import/export, FTP, and Syslog TCP/TLS are outside this evaluation build. Telemetry is disabled. Diagnostic network requests are initiated by user actions.
+- AI/MCP, automatic updates, update signature verification, permanent history, configuration import/export, and Syslog TCP/TLS are outside this evaluation build. Telemetry is disabled. Diagnostic network requests are initiated by user actions.
 - Executables have no commercial code signature and use a local preview application identity. This preview does not represent full acceptance against the v0.3 production design.
 
 ## Suggested evaluation sequence

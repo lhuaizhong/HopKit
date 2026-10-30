@@ -14,7 +14,7 @@ use std::{
     name = "netbox-cli",
     version,
     about = "netbox Network Toolkit / 网络工具箱 · Windows / macOS preview",
-    long_about = "Windows / macOS preview: Ping / Trace / TCPing / DNS / NTP / TFTP / Syslog UDP.\nGUI is never launched by CLI. Ctrl+C cancels the current operation.\n命令行独立运行；Ctrl+C 取消。Run help <command> for arguments."
+    long_about = "Windows / macOS preview: Ping / Trace / TCPing / DNS / NTP / FTP / TFTP / Syslog UDP.\nGUI is never launched by CLI. Ctrl+C cancels the current operation.\n命令行独立运行；Ctrl+C 取消。Run help <command> for arguments."
 )]
 struct Cli {
     #[arg(long,global=true,default_value="text",value_parser=["text","json","jsonl"])]
@@ -112,6 +112,11 @@ enum Command {
         #[command(subcommand)]
         command: Option<Ntp>,
     },
+    #[command(
+        subcommand,
+        about = "FTP passive client/server / FTP 文件传输与临时服务"
+    )]
+    Ftp(Ftp),
     #[command(subcommand, about = "TFTP octet client/server / 文件传输")]
     Tftp(Tftp),
     #[command(subcommand, about = "Syslog UDP client/server / 临时日志")]
@@ -137,6 +142,85 @@ enum Ntp {
         #[arg(long, default_value_t = 0)]
         duration: u64,
     },
+}
+#[derive(Args)]
+struct FtpConnection {
+    target: String,
+    #[arg(long, default_value_t = 21)]
+    port: u16,
+    #[arg(long, default_value = "anonymous")]
+    user: String,
+    /// Read password from an environment variable / 从环境变量读取密码
+    #[arg(long, default_value = "NETBOX_FTP_PASSWORD")]
+    password_env: String,
+    #[arg(long, default_value_t = 5000)]
+    timeout_ms: u64,
+    #[arg(short = '6', long)]
+    ipv6: bool,
+}
+#[derive(Subcommand)]
+enum Ftp {
+    List {
+        #[command(flatten)]
+        connection: FtpConnection,
+        #[arg(default_value = "")]
+        remote_path: String,
+    },
+    Get {
+        #[command(flatten)]
+        connection: FtpConnection,
+        remote_name: String,
+        #[arg(short = 'o', long)]
+        output: String,
+        #[arg(long)]
+        overwrite: bool,
+    },
+    Put {
+        #[command(flatten)]
+        connection: FtpConnection,
+        path: String,
+        #[arg(long)]
+        remote_name: Option<String>,
+    },
+    Serve {
+        #[arg(long)]
+        root: String,
+        #[arg(long, default_value = "0.0.0.0")]
+        listen: String,
+        #[arg(long, default_value_t = 21)]
+        port: u16,
+        #[arg(long, default_value = "")]
+        allow: String,
+        #[arg(long, default_value = "anonymous")]
+        user: String,
+        #[arg(long, default_value = "NETBOX_FTP_PASSWORD")]
+        password_env: String,
+        #[arg(long)]
+        write: bool,
+        #[arg(long, default_value_t = 0)]
+        duration: u64,
+        #[arg(long, default_value_t = 5000)]
+        timeout_ms: u64,
+    },
+}
+fn ftp_password(name: &str) -> Result<String, ToolError> {
+    match std::env::var(name) {
+        Ok(value) => Ok(value),
+        Err(std::env::VarError::NotPresent) => Ok(String::new()),
+        Err(_) => Err(ToolError::new(
+            "INVALID_ARGUMENT",
+            "FTP password environment variable must contain Unicode text",
+        )),
+    }
+}
+fn ftp_connection(r: &mut Request, connection: FtpConnection) -> Result<(), ToolError> {
+    r.target = connection.target;
+    r.port = connection.port;
+    r.ftp_username = connection.user;
+    r.ftp_password = ftp_password(&connection.password_env)?;
+    r.timeout_ms = connection.timeout_ms;
+    r.ipv6 = connection.ipv6;
+    Ok(())
 }
 #[derive(Subcommand)]
 enum Tftp {
@@ -300,6 +384,63 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
                 r.timeout_ms = timeout_ms;
                 r.interval_ms = interval_ms;
                 r.ipv6 = ipv6;
+            }
+        }
+        Command::Ftp(ftp) => {
+            r.tool = "ftp".into();
+            match ftp {
+                Ftp::List {
+                    connection,
+                    remote_path,
+                } => {
+                    r.action = "list".into();
+                    r.remote_name = remote_path;
+                    ftp_connection(&mut r, connection)?;
+                }
+                Ftp::Get {
+                    connection,
+                    remote_name,
+                    output,
+                    overwrite,
+                } => {
+                    r.action = "get".into();
+                    r.remote_name = remote_name;
+                    r.path = output;
+                    r.overwrite = overwrite;
+                    ftp_connection(&mut r, connection)?;
+                }
+                Ftp::Put {
+                    connection,
+                    path,
+                    remote_name,
+                } => {
+                    r.action = "put".into();
+                    r.path = path;
+                    r.remote_name = remote_name.unwrap_or_default();
+                    ftp_connection(&mut r, connection)?;
+                }
+                Ftp::Serve {
+                    root,
+                    listen,
+                    port,
+                    allow,
+                    user,
+                    password_env,
+                    write,
+                    duration,
+                    timeout_ms,
+                } => {
+                    r.action = "serve".into();
+                    r.path = root;
+                    r.listen = listen;
+                    r.port = port;
+                    r.allow = allow;
+                    r.ftp_username = user;
+                    r.ftp_password = ftp_password(&password_env)?;
+                    r.writable = write;
+                    r.duration_secs = duration;
+                    r.timeout_ms = timeout_ms;
+                }
             }
         }
         Command::Tftp(t) => {
