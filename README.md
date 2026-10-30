@@ -156,3 +156,13 @@ Follow the development instructions above for Windows or [README-macOS.md](READM
 ## License
 
 Project source code is available under the [MIT License](LICENSE), copyright 2026 Huaizhong Liu. Third-party dependencies retain their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the notices included in release packages.
+
+### Diagnostic statistics and tasks
+
+Ping/TCPing use backend cumulative counters independently of the bounded recent preview. Stopped tasks retain partial results; stopping before the first measurement explicitly shows no samples. Attempted calls, completed measurements and interrupted calls are separate. Latency and failure rates exclude interrupted calls. TCPing labels its measurements as TCP connection time and connection failures.
+
+Traceroute has dedicated hop count, target reached, elapsed time and timeout-probe metrics, with three individual probes and response addresses per hop. TTL expiration is a hop response, not destination success; intermediate timeouts do not prove a broken link. Trace JSON now uses `schema_version: 2` and omits cross-hop Ping loss metrics. Other commands retain version 1, and cancellation keeps exit code 130. See [DIAGNOSTIC-PROTOCOL.md](DIAGNOSTIC-PROTOCOL.md).
+
+The chart has a linear ms axis, time axis, failure markers and time/value/status tooltips. Filter the available recent samples and choose a 20/80/200-sample window. PNG captures that view; cumulative metrics always cover the entire task.
+
+Tool and operation configurations are separate within the session. Transfer the last task's target explicitly. Opening a task preserves the form; rerun loads its original request for review before starting. FTP passwords are excluded from configuration caches, task snapshots and exports, and must be re-entered. The task center exposes up to 40 session tasks, with active tasks pinned above filterable history and individually stoppable. Persistence across application restarts remains a later-stage feature.

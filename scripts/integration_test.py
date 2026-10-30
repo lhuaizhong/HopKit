@@ -39,7 +39,7 @@ def cli(*argv, code=0):
     p = subprocess.run([EXE, *map(str,argv), '--format', 'json'], capture_output=True, timeout=25)
     assert p.returncode == code, (argv, p.returncode, p.stdout.decode('utf-8','replace'),p.stderr.decode('utf-8','replace'))
     value = json.loads(p.stdout)
-    assert value['schema_version'] == 1
+    assert value['schema_version'] == (2 if value.get('command') == 'trace' else 1)
     return value
 
 def port(udp=False):

@@ -17,12 +17,15 @@ pub type ToolResult = Result<Value, ToolError>;
 pub struct ToolError {
     pub code: String,
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub data: Option<Value>,
 }
 impl ToolError {
     pub fn new(code: &str, message: impl Into<String>) -> Self {
         Self {
             code: code.into(),
             message: message.into(),
+            data: None,
         }
     }
 }
@@ -245,7 +248,9 @@ pub fn is_timeout(e: &std::io::Error) -> bool {
 }
 
 pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
-    cancelled(c)?;
+    if !matches!(req.tool.as_str(), "ping" | "tcping" | "trace") {
+        cancelled(c)?;
+    }
     if req.tool == "ping" && req.payload_size_bytes > 65500 {
         return Err(ToolError::new(
             "INVALID_ARGUMENT",
@@ -286,12 +291,13 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
     }
 }
 pub fn envelope(id: &str, tool: &str, result: ToolResult) -> Value {
+    let schema = if tool == "trace" { 2 } else { 1 };
     match result {
         Ok(data) => {
-            json!({"schema_version":1,"task_id":id,"command":tool,"status":"succeeded","data":data,"error":null})
+            json!({"schema_version":schema,"task_id":id,"command":tool,"status":"succeeded","data":data,"error":null})
         }
         Err(e) => {
-            json!({"schema_version":1,"task_id":id,"command":tool,"status":if e.code=="CANCELLED" {"cancelled"} else {"failed"},"data":null,"error":e})
+            json!({"schema_version":schema,"task_id":id,"command":tool,"status":if e.code=="CANCELLED" {"cancelled"} else {"failed"},"data":e.data,"error":{"code":e.code,"message":e.message}})
         }
     }
 }

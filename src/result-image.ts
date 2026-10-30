@@ -2,7 +2,6 @@
 // Only the detached clone is expanded; the live page and its scroll stay intact.
 export async function resultImage(source: HTMLElement, english: boolean): Promise<Blob> {
   const message = (zh: string, en: string) => english ? en : zh
-  await document.fonts.ready
   const width = Math.ceil(source.getBoundingClientRect().width)
   const clone = source.cloneNode(true) as HTMLElement
   const nodes = [source, ...source.querySelectorAll<HTMLElement>('*')]
@@ -15,15 +14,15 @@ export async function resultImage(source: HTMLElement, english: boolean): Promis
     copy.style.transition = 'none'
     // Sticky headers otherwise retain their offset inside the scroll container.
     if (style.position === 'sticky') copy.style.position = 'static'
-    if (node instanceof HTMLInputElement) {
+    if (node instanceof HTMLInputElement || node instanceof HTMLSelectElement) {
       const text = document.createElement('span')
       text.style.cssText = copy.style.cssText
-      text.textContent = node.value || node.placeholder
-      if (!node.value) text.style.color = getComputedStyle(node, '::placeholder').color
+      text.textContent = node instanceof HTMLSelectElement ? node.selectedOptions[0]?.textContent || node.value : node.value || node.placeholder
+      if (node instanceof HTMLInputElement && !node.value) text.style.color = getComputedStyle(node, '::placeholder').color
       copy.replaceWith(text)
     }
   })
-  clone.querySelectorAll('.task-panel,.result-tools,.raw-result,[role="alert"]').forEach(node => node.remove())
+  clone.querySelectorAll('.task-panel,.result-tools,.raw-result,.request-summary button,[role="alert"]').forEach(node => node.remove())
   clone.querySelectorAll<HTMLElement>('.result-panel').forEach(node => {
     node.style.height = 'auto'; node.style.maxHeight = 'none'
   })
@@ -37,6 +36,7 @@ export async function resultImage(source: HTMLElement, english: boolean): Promis
   clone.style.minWidth = '0'
   clone.style.maxWidth = 'none'
   clone.style.height = 'auto'
+  await document.fonts.ready
   const wrapper = document.createElement('div')
   wrapper.style.cssText = `position:fixed;left:-100000px;top:0;width:${width + 32}px;padding:16px;box-sizing:border-box;background:${getComputedStyle(document.documentElement).backgroundColor};pointer-events:none;`
   wrapper.setAttribute('aria-hidden', 'true')

@@ -30,7 +30,25 @@ struct Task {
     seq: u64,
     events: VecDeque<Event>,
     result: Option<Value>,
+    request: Value,
+    latest_stats: Option<Value>,
 }
+impl Task {
+    fn record_event(&mut self, body: Value) {
+        if matches!(body["event_type"].as_str(), Some("stats" | "stopped")) {
+            self.latest_stats = Some(body.clone());
+        }
+        self.seq += 1;
+        self.events.push_back(Event {
+            cursor: self.seq,
+            body,
+        });
+        while self.events.len() > 150 {
+            self.events.pop_front();
+        }
+    }
+}
+
 #[derive(Clone, Default)]
 struct Tasks(
     Arc<Mutex<BTreeMap<String, Task>>>,
@@ -49,6 +67,8 @@ struct Snapshot {
     seq: u64,
     events: Vec<Event>,
     result: Option<Value>,
+    request: Value,
+    latest_stats: Option<Value>,
 }
 fn snap(t: &Task, after: u64) -> Snapshot {
     Snapshot {
@@ -66,7 +86,17 @@ fn snap(t: &Task, after: u64) -> Snapshot {
             .filter(|e| e.cursor > after)
             .cloned()
             .collect(),
-        result: t.result.clone(),
+        result: if after == u64::MAX {
+            None
+        } else {
+            t.result.clone()
+        },
+        request: t.request.clone(),
+        latest_stats: if after == u64::MAX {
+            None
+        } else {
+            t.latest_stats.clone()
+        },
     }
 }
 
@@ -115,6 +145,8 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
                 seq: 0,
                 events: VecDeque::new(),
                 result: None,
+                request: serde_json::to_value(&request).map_err(|e| e.to_string())?,
+                latest_stats: None,
             },
         );
     }
@@ -132,14 +164,7 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
             if let Ok(mut map) = state.0.lock()
                 && let Some(t) = map.get_mut(&task_id)
             {
-                t.seq += 1;
-                t.events.push_back(Event {
-                    cursor: t.seq,
-                    body: v,
-                });
-                while t.events.len() > 150 {
-                    t.events.pop_front();
-                }
+                t.record_event(v);
             }
         };
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -455,4 +480,48 @@ fn main() {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod trust_tests {
+    use super::*;
+    #[test]
+    fn snapshots_keep_counters_and_redacted_request_after_queue_eviction() {
+        let request = Request {
+            tool: "tcping".into(),
+            target: "127.0.0.1".into(),
+            port: 443,
+            ftp_password: "must-never-export".into(),
+            ..Request::default()
+        };
+        let mut task = Task {
+            id: "test".into(),
+            tool: request.tool.clone(),
+            target: request.target.clone(),
+            port: 443,
+            action: String::new(),
+            status: "running".into(),
+            started_at: chrono_now(),
+            cancel: Arc::new(AtomicBool::new(false)),
+            seq: 0,
+            events: VecDeque::new(),
+            result: None,
+            request: serde_json::to_value(&request).unwrap(),
+            latest_stats: None,
+        };
+        for n in 1..=1200 {
+            task.record_event(json!({"event_type":"sample","seq":n}));
+            task.record_event(json!({"event_type":"stats","sent":n,"received":n*4/5}));
+        }
+        // No events after this cursor: counters must still be available.
+        let snapshot = serde_json::to_value(snap(&task, task.seq)).unwrap();
+        assert!(snapshot["events"].as_array().unwrap().is_empty());
+        assert_eq!(snapshot["latest_stats"]["sent"], 1200);
+        assert_eq!(snapshot["latest_stats"]["received"], 960);
+        assert_eq!(task.events.len(), 150);
+        assert_eq!(snap(&task, 0).events.len(), 150);
+        assert_eq!(snapshot["request"]["port"], 443);
+        assert!(snapshot["request"].get("ftp_password").is_none());
+        assert!(!snapshot.to_string().contains("must-never-export"));
+    }
 }

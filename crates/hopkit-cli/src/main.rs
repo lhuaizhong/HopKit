@@ -611,7 +611,7 @@ fn main() {
     let english = cli.lang == "en-US";
     let emit = |mut v: Value| {
         v["task_id"] = json!(id);
-        v["schema_version"] = json!(1);
+        v["schema_version"] = json!(if r.tool == "trace" { 2 } else { 1 });
         let output = if format == "jsonl" {
             Some(v.to_string())
         } else if format == "text" {
@@ -639,7 +639,11 @@ fn main() {
     let result = run(&r, &cancel, &emit);
     let mut code = match &result {
         Ok(v) => {
-            if v["success"] == false || cli.strict && v["lost"].as_u64().unwrap_or(0) > 0 {
+            if v["success"] == false
+                || cli.strict
+                    && (v["lost"].as_u64().unwrap_or(0) > 0
+                        || v["timeout_probes"].as_u64().unwrap_or(0) > 0)
+            {
                 1
             } else {
                 0
@@ -647,7 +651,8 @@ fn main() {
         }
         Err(e) => exit_code(&e.code),
     };
-    let final_value = envelope(&id, &r.tool, result);
+    let mut final_value = envelope(&id, &r.tool, result);
+    final_value["request"] = serde_json::to_value(&r).expect("Serializable request snapshot");
     let out = if cli.format == "text" {
         format!(
             "{}\n{}",

@@ -20,6 +20,7 @@ const pause=ms=>new Promise(r=>setTimeout(r,ms))
 const check=async(name,fn)=>{try{await fn();report.push({name,status:'passed'})}catch(e){report.push({name,status:'failed',error:String(e)});throw e}}
 const invoke=(command,args={})=>page.evaluate((command,args)=>window.__TAURI_INTERNALS__.invoke(command,args),command,args)
 const clickText=(selector,text)=>page.evaluate((selector,text)=>{const b=[...document.querySelectorAll(selector)].find(b=>b.textContent.includes(text));if(!b)throw new Error('Missing '+text);b.click()},selector,text)
+const openTaskRow=text=>page.evaluate(text=>{const row=[...document.querySelectorAll('.task-row')].find(row=>row.textContent.includes(text));if(!row)throw new Error('Missing task '+text);row.querySelector('button').click()},text)
 const field=async(selector,value)=>{await page.$eval(selector,(input,value)=>{input.value=String(value);input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}))},value)}
 const taskFinished=async id=>{for(let i=0;i<80;i++){const s=await invoke('task_poll',{id,after:0});if(!['running','cancelling'].includes(s.status))return s;await pause(150)}throw new Error('Task did not finish')}
 const uiTask=async()=>{const before=new Set((await invoke('list_tasks')).map(x=>x.id));await page.click('form button.primary');for(let i=0;i<30;i++){const tasks=await invoke('list_tasks');const task=tasks.find(x=>!before.has(x.id));if(task)return task;await pause(100)}throw new Error('UI did not start task')}
@@ -88,7 +89,7 @@ try{
  await page.waitForSelector('.tcp-port');const expected='TCP port '+server.address().port
  assert.equal(await page.$eval('.tcp-port',e=>e.textContent),expected)
  await field('#port',1);await pause(500);assert.equal(await page.$eval('.tcp-port',e=>e.textContent),expected)
- await clickText('nav .nav-item','Ping');await clickText('.task-row','tcping');await page.waitForSelector('.tcp-port')
+ await clickText('nav .nav-item','Ping');await openTaskRow('tcping');await page.waitForSelector('.tcp-port')
  assert.equal(await page.$eval('.tcp-port',e=>e.textContent),expected)
  await page.screenshot({path:path.join(out,'gui-tcping-port.png'),fullPage:true})
  await page.evaluate(()=>{
@@ -157,7 +158,7 @@ try{
    await page.waitForFunction(()=>[...document.querySelectorAll('.metrics b')].slice(0,2).every(e=>e.textContent==='1'))
    await clickText('.segmented button','Client');await field('#target','127.0.0.1');await field('#count',1)
    const client=await uiTask();assert.equal((await taskFinished(client.id)).result.data.valid_samples,1)
-   await clickText('.task-row',`127.0.0.1:${port}`)
+   await openTaskRow(`127.0.0.1:${port}`)
    await page.waitForSelector('#ntp-stratum')
    assert.equal(await page.$eval('form .primary',e=>e.disabled),true)
    await page.screenshot({path:path.join(out,'gui-ntp-server.png'),fullPage:true})

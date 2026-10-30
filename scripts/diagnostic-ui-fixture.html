@@ -1,0 +1,37 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>HopKit diagnostic UI fixture</title></head><body><div id="app"></div>
+<script type="module">
+// Development-only deterministic backend; never imported by the release entry.
+import {mockIPC} from '@tauri-apps/api/mocks'
+import {createApp} from 'vue'
+import App from '../src/App.vue'
+import '../src/style.css'
+import '../src/appearance.css'
+const scenario=new URL(location.href).searchParams.get('scenario')||'cumulative'
+const envelope=await (await fetch('/test-output/trust-fixture.json')).json()
+const request={tool:'tcping',target:'127.0.0.1',port:443,count:1200,timeout_ms:1000,interval_ms:50,action:'',ipv6:false,max_hops:30,payload_size_bytes:32}
+const samples=envelope.data.samples.map((sample,i)=>({...sample,cursor:(i+1)*2}))
+const task={id:'fixture-cumulative',tool:'tcping',target:'127.0.0.1',port:443,action:'',status:'running',started_at:'00000000000000000001',seq:2400,request,latest_stats:{...envelope.data,event_type:'stats',samples:undefined},events:samples.slice(-75),result:null}
+const chartSamples=[1,30,100,500,null].map((rtt,i)=>({seq:i+1,cursor:i+1,event_type:'sample',timestamp_ms:1793350000000+i*1000,rtt_ms:rtt,ok:rtt!==null,status:rtt===null?'timeout':'connected',address:'127.0.0.1'}))
+if(scenario==='chart'){task.request={...request,count:5};task.id='fixture-chart';task.status='succeeded';task.events=chartSamples;task.latest_stats={sent:5,received:4,lost:1,loss_percent:20,rtt_min_ms:1,rtt_avg_ms:157.75,rtt_max_ms:500,success:true,completed:5,duration_ms:4000,started_at_ms:1793350000000,ended_at_ms:1793350004000,has_samples:true};task.result={...envelope,data:{...task.latest_stats,samples:chartSamples},task_id:task.id}}
+if(scenario==='empty'){task.id='fixture-empty';task.status='cancelled';task.events=[];task.latest_stats={sent:0,received:0,loss_percent:null,has_samples:false};task.result={...envelope,status:'cancelled',data:task.latest_stats,error:{code:'CANCELLED',message:'Operation cancelled'}}}
+if(scenario==='trace'){
+ Object.assign(task,{id:'fixture-trace',tool:'trace',port:0,status:'succeeded',request:{...request,tool:'trace',max_hops:3}})
+ task.events=Array.from({length:9},(_,i)=>({seq:i+1,cursor:i+1,event_type:'sample',hop:Math.floor(i/3)+1,address:`192.0.2.${i+1}`,rtt_ms:10*(i+1),ok:i>=6,responded:true,reached:i>=6,status:i>=6?'reply':'ttl_expired'}))
+ task.latest_stats={sent:9,hops_probed:3,reached:true,timeout_probes:0,duration_ms:90,has_samples:true,samples:task.events}
+ task.result={...envelope,schema_version:2,data:task.latest_stats}
+}
+const history=Array.from({length:8},(_,i)=>({...task,id:`history-${i}`,target:`history-${i}.example`,status:'succeeded',started_at:String(i+2).padStart(20,'0'),result:{...envelope}}))
+const tasks=[task,...history]
+mockIPC((command,args)=>{
+ if(command==='app_info')return {version:'trust-fixture',platform:'macOS · simulated backend',os:'macOS'}
+ if(command==='list_tasks')return tasks.map(({events,result,latest_stats,...rest})=>({...rest,events:[],result:null}))
+ if(command==='task_poll'){const t=tasks.find(x=>x.id===args.id);return {...t,events:t.events.filter(x=>x.cursor>args.after)}}
+ if(command==='cancel_task'){const t=tasks.find(x=>x.id===args.id);t.status='cancelled';t.seq++;t.result={...envelope,task_id:t.id,status:'cancelled',error:{code:'CANCELLED',message:'Operation cancelled'}};return}
+ if(command==='start_task'){const r=args.request;const t={...task,id:`new-${tasks.length}`,tool:r.tool,action:r.action,target:r.target,port:r.port,request:{...r},status:'running',started_at:String(Date.now()).padStart(20,'0')};delete t.request.ftp_password;tasks.push(t);return t.id}
+ if(command==='export_result'){const pre=document.createElement('pre');pre.id='exported-json';pre.textContent=args.content;document.body.append(pre);return true}
+ if(command==='export_result_image'){const img=document.createElement('img');img.id='exported-image';img.src='data:image/png;base64,'+btoa(args.png.map(x=>String.fromCharCode(x)).join(''));document.body.append(img);return true}
+ throw new Error(`Unhandled fixture command: ${command}`)
+})
+createApp(App).mount('#app')
+</script></body></html>
