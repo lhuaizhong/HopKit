@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-Version: `0.1.0-alpha.1`. This preview provides a desktop GUI and standalone CLI for network diagnostics and temporary TFTP/Syslog services. See [README-macOS.md](README-macOS.md) for macOS startup, build, architecture, and validation details. The Windows instructions are below.
+Version: `0.1.0-alpha.1`. This source tree provides a desktop GUI and standalone CLI for network diagnostics and temporary NTP/TFTP/Syslog services. See [README-macOS.md](README-macOS.md) for macOS startup, build, architecture, and validation details. The Windows instructions are below.
 
 ## Downloads
 
@@ -32,7 +32,7 @@ The package does not modify PATH, install system services, add firewall rules, o
 | Traceroute | ICMP hop-by-hop tracing with three probes per hop and a configurable hop limit; an unresponsive hop alone does not prove a broken route |
 | TCPing | TCP connect timing to a specified port, distinguishing successful connections, refusals, and timeouts |
 | DNS | System resolver or a specified DNS server; A/AAAA/CNAME/MX/TXT/NS/PTR/SOA queries, with TCP fallback for truncated UDP replies |
-| NTP | 1–20 samples, clock offset, delay, stratum, and KoD handling; never changes the system clock |
+| NTP | Client: 1–20 samples, offset/delay/stratum and KoD; temporary NTPv3/v4 UDP server with IPv4/IPv6, source CIDRs and statistics; never changes the system clock |
 | TFTP | octet/512-byte transfers, upload/download, and a temporary server; atomic local writes, no overwrite by default, read-only server by default |
 | Syslog | UDP send/receive, priority extraction, sampled live preview, JSONL files with original message bytes, and segment rotation |
 
@@ -61,6 +61,8 @@ Run these commands in PowerShell from the release directory:
 .\netbox-cli.exe dns example.com
 .\netbox-cli.exe dns example.com AAAA -s 192.168.1.1
 .\netbox-cli.exe ntp 192.168.1.10 -c 4
+.\netbox-cli.exe ntp serve --listen 192.168.1.100 --allow 192.168.1.0/24
+.\netbox-cli.exe ntp serve --listen 127.0.0.1 --port 1123 --duration 60 --format jsonl
 .\netbox-cli.exe tftp get 192.168.1.10 config.cfg -o .\config.cfg
 .\netbox-cli.exe tftp put 192.168.1.10 .\config.cfg
 .\netbox-cli.exe tftp serve --root D:\TftpFiles --listen 192.168.1.100 --allow 192.168.1.0/24
@@ -70,9 +72,13 @@ Run these commands in PowerShell from the release directory:
 .\netbox-cli.exe --help
 ```
 
-LAN addresses are examples: replace them with the actual target or local interface address. TFTP defaults to UDP 69 and Syslog to UDP 514. Use `--port 1069` or `--port 1514` to test alternate ports.
+LAN addresses are examples: replace them with the actual target or local interface address. NTP defaults to UDP 123, TFTP to UDP 69 and Syslog to UDP 514. Use `--port 1123`, `--port 1069` or `--port 1514` to test alternate ports.
 
 GUI and CLI listeners bind to `0.0.0.0` (all IPv4 interfaces) by default. An empty source allowlist accepts all sources. Use `--allow` with comma-separated CIDRs to restrict access. Set `--listen` to a local interface IP, `::` for all IPv6 interfaces, or `127.0.0.1` / `::1` for local-only access.
+
+In the GUI, select **NTP → NTP Server**, set the listen address/port, source CIDRs, stratum and duration, then click **Start service**. A duration of 0 runs until stopped. Live counters show received/replied requests, denied sources and invalid packets; send failures are shown below the preview. Stop, Stop all and quitting the GUI release its listener. Client measurements remain available while the server runs.
+
+The temporary server uses the host system clock as a local reference, with an advertised stratum of 10 by default (`--stratum 1..15`). It does not verify upstream synchronization or adjust the clock; its accuracy depends on the host. It supports only basic 48-byte, unauthenticated NTPv3/v4 client requests and server replies, following the timestamp layout in [RFC 5905](https://www.rfc-editor.org/rfc/rfc5905.html#section-8). Authentication/NTS, extension fields, broadcast, peer and control modes are unsupported. Request previews are sampled; counters include every received datagram, with a final `stopped` event on cancellation or duration expiry. These source changes do not alter the previously published release binaries.
 
 `shortcuts/nb.exe` is an optional short entry point for the same version. Invoke it by relative path or add it to your own PATH after checking for an existing `nb` command. The full executable works independently of this shortcut.
 

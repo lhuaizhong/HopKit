@@ -208,7 +208,7 @@ pub fn probe(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
     Ok(result)
 }
 
-fn ntp_stamp(t: SystemTime) -> u64 {
+pub(crate) fn ntp_stamp(t: SystemTime) -> u64 {
     let d = t.duration_since(UNIX_EPOCH).unwrap_or_default();
     ((d.as_secs() + 2_208_988_800) << 32) | (((d.subsec_nanos() as u64) << 32) / 1_000_000_000)
 }

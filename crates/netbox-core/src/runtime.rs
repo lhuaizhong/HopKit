@@ -71,6 +71,8 @@ pub struct Request {
     pub overwrite: bool,
     pub message: String,
     pub duration_secs: u64,
+    /// Advertised local-clock stratum for the temporary NTP server.
+    pub ntp_stratum: u8,
 }
 impl Default for Request {
     fn default() -> Self {
@@ -95,6 +97,7 @@ impl Default for Request {
             overwrite: false,
             message: "netbox test".into(),
             duration_secs: 0,
+            ntp_stratum: 10,
         }
     }
 }
@@ -208,7 +211,7 @@ pub fn bind_udp(addr: SocketAddr) -> Result<std::net::UdpSocket, ToolError> {
     s.set_reuse_address(false)?;
     s.bind(&addr.into()).map_err(|e| {
         if cfg!(target_os = "macos") && addr.port() < 1024 && e.kind() == std::io::ErrorKind::PermissionDenied {
-            ToolError::new("PERMISSION_DENIED", format!("macOS denied UDP port {}. Select a port >=1024 for ordinary-user testing (TFTP 1069 / Syslog 1514), or explicitly run the independent CLI with administrator privileges for standard ports. / macOS 拒绝标准端口；普通用户可手动改用高端口。OS: {e}", addr.port()))
+            ToolError::new("PERMISSION_DENIED", format!("macOS denied UDP port {}. Select a port >=1024 for ordinary-user testing (NTP 1123 / TFTP 1069 / Syslog 1514), or explicitly run the independent CLI with administrator privileges for standard ports. / macOS 拒绝标准端口；普通用户可手动改用高端口。OS: {e}", addr.port()))
         } else { e.into() }
     })?;
     let s: std::net::UdpSocket = s.into();
@@ -248,7 +251,10 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
             "Timeout 100..10000 ms; count 0..10000; hops 1..64; interval <=60000 ms",
         ));
     }
-    if req.count == 0 && !matches!(req.tool.as_str(), "ping" | "tcping" | "syslog" | "tftp") {
+    if req.count == 0
+        && !matches!(req.tool.as_str(), "ping" | "tcping" | "syslog" | "tftp")
+        && !(req.tool == "ntp" && req.action == "serve")
+    {
         return Err(ToolError::new(
             "INVALID_ARGUMENT",
             "This operation requires a finite count",
@@ -257,7 +263,7 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
     match req.tool.as_str() {
         "ping" | "trace" | "tcping" => crate::diagnostics::probe(req, c, emit),
         "dns" => crate::dns::query(req, c, emit),
-        "ntp" => crate::diagnostics::ntp(req, c, emit),
+        "ntp" => crate::ntp::run(req, c, emit),
         "syslog" => crate::syslog::run(req, c, emit),
         "tftp" => crate::tftp::run(req, c, emit),
         "doctor" => Ok(

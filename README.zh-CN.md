@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-版本：`0.1.0-alpha.1`。提供用于首次操作测试和评估的网络诊断工具、临时 TFTP/Syslog 服务，包含桌面 GUI 和独立 CLI。macOS 的启动、构建、架构和验证边界见 [README-macOS.md](README-macOS.md)；下列 Windows 操作说明继续保留。
+版本：`0.1.0-alpha.1`。当前源码提供用于操作测试和评估的网络诊断工具、临时 NTP/TFTP/Syslog 服务，包含桌面 GUI 和独立 CLI。macOS 的启动、构建、架构和验证边界见 [README-macOS.md](README-macOS.md)；下列 Windows 操作说明继续保留。
 
 ## 下载
 
@@ -32,7 +32,7 @@ macOS 含 CLI 的 ZIP 及每个文件的 SHA-256 也在 Release 页面提供。W
 | Traceroute | ICMP 逐跳，最大跳数、每跳三次；无响应不直接判定断路 |
 | TCPing | 指定端口 TCP connect，区分连接成功、拒绝、超时 |
 | DNS | 系统解析；指定 DNS 的 A/AAAA/CNAME/MX/TXT/NS/PTR/SOA 查询，UDP 截断回退 TCP |
-| NTP | 1～20 次采样、偏差/延迟/stratum、KoD；不修改系统时间 |
+| NTP | 客户端 1～20 次采样、偏差/延迟/stratum、KoD；临时 NTPv3/v4 UDP 服务，支持 IPv4/IPv6、来源 CIDR 和统计；不修改系统时间 |
 | TFTP | octet/512 字节，上传、下载、临时服务；本地原子提交，默认不覆盖，服务默认只读 |
 | Syslog | UDP 发送/接收、优先级提取、实时采样预览、带原始字节的 JSONL、按段轮转 |
 
@@ -57,6 +57,8 @@ Ping 的“测试包大小 / 字节”支持 0～65500 的整数，默认 32，�
 .\netbox-cli.exe dns example.com
 .\netbox-cli.exe dns example.com AAAA -s 192.168.1.1
 .\netbox-cli.exe ntp 192.168.1.10 -c 4
+.\netbox-cli.exe ntp serve --listen 192.168.1.100 --allow 192.168.1.0/24
+.\netbox-cli.exe ntp serve --listen 127.0.0.1 --port 1123 --duration 60 --format jsonl
 .\netbox-cli.exe tftp get 192.168.1.10 config.cfg -o .\config.cfg
 .\netbox-cli.exe tftp put 192.168.1.10 .\config.cfg
 .\netbox-cli.exe tftp serve --root D:\TftpFiles --listen 192.168.1.100 --allow 192.168.1.0/24
@@ -66,7 +68,11 @@ Ping 的“测试包大小 / 字节”支持 0～65500 的整数，默认 32，�
 .\netbox-cli.exe --help
 ```
 
-局域网 IP 均为示例，必须替换为实际目标/本机地址。TFTP 默认 UDP 69、Syslog 默认 UDP 514；可用 `--port 1069`、`--port 1514` 测试自定义端口。GUI / CLI 服务默认监听 `0.0.0.0`（所有 IPv4 网卡），对外监听时来源留空表示允许所有来源；可用 `--allow` 指定来源网段，多个 CIDR 用逗号分隔。`--listen` 可指定本机网卡 IP，`::` 表示所有 IPv6 网卡，`127.0.0.1` / `::1` 表示仅本机。
+局域网 IP 均为示例，必须替换为实际目标/本机地址。NTP 默认 UDP 123、TFTP 默认 UDP 69、Syslog 默认 UDP 514；可用 `--port 1123`、`--port 1069`、`--port 1514` 测试自定义端口。GUI / CLI 服务默认监听 `0.0.0.0`（所有 IPv4 网卡），对外监听时来源留空表示允许所有来源；可用 `--allow` 指定来源网段，多个 CIDR 用逗号分隔。`--listen` 可指定本机网卡 IP，`::` 表示所有 IPv6 网卡，`127.0.0.1` / `::1` 表示仅本机。
+
+GUI 在 **NTP → 时间服务** 中设置监听地址、端口、允许来源、服务层级和运行时长，然后点击“启动服务”。时长 0 表示运行至手动停止。实时统计显示请求、响应、来源拒绝和无效报文，预览下方显示发送失败次数。“停止”“停止全部”和退出 GUI 都会释放本窗口的服务端口；服务运行时仍可切换到“时间测量”执行客户端测试。
+
+临时 NTP 服务以本机系统时钟为本地参考，默认声明层级 10（`--stratum` 可选 1～15），不校验上游同步、不修改系统时间，精度取决于本机时钟。支持基本 48 字节、无认证的 NTPv3/v4 客户端请求和服务器响应，时间戳布局参照 [RFC 5905](https://www.rfc-editor.org/rfc/rfc5905.html#section-8)；不支持认证/NTS、扩展字段、广播、对等和控制模式。请求预览采用采样，计数覆盖全部收到的数据报；取消或限时停止时输出最终 `stopped` 事件。本次源码新增能力不会改变此前发布的二进制包。
 
 `shortcuts/nb.exe` 是相同版本的可选短入口，可直接相对调用或自行加入用户 PATH；先检查是否已存在其他 `nb` 命令。完整入口不依赖这个短名。
 

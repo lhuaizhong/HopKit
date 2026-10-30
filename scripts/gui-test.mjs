@@ -115,6 +115,42 @@ try{
  await check('GUI starts and cancels continuous diagnostic',async()=>{await clickText('nav .nav-item','Ping');await page.click('label.check input');const t=await uiTask();await pause(400);await clickText('form .stop','Stop');assert.equal((await taskFinished(t.id)).status,'cancelled')})
  await check('TFTP server lifecycle through the native frontend',async()=>{await clickText('nav .nav-item','TFTP');await clickText('.segmented button','Server');const dir=path.join(out,'gui-tftp');fs.mkdirSync(dir,{recursive:true});await field('#path',dir);await field('#port',15669);const t=await uiTask();await pause(300);const s=await invoke('task_poll',{id:t.id,after:0});assert(s.events.some(e=>e.event_type==='ready'));await clickText('form .stop','Stop');assert.equal((await taskFinished(t.id)).status,'cancelled')})
  await check('Backend rejects a fifth concurrent task and stop-all cleans up',async()=>{const started=[];try{for(let i=0;i<4;i++)started.push(await invoke('start_task',{request:{tool:'ping',target:'127.0.0.1',count:0,interval_ms:1000}}));let rejected=false;try{await invoke('start_task',{request:{tool:'ping',target:'127.0.0.1'}})}catch{rejected=true}assert(rejected);await invoke('stop_all');for(const id of started)assert.equal((await taskFinished(id)).status,'cancelled')}finally{await invoke('stop_all')}})
+ await check('GUI NTP Server responds, supports concurrent client mode and releases its port',async()=>{
+  const reservation=dgram.createSocket('udp4')
+  await new Promise(resolve=>reservation.bind(0,'127.0.0.1',resolve))
+  const port=reservation.address().port
+  await new Promise(resolve=>reservation.close(resolve))
+  await clickText('nav .nav-item','NTP');await clickText('.segmented button','NTP Server')
+  assert.equal(await page.$('#target'),null);assert.equal(await page.$('#count'),null)
+  await field('#listen','127.0.0.1');await field('#port',port);await field('#ntp-stratum',7)
+  const server=await uiTask()
+  try{
+   await page.waitForFunction(()=>document.querySelector('form .primary').disabled)
+   for(let i=0;i<30;i++){const snapshot=await invoke('task_poll',{id:server.id,after:0});if(snapshot.events.some(e=>e.event_type==='ready'))break;assert.equal(snapshot.status,'running');await pause(100)}
+   const socket=dgram.createSocket('udp4')
+   try{
+    const query=Buffer.alloc(48);query[0]=0x23;query.writeBigUInt64BE(123456789n,40)
+    const response=await new Promise((resolve,reject)=>{
+     const timer=setTimeout(()=>reject(new Error('No NTP server response')),2000)
+     socket.once('error',error=>{clearTimeout(timer);reject(error)})
+     socket.once('message',body=>{clearTimeout(timer);resolve(body)})
+     socket.send(query,port,'127.0.0.1')
+    })
+    assert.equal(response.length,48);assert.equal(response[0],0x24);assert.equal(response[1],7)
+    assert.equal(response.readBigUInt64BE(24),123456789n)
+   }finally{socket.close()}
+   await page.waitForFunction(()=>[...document.querySelectorAll('.metrics b')].slice(0,2).every(e=>e.textContent==='1'))
+   await clickText('.segmented button','Client');await field('#target','127.0.0.1');await field('#count',1)
+   const client=await uiTask();assert.equal((await taskFinished(client.id)).result.data.valid_samples,1)
+   await clickText('.task-row',`127.0.0.1:${port}`)
+   await page.waitForSelector('#ntp-stratum')
+   assert.equal(await page.$eval('form .primary',e=>e.disabled),true)
+   await page.screenshot({path:path.join(out,'gui-ntp-server.png'),fullPage:true})
+   await clickText('form .stop','Stop');assert.equal((await taskFinished(server.id)).status,'cancelled')
+   await page.waitForFunction(()=>!document.querySelector('form .primary').disabled)
+   const released=dgram.createSocket('udp4');await new Promise((resolve,reject)=>{released.once('error',reject);released.bind(port,'127.0.0.1',resolve)});released.close()
+  }finally{await invoke('cancel_task',{id:server.id})}
+ })
  await check('Frontend JavaScript has no uncaught errors',async()=>assert.deepEqual(errors,[]))
  await invoke('stop_all')
  await clickText('.header-actions button','中文');await clickText('nav .nav-item','Ping');await pause(300)

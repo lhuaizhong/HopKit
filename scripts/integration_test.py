@@ -142,6 +142,45 @@ def ntp(kod=False):
         else:assert value['data']['valid_samples']==1 and 30<value['data']['best_sample']['offset_ms']<70
         t.join(2);assert not errors
 
+def ntp_server():
+    p=port(True)
+    with service('ntp','serve','--listen','127.0.0.1','--port',p,'--stratum',5,duration=2) as (_,log):
+        with socket.socket(type=socket.SOCK_DGRAM) as s:
+            s.settimeout(.3)
+            for version in [3,4]:
+                q=bytearray(48);q[0]=(version<<3)|3;q[2]=6
+                q[40:48]=struct.pack('!Q',round((time.time()+2208988800)*2**32))
+                before=time.time();s.sendto(q,('127.0.0.1',p));b,peer=s.recvfrom(512);after=time.time()
+                assert len(b)==48 and peer[1]==p and b[0]==(version<<3)|4 and b[1]==5
+                assert b[24:32]==q[40:48]
+                receive=struct.unpack('!Q',b[32:40])[0]/2**32-2208988800
+                transmit=struct.unpack('!Q',b[40:48])[0]/2**32-2208988800
+                assert before-.001<=receive<=transmit<=after+.001
+            s.sendto(bytes([0x26])+bytes(47),('127.0.0.1',p))
+            try:s.recvfrom(512);raise AssertionError('Answered a control packet')
+            except socket.timeout:pass
+        assert cli('ntp','127.0.0.1','--port',p,'-c',1)['data']['valid_samples']==1
+    events=[json.loads(line) for line in log.read_text(encoding='utf-8').splitlines()]
+    assert events[-1]['event_type']=='finished'
+    data=events[-1]['data']
+    assert data['received']==4 and data['replied']==3 and data['invalid']==1
+    assert data['stratum']==5 and data['clock_source']=='system' and data['clock_changed'] is False
+    with socket.socket(type=socket.SOCK_DGRAM) as s:s.bind(('127.0.0.1',p))
+    data=cli('ntp','serve','--listen','127.0.0.1','--port',p,'--duration',1)['data']
+    assert data['success'] and data['replied']==0
+    assert cli('ntp','serve','--format','json',code=2)['error']['code']=='INVALID_ARGUMENT'
+    assert cli('ntp','serve','--stratum',16,code=2)['error']['code']=='INVALID_ARGUMENT'
+
+def ntp_server_denied():
+    p=port(True)
+    with service('ntp','serve','--listen','127.0.0.1','--port',p,'--allow','192.0.2.0/24',duration=1) as (_,log):
+        with socket.socket(type=socket.SOCK_DGRAM) as s:
+            s.settimeout(.3);s.sendto(bytes([0x23])+bytes(47),('127.0.0.1',p))
+            try:s.recvfrom(512);raise AssertionError('Answered a denied source')
+            except socket.timeout:pass
+    data=json.loads(log.read_text(encoding='utf-8').splitlines()[-1])['data']
+    assert data['denied']==1 and data['replied']==0
+
 def tftp_client(content,put=False):
     with socket.socket(type=socket.SOCK_DGRAM) as listener:
         listener.bind(('127.0.0.1',0));listener.settimeout(5);p=listener.getsockname()[1];received=[]
@@ -216,6 +255,8 @@ check('DNS TC flag -> TCP fallback',lambda:dns(tcp_fallback=True))
 check('DNS NXDOMAIN and exit code',lambda:dns(nxdomain=True))
 check('NTP offset with independent responder',lambda:ntp())
 check('NTP RATE KoD handling',lambda:ntp(kod=True))
+check('NTP server v3/v4 with independent client, statistics and finite JSON',ntp_server)
+check('NTP server source CIDR filtering',ntp_server_denied)
 for n in [0,512,513,4097]:
     check(f'TFTP download {n} bytes / exact-block boundary',lambda n=n:tftp_client(bytes(i%251 for i in range(n))))
 check('TFTP upload to independent Python receiver',lambda:tftp_client(b'upload\0\xff'*150,put=True))
