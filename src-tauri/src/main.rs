@@ -105,6 +105,9 @@ fn snap(t: &Task, after: u64) -> Snapshot {
 
 #[tauri::command]
 fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String, String> {
+    if request.tool == "check" {
+        hopkit_core::target::parse(&request.target).map_err(|e| e.to_string())?;
+    }
     if tasks.1.load(Ordering::Relaxed) {
         return Err("Application is closing".into());
     }
@@ -140,7 +143,7 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
                 target: if matches!(request.action.as_str(), "serve" | "listen") {
                     format!("{}:{}", request.listen, request.port)
                 } else {
-                    request.target.clone()
+                    hopkit_core::target::redact(&request.target)
                 },
                 status: "running".into(),
                 started_at: chrono_now(),
@@ -188,6 +191,18 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
         }
     });
     Ok(id)
+}
+#[tauri::command]
+async fn network_overview() -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        hopkit_core::network::overview(&Arc::new(AtomicBool::new(false))).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+fn parse_target(input: String) -> Result<hopkit_core::target::Target, String> {
+    hopkit_core::target::parse(&input).map_err(|e| e.to_string())
 }
 #[tauri::command]
 fn list_tasks(tasks: tauri::State<'_, Tasks>) -> Vec<Snapshot> {
@@ -413,6 +428,8 @@ fn main() {
         .manage(Tasks::default())
         .invoke_handler(tauri::generate_handler![
             start_task,
+            network_overview,
+            parse_target,
             list_tasks,
             task_poll,
             cancel_task,

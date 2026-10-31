@@ -54,7 +54,12 @@ impl std::error::Error for ToolError {}
 #[serde(default, deny_unknown_fields)]
 pub struct Request {
     pub tool: String,
+    #[serde(serialize_with = "crate::target::serialize_target")]
     pub target: String,
+    pub source_address: String,
+    pub insecure_tls: bool,
+    pub tls_ca_file: String,
+    pub include_trace: bool,
     pub port: u16,
     pub count: u32,
     pub timeout_ms: u64,
@@ -89,6 +94,10 @@ impl Default for Request {
     fn default() -> Self {
         Self {
             tool: "ping".into(),
+            source_address: String::new(),
+            insecure_tls: false,
+            tls_ca_file: String::new(),
+            include_trace: false,
             target: "127.0.0.1".into(),
             port: 0,
             count: 4,
@@ -257,7 +266,7 @@ pub fn is_timeout(e: &std::io::Error) -> bool {
 }
 
 pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
-    if !matches!(req.tool.as_str(), "ping" | "tcping" | "trace") {
+    if !matches!(req.tool.as_str(), "ping" | "tcping" | "trace" | "check") {
         cancelled(c)?;
     }
     if req.tool == "ping" && req.payload_size_bytes > 65500 {
@@ -290,6 +299,10 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
         ));
     }
     match req.tool.as_str() {
+        "target" => serde_json::to_value(crate::target::parse(&req.target)?)
+            .map_err(|e| ToolError::new("INTERNAL_ERROR", e.to_string())),
+        "check" => crate::troubleshoot::run(req, c, emit),
+        "network" => crate::network::overview(c),
         "ping" | "trace" | "tcping" => crate::diagnostics::probe(req, c, emit),
         "dns" => crate::dns::query(req, c, emit),
         "ntp" => crate::ntp::run(req, c, emit),
@@ -298,7 +311,7 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
         "syslog" => crate::syslog::run(req, c, emit),
         "tftp" => crate::tftp::run(req, c, emit),
         "doctor" => Ok(
-            json!({"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"version":env!("CARGO_PKG_VERSION"),"gui_required":false,"icmp_adapter":if cfg!(windows){"windows-iphelper"}else if cfg!(target_os="macos"){"darwin-datagram"}else{"unavailable"},"tools":["ping","trace","tcping","dns","ntp","iperf3","ftp","tftp","syslog"],"preview":true}),
+            json!({"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"version":env!("CARGO_PKG_VERSION"),"gui_required":false,"icmp_adapter":if cfg!(windows){"windows-iphelper"}else if cfg!(target_os="macos"){"darwin-datagram"}else{"unavailable"},"tools":["check","network","target","ping","trace","tcping","dns","ntp","iperf3","ftp","tftp","syslog"],"preview":true}),
         ),
         _ => Err(ToolError::new("INVALID_ARGUMENT", "Unknown tool")),
     }

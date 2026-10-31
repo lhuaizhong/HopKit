@@ -182,3 +182,28 @@ Traceroute has dedicated hop count, target reached, elapsed time and timeout-pro
 The chart has a linear ms axis, time axis, failure markers and time/value/status tooltips. Filter the available recent samples and choose a 20/80/200-sample window. PNG captures that view; cumulative metrics always cover the entire task.
 
 Tool and operation configurations are separate within the session. Transfer the last task's target explicitly. Opening a task preserves the form; rerun loads its original request for review before starting. FTP passwords are excluded from configuration caches, task snapshots and exports, and must be re-entered. The task center exposes up to 40 session tasks, with active tasks pinned above filterable history and individually stoppable. Persistence across application restarts remains a later-stage feature.
+
+### Endpoint troubleshooting workflow (stage 3, source addition)
+
+The desktop opens **Troubleshooting** by default: review local interfaces, addresses/prefixes, gateways, DNS and default routes; enter a target; then inspect staged evidence, possible causes and next verification steps. Local state refreshes every 15 seconds without public probes. Advanced options are collapsed, and individual tools remain available.
+
+```sh
+hk network --format json
+hk target 'https://example.com:8443/path?token=example' --format json
+hk check example.com --format json
+hk check 192.168.1.1:443 --format json
+hk check 'https://example.com/path' --source 192.168.1.10 --format json
+hk check example.com --dns-server 192.168.1.1 --trace --format jsonl
+```
+
+Accepts IPs, IDNs, host:port, `[IPv6]:port` and HTTP(S) URLs, with a normalized preview. A bare host does not imply an HTTP service. URL credentials are rejected. Original query parameters are used for the request but queries/fragments are removed from snapshots, JSON, PNG and rerun parameters; re-enter the original URL before rerunning a redacted target. Explicit handoff actions preserve the host and relevant port without passing URL paths to Ping.
+
+TCP/HTTP actually bind the selected source IP and record local/remote addresses. System DNS, direct DNS comparisons and route queries follow system policy without source binding. Source-bound ICMP/Trace, named IPv6 scopes and URL zone identifiers are unsupported and explicitly skipped/rejected. Use numeric interface scopes for link-local TCP endpoints. Selecting a source IP does not pin a physical egress interface through VPN/routing changes.
+
+HTTP/TLS uses compiled-in Rust HTTP/1.1, rustls and bundled Mozilla roots. It does not invoke curl, OpenSSL or other third-party programs, or read PATH, curl configuration, proxy or certificate environment overrides. Certificate validation is enabled by default. Explicitly add an enterprise PEM CA with advanced options or `--ca-file /path/to/ca.pem` (up to 1 MiB). The request snapshot records its path, without exporting certificate file contents. `--insecure-tls` visibly marks chain, name and time validation as skipped.
+
+HEAD reads no body. Response headers are limited to 64 KiB, 128 fields and 8 interim responses, with at most 5 redirects. Credentials, non-HTTP(S) redirects and HTTPS downgrades are rejected; no cookies, Authorization or Referer are sent. HEAD and GET may differ. This version uses HTTP/1.1 without system proxies or system certificate stores. Bundled roots update with releases; online revocation checks and fetching missing intermediates are not implemented.
+
+Execution completion is separate from diagnostic observations: HTTP 403/500, certificate errors and connection refusal retain their actual stages. Stop/Ctrl+C preserves partial evidence and exits 130. Timestamps use UTC; stage elapsed includes adapter overhead while protocol timing is separate. System DNS has a 5-second bound; each standalone TCP attempt and each entire HTTP hop (connect + TLS + response) uses the requested timeout, up to 8 candidate addresses; optional Trace has a 120-second bound. A single session does not establish long-term health or fault ownership.
+
+See [stage 3 verification and limitations](测试报告-第三阶段终端排障.md). Historical download assets do not include these source changes.

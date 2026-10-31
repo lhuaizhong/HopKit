@@ -48,6 +48,30 @@ struct Probe {
 }
 #[derive(Subcommand)]
 enum Command {
+    #[command(about = "Integrated endpoint troubleshooting / 终端综合排障")]
+    Check {
+        target: String,
+        #[arg(long, default_value_t = 2000)]
+        timeout_ms: u64,
+        /// Bind TCP/HTTP to a local numeric source IP / TCP、HTTP 实际绑定源 IP
+        #[arg(long, default_value = "")]
+        source: String,
+        #[arg(long, default_value = "")]
+        dns_server: String,
+        #[arg(long)]
+        insecure_tls: bool,
+        /// Add a PEM CA file to bundled roots / 显式添加 PEM CA
+        #[arg(long, default_value = "")]
+        ca_file: String,
+        #[arg(long)]
+        trace: bool,
+        #[arg(short = '6', long)]
+        ipv6: bool,
+    },
+    #[command(about = "Local interfaces, routes and DNS; no probes / 本机网络概览，不发送探测")]
+    Network,
+    #[command(about = "Normalize a target without probing / 预览目标，不发送探测")]
+    Target { input: String },
     #[command(about = "ICMP echo / 连通性测试")]
     Ping(Probe),
     #[command(
@@ -331,6 +355,32 @@ enum Syslog {
 fn request(cmd: Command) -> Result<Request, ToolError> {
     let mut r = Request::default();
     match cmd {
+        Command::Check {
+            target,
+            timeout_ms,
+            source,
+            dns_server,
+            insecure_tls,
+            ca_file,
+            trace,
+            ipv6,
+        } => {
+            r.port = hopkit_core::target::parse(&target)?.port.unwrap_or(0);
+            r.tool = "check".into();
+            r.target = target;
+            r.timeout_ms = timeout_ms;
+            r.source_address = source;
+            r.dns_server = dns_server;
+            r.insecure_tls = insecure_tls;
+            r.tls_ca_file = ca_file;
+            r.include_trace = trace;
+            r.ipv6 = ipv6;
+        }
+        Command::Network => r.tool = "network".into(),
+        Command::Target { input } => {
+            r.tool = "target".into();
+            r.target = input;
+        }
         Command::Ping(p) => {
             r.target = p.target;
             r.payload_size_bytes = p.size;

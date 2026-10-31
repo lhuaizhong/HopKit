@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>HopKit stage 3 fixture</title></head><body><div id="app"></div><script type="module">
+import {mockIPC} from '@tauri-apps/api/mocks'
+import {createApp} from 'vue'
+import App from '../src/App.vue'
+import '../src/style.css'
+import '../src/appearance.css'
+const result=await (await fetch('/test-output/check/source-target-secrets.json')).json()
+const tasks=[]
+let probes=0
+mockIPC(async(command,args)=>{
+ if(command==='parse_target'||command==='network_overview'){
+  const v=await (await fetch('http://127.0.0.1:18432/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command,...args})})).json()
+  if(v.status==='failed')throw v.error.message
+  return v.data
+ }
+ if(command==='app_info')return {version:'stage3-fixture',platform:'macOS · real Rust evidence fixture',os:'macOS'}
+ if(command==='list_tasks')return tasks.map(t=>({...t,result:null,events:[]}))
+ if(command==='start_task'){
+  const safe=await window.__TAURI_INTERNALS__.invoke('parse_target',{input:args.request.target})
+  const request={...args.request,target:safe.normalized};probes++
+  const task={id:'check-fixture-'+probes,tool:'check',action:'',target:safe.normalized,status:'succeeded',started_at:new Date().toISOString(),seq:1,events:[],request,result}
+  tasks.push(task);const pre=document.createElement('pre');pre.id='fixture-runs';pre.textContent=String(probes);document.body.append(pre);return task.id
+ }
+ if(command==='task_poll')return tasks.find(t=>t.id===args.id)
+ if(command==='export_result'){const pre=document.createElement('pre');pre.id='exported-json';pre.hidden=true;pre.textContent=args.content;document.body.append(pre);return true}
+ if(command==='export_result_image'){const img=document.createElement('img');img.id='exported-image';img.style.maxWidth='200px';img.src='data:image/png;base64,'+btoa(args.png.map(x=>String.fromCharCode(x)).join(''));document.body.append(img);return true}
+ throw Error('Unhandled fixture command: '+command)
+})
+createApp(App).mount('#app')
+</script></body></html>

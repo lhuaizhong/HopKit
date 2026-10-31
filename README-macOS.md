@@ -114,3 +114,9 @@ python3 scripts/macos_test.py --exe release/hopkit-0.1.0-alpha.1-macos-arm64/hop
 ## 内置 iperf3 测速
 
 左侧 iperf3 位于 TFTP 正上方，提供客户端和服务端，默认 5201 端口。实现内置于 Rust 核心，无需 Homebrew、外部 iperf3 或 libiperf。支持 TCP 上传/反向下载、1–16 并行流，UDP 单流限速、抖动和丢包，IPv4/IPv6、来源 CIDR、实时速率、停止和结果导出。UDP 同时使用同端口 TCP 控制连接。服务每次接受一个测试；不支持 iperf2、认证、同时双向传输、预热和按字节结束。CLI 用法与范围见 [中文说明](README.zh-CN.md#iperf3-网络测速)。
+
+## 第三阶段源码新增：网络排障首页
+
+本机概览使用 `ifconfig`、`netstat -rn`、`scutil --dns`、`networksetup -listallhardwareports`；目标路由使用 `route -n get`。这些查询不向公网发送探测。HTTP/TLS 使用内置 Rust HTTP/1.1 + rustls 和随程序分发的 Mozilla 根证书，仅发 HEAD，无需 curl/OpenSSL 可执行文件。需要信任企业 CA 时显式指定 `--ca-file` 或界面中的附加 CA 文件。指定源地址用于 TCP/HTTP 实际绑定，其他检查的能力限制会直接显示。
+
+使用 `hk network`、`hk target <目标>` 或 `hk check <目标>`；完整参数、脱敏和超时口径见 [中文说明](README.zh-CN.md#终端排障主流程第三阶段源码新增)。本机 macOS 12.7.6 Intel 核心/CLI、独立 HTTP/TLS 对端及浏览器 fixture 已验证，详见 [第三阶段测试报告](测试报告-第三阶段终端排障.md)。Windows、Apple Silicon、原生 WebView 新流程与多网卡/VPN 动态切换尚需对应环境验收。

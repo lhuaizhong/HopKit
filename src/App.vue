@@ -4,18 +4,22 @@ import { invoke } from '@tauri-apps/api/core'
 import { appearance } from './appearance'
 import { resultImage } from './result-image'
 import { preference, savePreference } from './preferences'
+import CheckSetup from './components/CheckSetup.vue'
+import CheckResults from './components/CheckResults.vue'
 
 type Row = Record<string, any>
 type TraceHop = {hop:number;probes:(Row|null)[];addresses:string[]}
 type Task = {id:string;tool:string;action:string;target:string;port?:number;status:string;started_at:string;seq:number;events:Row[];result:Row|null;request?:Row|null;latest_stats?:Row|null}
 const appInfo=ref({version:'',platform:'',os:''})
-const lang=ref(preference('language')==='zh-CN'?'zh-CN':'en-US')
+const savedLanguage=preference('language')
+const lang=ref(['zh-CN','en-US'].includes(savedLanguage??'')?savedLanguage!:(navigator.language.toLowerCase().startsWith('zh')?'zh-CN':'en-US'))
 const en=computed(()=>lang.value==='en-US')
 const t=(zh:string,english:string)=>en.value?english:zh
 const projectUrl='https://github.com/lhuaizhong/HopKit'
 const projectLinkError=ref('')
 async function openProject(){try{projectLinkError.value='';await invoke('open_project')}catch(e){projectLinkError.value=t('无法打开浏览器，请复制链接访问：','Could not open the browser. Copy this link: ')+projectUrl}}
 const tools=[
+ {id:'check',name:'HopKit',glyph:'◈',sub:['网络排障','Troubleshooting'],desc:['确认本机网络与目标，逐项检查并关联证据和下一步。','Confirm the local network and target, then review staged evidence and next steps.']},
  {id:'ping',name:'Ping',glyph:'↗',sub:['连通性测试','ICMP echo'],desc:['检测目标可达性、延迟与丢包。','Measure reachability, latency and packet loss.']},
  {id:'trace',name:'Traceroute',glyph:'⌁',sub:['路由追踪','Route tracing'],desc:['逐跳查看 ICMP 路径，识别响应与超时。','Inspect ICMP responses along the route.']},
  {id:'tcping',name:'TCPing',glyph:'⇄',sub:['TCP 端口测试','TCP connection'],desc:['测量 TCP 建连耗时，区分拒绝与超时。','Measure TCP connections, refusals and timeouts.']},
@@ -26,7 +30,7 @@ const tools=[
  {id:'ftp',name:'FTP',glyph:'⇆',sub:['文件传输与服务','File client / server'],desc:['浏览远端目录、上传下载文件，或启动临时 FTP 服务。','List remote files, upload and download, or start a temporary FTP server.']},
  {id:'syslog',name:'Syslog',glyph:'≡',sub:['临时日志','Temporary logs'],desc:['接收、保存并预览 UDP 设备日志。','Receive, save and preview device logs over UDP.']}
 ]
-const selected=ref('ping'),active=ref(''),tasks=ref<Task[]>([]),rows=ref<Row[]>([]),error=ref(''),loading=ref(false),filter=ref(''),expanded=ref(false),copied=ref(false)
+const selected=ref('check'),active=ref(''),tasks=ref<Task[]>([]),rows=ref<Row[]>([]),error=ref(''),loading=ref(false),filter=ref(''),expanded=ref(false),copied=ref(false)
 // List responses contain summaries only. Keep the selected snapshot separately
 // so refreshing the task center cannot remove its result or reset its scroll.
 const activeDetail=ref<Task|null>(null)
@@ -34,8 +38,8 @@ const exportingImage=ref(false),imageSaved=ref(false),imageCopied=ref(false)
 const imageError=ref('')
 watch(active,()=>{imageSaved.value=false;imageCopied.value=false;imageError.value=''})
 const reusableTarget=ref('')
-const defaults=()=>({target:'127.0.0.1',port:443,count:4,timeout_ms:1000,interval_ms:1000,payload_size_bytes:32,ipv6:false,max_hops:30,record_type:'A',dns_server:'',dns_mode:'system',path:'',remote_name:'config.cfg',action:'',listen:'0.0.0.0',allow:'',writable:false,overwrite:false,message:'HopKit test',continuous:false,ntp_stratum:10,duration_secs:0,ftp_username:'anonymous',ftp_password:'',ftp_remote_path:'',iperf_protocol:'tcp',iperf_parallel:1,iperf_reverse:false,iperf_bitrate_mbps:0})
-const form=reactive(defaults())
+const defaults=()=>({source_address:'',tls_ca_file:'',insecure_tls:false,include_trace:false,target:'127.0.0.1',port:443,count:4,timeout_ms:1000,interval_ms:1000,payload_size_bytes:32,ipv6:false,max_hops:30,record_type:'A',dns_server:'',dns_mode:'system',path:'',remote_name:'config.cfg',action:'',listen:'0.0.0.0',allow:'',writable:false,overwrite:false,message:'HopKit test',continuous:false,ntp_stratum:10,duration_secs:0,ftp_username:'anonymous',ftp_password:'',ftp_remote_path:'',iperf_protocol:'tcp',iperf_parallel:1,iperf_reverse:false,iperf_bitrate_mbps:0})
+const form=reactive({...defaults(),target:''})
 const configurations=new Map<string,ReturnType<typeof defaults>>()
 const modes=new Map<string,string>()
 const configKey=()=>`${selected.value}:${selected.value==='dns'?form.dns_mode:form.action}`
@@ -43,7 +47,7 @@ function saveConfig(){configurations.set(configKey(),{...form,ftp_password:''})}
 function loadConfig(id:string,mode:string){
  const key=`${id}:${mode}`
  const saved=configurations.get(key)
- Object.assign(form,saved??{...defaults(),action:mode,dns_mode:id==='dns'?mode:'system',port:({ntp:123,ftp:21,iperf3:5201,tftp:69,syslog:514} as Row)[id]??443,timeout_ms:['ftp','iperf3'].includes(id)?5000:id==='ntp'?2000:1000,interval_ms:id==='ntp'?2000:1000,duration_secs:id==='iperf3'&&mode!=='serve'?10:0})
+ Object.assign(form,saved??{...defaults(),target:id==='check'?'':'127.0.0.1',action:mode,dns_mode:id==='dns'?mode:'system',port:({ntp:123,ftp:21,iperf3:5201,tftp:69,syslog:514} as Row)[id]??443,timeout_ms:['ftp','iperf3'].includes(id)?5000:id==='ntp'?2000:1000,interval_ms:id==='ntp'?2000:1000,duration_secs:id==='iperf3'&&mode!=='serve'?10:0})
  form.ftp_password=''
 }
 function setMode(mode:string){if(mode===(selected.value==='dns'?form.dns_mode:form.action))return;saveConfig();modes.set(selected.value,mode);loadConfig(selected.value,mode)}
@@ -108,12 +112,14 @@ const number=(n:any,suffix='')=>n==null?'—':`${Number(n).toFixed(2)}${suffix}`
 // older poll was already in flight while start_task was being submitted.
 const pendingTasks=new Map<string,Task>()
 function pickTool(id:string){saveConfig();modes.set(selected.value,selected.value==='dns'?form.dns_mode:form.action);selected.value=id;loadConfig(id,modes.get(id)??({ftp:'list',tftp:'get',ntp:'query',iperf3:'client',syslog:'listen',dns:'system'} as Row)[id]??'');active.value='';activeDetail.value=null;rows.value=[];error.value='';expanded.value=false}
+function useCheckTarget(tool:string,target:Row){pickTool(tool);form.target=target.host;if(tool==='tcping'&&target.port)form.port=target.port}
 function reuseTarget(){if(reusableTarget.value)form.target=reusableTarget.value}
 async function rerun(item:Task){try{
  const detail=await invoke<Task>('task_poll',{id:item.id,after:0})
  if(!detail.request)return
  pickTool(detail.tool);setMode(detail.tool==='dns'?(detail.request.dns_server?'direct':'system'):detail.action)
  Object.assign(form,detail.request,{continuous:detail.request.count===0,dns_mode:detail.request.dns_server?'direct':'system',ftp_remote_path:detail.action==='list'?detail.request.remote_name:'',ftp_password:''})
+ if(detail.tool==='check'&&detail.request.target.includes('?[redacted]')){form.target='';error.value=t('URL 参数已脱敏，请重新输入原 URL。','URL parameters were redacted. Re-enter the original URL.');return}
  active.value='';activeDetail.value=null
  error.value=detail.tool==='ftp'?t('已载入请求快照，请重新填写 FTP 凭据后启动。','Request loaded. Re-enter FTP credentials and run.'):''
  }catch(e){error.value=String(e)}
@@ -127,13 +133,16 @@ async function start(){
  if(startDisabled.value)return
  error.value='';loading.value=true
  try{
-  const request={tool:selected.value,target:form.target.trim(),port:selected.value==='dns'?0:Number(form.port),count:form.continuous&&['ping','tcping'].includes(selected.value)?0:Number(form.count),timeout_ms:Number(form.timeout_ms),interval_ms:Number(form.interval_ms),payload_size_bytes:selected.value==='ping'?Number(form.payload_size_bytes):32,ipv6:form.ipv6,max_hops:Number(form.max_hops),record_type:form.dns_mode==='system'?'A':form.record_type,dns_server:selected.value==='dns'&&form.dns_mode==='direct'?form.dns_server.trim():'',path:form.path,remote_name:selected.value==='ftp'&&form.action==='list'?form.ftp_remote_path:form.remote_name,action:form.action,listen:form.listen.trim(),allow:form.allow.trim(),writable:form.writable,overwrite:form.overwrite,message:form.message,ntp_stratum:Number(form.ntp_stratum),duration_secs:selected.value==='iperf3'||['ntp','ftp'].includes(selected.value)&&service.value?Number(form.duration_secs):0,iperf_protocol:form.iperf_protocol,iperf_parallel:selected.value==='iperf3'&&form.iperf_protocol==='udp'?1:Number(form.iperf_parallel),iperf_reverse:form.iperf_reverse,iperf_bitrate_mbps:Number(form.iperf_bitrate_mbps),ftp_username:selected.value==='ftp'?form.ftp_username:'anonymous',ftp_password:selected.value==='ftp'?form.ftp_password:''}
+  const request={source_address:selected.value==='check'?form.source_address:'',tls_ca_file:selected.value==='check'?form.tls_ca_file:'',insecure_tls:form.insecure_tls,include_trace:form.include_trace,tool:selected.value,target:form.target.trim(),port:selected.value==='dns'?0:Number(form.port),count:form.continuous&&['ping','tcping'].includes(selected.value)?0:Number(form.count),timeout_ms:Number(form.timeout_ms),interval_ms:Number(form.interval_ms),payload_size_bytes:selected.value==='ping'?Number(form.payload_size_bytes):32,ipv6:form.ipv6,max_hops:Number(form.max_hops),record_type:form.dns_mode==='system'?'A':form.record_type,dns_server:selected.value==='check'||selected.value==='dns'&&form.dns_mode==='direct'?form.dns_server.trim():'',path:form.path,remote_name:selected.value==='ftp'&&form.action==='list'?form.ftp_remote_path:form.remote_name,action:form.action,listen:form.listen.trim(),allow:form.allow.trim(),writable:form.writable,overwrite:form.overwrite,message:form.message,ntp_stratum:Number(form.ntp_stratum),duration_secs:selected.value==='iperf3'||['ntp','ftp'].includes(selected.value)&&service.value?Number(form.duration_secs):0,iperf_protocol:form.iperf_protocol,iperf_parallel:selected.value==='iperf3'&&form.iperf_protocol==='udp'?1:Number(form.iperf_parallel),iperf_reverse:form.iperf_reverse,iperf_bitrate_mbps:Number(form.iperf_bitrate_mbps),ftp_username:selected.value==='ftp'?form.ftp_username:'anonymous',ftp_password:selected.value==='ftp'?form.ftp_password:''}
   if(selected.value==='dns'&&form.dns_mode==='direct'&&!request.dns_server)throw new Error(t('请输入 DNS 服务器 IP。','Enter a DNS server IP.'))
+  const normalized=selected.value==='check'?await invoke<Row>('parse_target',{input:request.target}):null
+  if(normalized)request.port=normalized.port??0
   const id=await invoke<string>('start_task',{request})
+  const safeRequest={...request,target:normalized?.normalized??request.target}
   form.ftp_password=''
-  const started:Task={id,tool:request.tool,action:request.action,target:['serve','listen'].includes(request.action)?`${request.listen}:${request.port}`:request.target,port:request.port,status:'running',started_at:String(Date.now()).padStart(20,'0'),seq:0,events:[],result:null,request:{...request,ftp_password:undefined}}
+  const started:Task={id,tool:request.tool,action:request.action,target:['serve','listen'].includes(request.action)?`${request.listen}:${request.port}`:safeRequest.target,port:request.port,status:'running',started_at:String(Date.now()).padStart(20,'0'),seq:0,events:[],result:null,request:{...safeRequest,ftp_password:undefined}}
   pendingTasks.set(id,started);tasks.value=[started,...tasks.value.filter(x=>x.id!==id)]
-  if(selected.value===request.tool){active.value=id;activeDetail.value=started;rows.value=[];reusableTarget.value=request.target}await poll()
+  if(selected.value===request.tool){active.value=id;activeDetail.value=started;rows.value=[];reusableTarget.value=normalized?.host??request.target}await poll()
  }catch(e){error.value=String(e)}finally{loading.value=false}
 }
 async function stop(){const id=stopTask.value?.id;if(!id)return;try{if(active.value!==id){active.value=id;rows.value=[]}await invoke('cancel_task',{id});await poll()}catch(e){error.value=String(e)}}
@@ -158,7 +167,7 @@ async function poll(){if(polling)return;polling=true;try{
   if(active.value!==id||rows.value!==preview)return
   if(detail.events.length){if(after&&detail.events[0].cursor>after+1)error.value=t('部分实时预览已淘汰；全程统计独立保留。','Some preview events expired; cumulative statistics are retained independently.');rows.value=[...preview,...detail.events].slice(-300)}
   activeDetail.value=detail
-  if(detail.request?.target&&!['serve','listen'].includes(detail.action))reusableTarget.value=detail.request.target
+  if(detail.request?.target&&!['serve','listen'].includes(detail.action))reusableTarget.value=detail.tool==='check'?(detail.result?.data?.target?.host??''):detail.request.target
  }
  }catch(e){error.value=String(e)}finally{polling=false}}
 async function exportData(){try{await invoke('export_result',{content:JSON.stringify({task:task.value,preview:rows.value,preview_scope:'bounded_recent_events',view:{filter:filter.value,chart_window:chartWindow.value,chart_scale:'linear_auto_max_ms',statistics_scope:'entire_task'}},null,2)})}catch(e){error.value=String(e)}}
@@ -211,7 +220,8 @@ onUnmounted(()=>clearInterval(timer))
    <main>
     <div class="page-heading"><div><div class="eyebrow">NETWORK DIAGNOSTICS</div><h1>{{current.name}}<span>{{en?current.sub[1]:current.sub[0]}}</span></h1><p>{{en?current.desc[1]:current.desc[0]}}</p></div><span class="local-pill"><span>◈</span>{{t('本机执行','LOCAL EXECUTION')}}</span></div>
     <div class="content-grid">
-     <section class="panel config-panel">
+     <section class="panel config-panel" v-if="selected==='check'"><CheckSetup :en="en" :config="form" :disabled="startDisabled" @run="start"/><div v-if="error" class="error" role="alert">{{error}}</div><button v-if="running" class="stop" @click="stop">■ {{t('停止排障','Stop troubleshooting')}}</button></section>
+     <section class="panel config-panel" v-else>
       <div class="panel-title"><h2>{{t('任务配置','Configuration')}}</h2><span>01</span></div>
       <form @submit.prevent="start">
        <template v-if="['ftp','tftp','syslog','ntp','iperf3'].includes(selected)"><label>{{t('操作模式','Operation')}}</label><div class="segmented"><button v-for="a in selected==='ftp'?['list','get','put','serve']:selected==='tftp'?['get','put','serve']:selected==='ntp'?['query','serve']:selected==='iperf3'?['client','serve']:['listen','send']" :key="a" type="button" :class="{chosen:form.action===a}" @click="setMode(a)">{{({client:t('客户端','Client'),list:t('目录','List'),get:t('下载','Download'),put:t('上传','Upload'),query:t('时间测量','Client'),serve:selected==='ntp'?t('时间服务','NTP Server'):selected==='iperf3'?t('服务端','Server'):t('文件服务','Server'),listen:t('接收','Receive'),send:t('发送','Send')} as Row)[a]}}</button></div></template>
@@ -257,7 +267,8 @@ onUnmounted(()=>clearInterval(timer))
       <section class="result-panel panel">
        <div class="panel-title"><h2>{{t('实时结果','Live results')}}<span v-if="task" :class="['status',task.status]">{{statusText(task.status)}}</span></h2><div class="result-tools"><button :disabled="!task?.result||exportingImage" @click="exportImage('file')">{{exportingImage?t('正在导出…','Exporting…'):t('导出图片','Export image')}}</button><button :disabled="!task?.result||exportingImage" @click="exportImage('clipboard')">{{imageCopied?t('图片已复制','Image copied'):t('复制图片','Copy image')}}</button><span v-if="imageSaved" role="status">{{t('图片已保存','Image saved')}}</span><button :disabled="!task" @click="copy">{{copied?t('已复制','Copied'):t('复制','Copy')}}</button><button :disabled="!task" @click="exportData">{{t('导出 JSON','Export JSON')}}</button></div></div>
        <div v-if="imageError" class="result-error" role="alert">{{imageError}}</div>
-       <div v-if="!active" class="empty-state"><div class="radar"><span></span><i></i><b>⌁</b></div><h3>{{t('准备就绪，开始第一次测试','Ready for your first test')}}</h3><p>{{t('配置左侧参数，结果将实时显示在这里。','Configure a task on the left. Results will appear here.')}}</p><div class="example">{{t('快速开始','QUICK START')}}<code>hk {{resultTool==='ntp'&&resultService?'ntp serve --help':['ftp','tftp','iperf3'].includes(resultTool)?resultTool+' --help':resultTool==='syslog'?'syslog --help':resultTool+' 127.0.0.1'+(resultTool==='tcping'?' 443':'')}}</code></div></div>
+       <div v-if="resultTool==='check'"><CheckResults :data="data" :events="rows" :en="en" @use="useCheckTarget"/><p v-if="task?.result?.error" class="result-error">{{statusText(task.status)}} · {{task.result.error.code}}</p></div>
+       <div v-else-if="!active" class="empty-state"><div class="radar"><span></span><i></i><b>⌁</b></div><h3>{{t('准备就绪，开始第一次测试','Ready for your first test')}}</h3><p>{{t('配置左侧参数，结果将实时显示在这里。','Configure a task on the left. Results will appear here.')}}</p><div class="example">{{t('快速开始','QUICK START')}}<code>hk {{resultTool==='ntp'&&resultService?'ntp serve --help':['ftp','tftp','iperf3'].includes(resultTool)?resultTool+' --help':resultTool==='syslog'?'syslog --help':resultTool+' 127.0.0.1'+(resultTool==='tcping'?' 443':'')}}</code></div></div>
        <template v-else>
         <div class="result-meta"><code>{{task?.target}}</code><span v-if="task?.tool==='tcping'&&task.port!=null" class="tcp-port">{{t('TCP 端口','TCP port')}} {{task.port}}</span><span v-if="resultTool==='ping'&&probeSize!=null">{{t('测试包','Packet')}} {{probeSize}} B</span><span>{{active.slice(0,8)}} · {{t('本地任务','local task')}}</span></div>
         <div v-if="['ping','tcping','trace'].includes(resultTool)" class="statistics-note">

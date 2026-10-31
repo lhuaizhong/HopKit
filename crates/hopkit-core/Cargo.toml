@@ -13,6 +13,10 @@ uuid.workspace = true
 socket2 = { version = "0.6", features = ["all"] }
 ipnet = "2"
 fs2 = "0.4"
+url = "2"
+rustls = { version = "0.23", default-features = false, features = ["std", "ring", "tls12"] }
+webpki-roots = "1"
+httparse = "1"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_NetworkManagement_IpHelper", "Win32_Networking_WinSock", "Win32_Storage_FileSystem"] }
