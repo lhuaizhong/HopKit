@@ -1,96 +1,98 @@
-# HopKit Network Toolkit — Windows / macOS Preview
+# HopKit
 
-[简体中文](README.zh-CN.md)
+**Network diagnostics and temporary services for Windows and macOS**
 
-Version: `0.1.0-alpha.1`. This source tree provides a desktop GUI and standalone CLI for network diagnostics and temporary NTP/FTP/TFTP/Syslog services. See [README-macOS.md](README-macOS.md) for macOS startup, build, architecture, and validation details. The Windows instructions are below.
+[简体中文](README.zh-CN.md) · [macOS guide](README-macOS.md) · [Report an issue](https://github.com/lhuaizhong/HopKit/issues)
 
-## Historical downloads
+HopKit combines endpoint troubleshooting, network measurements, file transfer, and log collection in a desktop GUI and an independent CLI. Both share a Rust core, providing consistent results for interactive work and automation.
 
-**This branch is HopKit (formerly netbox). No HopKit release is published yet. The following downloads are historical netbox builds and do not include `hk`; build this branch for the new names.**
+**Version: `0.1.0-alpha.1` — evaluation preview.** This README describes the current source tree. Historical downloads use the former **netbox** name and do not include `hk` or subsequent source additions. Build from source to use the capabilities documented here.
 
-[Historical release v0.1.0-alpha.1](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-alpha.1) · [SHA256SUMS.txt](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt)
+## Capabilities
 
-| Platform / format | Download |
+| Tool | Capabilities |
 | --- | --- |
-| Windows x64 | [netbox-0.1.0-alpha.1-windows-x64-setup.exe](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-setup.exe) |
-| Windows x64 portable EXE | [netbox-0.1.0-alpha.1-windows-x64-portable.exe](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.exe) |
-| Windows x64 portable ZIP + CLI | [netbox-0.1.0-alpha.1-windows-x64-portable.zip](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.zip) |
-| macOS Apple Silicon DMG | [netbox-0.1.0-alpha.1-macos-arm64.dmg](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg) |
-| macOS Intel DMG | [netbox-0.1.0-alpha.1-macos-x86_64.dmg](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg) |
+| Troubleshooting | Local network overview; staged DNS, route, ICMP, TCP, and HTTP/TLS evidence; possible causes and next steps |
+| Network / target | Inspect interfaces, addresses, gateways, DNS, and default routes; normalize targets without sending probes |
+| Ping | IPv4/IPv6, finite or continuous probes, configurable payload/timeout/interval, latency, and packet loss |
+| Traceroute | ICMP tracing, three probes per hop, configurable hop limit, response addresses, and destination status |
+| TCPing | TCP connection timing with separate success, refusal, and timeout results |
+| DNS | System resolver or a specified server; A/AAAA/CNAME/MX/TXT/NS/PTR/SOA queries; TCP fallback for truncated UDP replies |
+| NTP | Clock offset, delay, stratum, and KoD detection; temporary NTPv3/v4 server; no system clock changes |
+| iperf3 | Built-in TCP/UDP throughput client/server, reverse download, parallel TCP streams, UDP jitter/loss, and live rates |
+| FTP | Passive client with directory listing and binary upload/download; temporary IPv4/IPv6 server with anonymous or password login; read-only by default |
+| TFTP | octet-mode upload/download and temporary server; atomic local writes; read-only server by default |
+| Syslog | UDP send/receive, priority extraction, sampled preview, and rotating JSONL files preserving original message bytes |
 
-The Release page also includes macOS ZIPs with the CLI and per-file SHA-256 checksums. The Windows installer includes the GUI and CLI and downloads WebView2 if missing. Run the portable EXE directly; the ZIP also includes the CLI. Open the macOS DMG and drag HopKit to Applications. This is a prerelease: Windows binaries are unsigned; macOS apps are ad-hoc signed without Apple notarization, so the OS may warn about an unverified publisher. Both macOS architectures target macOS 11.0 or later; the minimum OS has not been tested on hardware.
+## Downloads and startup
 
-## Getting started
+[Historical release v0.1.0-alpha.1](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-alpha.1) · [SHA-256 checksums](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt)
 
-Extract the release archive into a writable local directory and run `HopKit.exe`. The GUI requires the system Microsoft Edge WebView2 Runtime, which is usually installed on recent Windows systems. If the GUI cannot start, use `hopkit-cli.exe` independently and install the runtime from [Microsoft's WebView2 page](https://developer.microsoft.com/microsoft-edge/webview2/).
-
-The package does not modify PATH, install system services, add firewall rules, or contact update servers automatically. Basic tools run as an ordinary user. To let devices access temporary listeners, allow inbound traffic according to your local firewall policy.
-
-## Features
-
-| Tool | GUI / CLI capabilities |
+| Platform | Historical netbox package |
 | --- | --- |
-| Ping | Windows ICMP API / macOS Darwin ICMP; IPv4/IPv6, finite or continuous probes, payload size, timeout, interval, latency, and packet loss |
-| Traceroute | ICMP hop-by-hop tracing with three probes per hop and a configurable hop limit; an unresponsive hop alone does not prove a broken route |
-| TCPing | TCP connect timing to a specified port, distinguishing successful connections, refusals, and timeouts |
-| DNS | System resolver or a specified DNS server; A/AAAA/CNAME/MX/TXT/NS/PTR/SOA queries, with TCP fallback for truncated UDP replies |
-| NTP | Client: 1–20 samples, offset/delay/stratum and KoD; temporary NTPv3/v4 UDP server with IPv4/IPv6, source CIDRs and statistics; never changes the system clock |
-| iperf3 | Native Rust TCP/UDP throughput client/server; IPv4/IPv6, upload/reverse download, 1–16 TCP streams, single-stream paced UDP, live bitrate, jitter/loss and source CIDRs; no external iperf3 installation |
-| FTP | Passive binary client: directory listing, upload and download; temporary IPv4/IPv6 server, anonymous or password login, source CIDRs, read-only by default |
-| TFTP | octet/512-byte transfers, upload/download, and a temporary server; atomic local writes, no overwrite by default, read-only server by default |
-| Syslog | UDP send/receive, priority extraction, sampled live preview, JSONL files with original message bytes, and segment rotation |
+| Windows x64 | [Installer](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-setup.exe) |
+| Windows x64 | [Portable EXE](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.exe) · [Portable ZIP with CLI](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.zip) |
+| macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg) |
+| macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg) |
 
-The GUI starts in **English** on first use. Use the **中文 / English** button in the header to switch languages; a saved language preference takes precedence on subsequent launches. The CLI also defaults to English; use `--lang zh-CN` for Chinese result headings. Some preview CLI help and error messages are still bilingual, and machine-readable field names remain English.
+The release page also provides macOS ZIPs with the CLI and per-file checksums. Historical archives retain their original executable names; the following names apply to current source builds.
 
-The footer’s **GitHub · Share & updates** link opens this project in your default browser for sharing and updates.
+- **Windows:** install the package or extract the ZIP into a writable local directory, then run `HopKit.exe`. The GUI requires [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/); the installer downloads it if missing. The installer and portable ZIP include the CLI; the single portable EXE contains only the GUI.
+- **macOS:** choose the package for your CPU, open the DMG, and drag `HopKit.app` to Applications, or extract the app ZIP. The GUI uses the system WKWebView. ZIPs provide the CLI; release DMGs place it in `HopKit.app/Contents/Resources/`. See the [macOS guide](README-macOS.md).
 
-The GUI includes appearance switching, live results, a session task center, individual/all-task cancellation, copy, and JSON export. It supports up to four active tasks and retains the latest 40 tasks. Closing the GUI stops its tasks. CLI processes run independently.
+Windows preview binaries are unsigned; macOS apps use ad-hoc signing without Apple notarization. Minimum OS versions, older Windows LTSC editions, and untested hardware are not certified. A successful build alone does not establish runtime compatibility.
 
-Use **Appearance → Fresh / Easy to read** in the header to change styles. Easy to read uses larger text, darker secondary text and status colors, clearer input borders, and stronger keyboard focus indicators. Configuration and results stack vertically in narrower windows. Changes take effect immediately and are saved locally. Fresh is the initial appearance.
+Basic tools run as an ordinary user. Packages do not modify PATH, install persistent services, add firewall rules, or check for updates automatically. The CLI needs no WebView2, Node, Python, or development toolchain.
 
-Ping accepts payload sizes from 0 to 65,500 bytes, with a default of 32. This is the ICMP data size, excluding IP and ICMP headers. Use `--size` in the CLI; results and exported JSON record it as `payload_size_bytes`. Large-packet reachability depends on MTU, fragmentation, and device policy.
+## GUI workflow
 
-## CLI examples
+1. Review interfaces, addresses, gateways, DNS, and routes on the default **Troubleshooting** page. The overview refreshes every 15 seconds without public network probes.
+2. Enter an IP, hostname, `host:port`, `[IPv6]:port`, or HTTP(S) URL. Review the normalized target; use advanced options for source IP, DNS comparison, timeout, traceroute, or an additional CA.
+3. Start the check and inspect evidence, possible causes, and next steps. Use individual sidebar tools for further investigation.
+4. Copy results or export JSON. After completion, **Export image / Copy image** captures displayed metrics, charts, tables, language, appearance, and filters as PNG. Images contain the retained preview; use Syslog files for complete received logs.
 
-After a task finishes, use **Export image** or **Copy image** in Live results to save a PNG or copy it to the clipboard. The image preserves the displayed metric cards, charts, table, status, language and appearance. Scrollable result rows are expanded in a detached copy; current filters are respected. JSON, action buttons and the task center are excluded. The live page and its scroll position stay unchanged. Only the retained GUI preview is captured; this is not a complete Syslog log.
+The GUI starts in English with the **Fresh** appearance. Switch **中文 / English** or **Appearance → Fresh / Easy to read** in the header; preferences are saved locally. Easy to read increases text size, contrast, and focus visibility. CLI output defaults to English; `--lang zh-CN` changes result headings. Machine-readable fields remain English; some preview help/errors remain bilingual.
 
-Run these commands in PowerShell from the release directory:
+The task center supports **4 concurrent tasks** and **40 session tasks**, with active tasks pinned above filterable history. Opening a task preserves the form; **Rerun** loads its saved request for review. Tool/mode parameters are retained separately during the session. Stop tasks individually or use **Stop all**; partial evidence is preserved. Closing the GUI stops its tasks while independent CLI processes continue. Task history and tool configurations do not persist across restarts.
 
-```powershell
-.\hopkit-cli.exe ping 127.0.0.1
-.\hopkit-cli.exe ping 127.0.0.1 --size 1472
-.\hopkit-cli.exe ping ::1 -6 -c 4 --format json
-.\hopkit-cli.exe trace 192.168.1.1 --max-hops 15
-.\hopkit-cli.exe tcping 192.168.1.1 443 -c 10
-.\hopkit-cli.exe dns example.com
-.\hopkit-cli.exe dns example.com AAAA -s 192.168.1.1
-.\hopkit-cli.exe ntp 192.168.1.10 -c 4
-.\hopkit-cli.exe ntp serve --listen 192.168.1.100 --allow 192.168.1.0/24
-.\hopkit-cli.exe ntp serve --listen 127.0.0.1 --port 1123 --duration 60 --format jsonl
-.\hopkit-cli.exe ftp list 192.168.1.10 /backups --user operator
-.\hopkit-cli.exe ftp get 192.168.1.10 /backups/config.cfg -o .\config.cfg
-.\hopkit-cli.exe ftp put 192.168.1.10 .\config.cfg --remote-name /backups/config.cfg
-.\hopkit-cli.exe ftp serve --root D:\FtpFiles --port 2121 --allow 192.168.1.0/24 --write
-.\hopkit-cli.exe tftp get 192.168.1.10 config.cfg -o .\config.cfg
-.\hopkit-cli.exe tftp put 192.168.1.10 .\config.cfg
-.\hopkit-cli.exe tftp serve --root D:\TftpFiles --listen 192.168.1.100 --allow 192.168.1.0/24
-.\hopkit-cli.exe syslog listen --listen 192.168.1.100 --allow 192.168.1.0/24 --dir D:\DeviceLogs
-.\hopkit-cli.exe syslog send 192.168.1.10 "HopKit test"
-.\hopkit-cli.exe doctor --format json
-.\hopkit-cli.exe --help
+Ping/TCPing statistics cover the entire task independently of the recent preview. Interrupted calls are counted separately and excluded from latency and failure rates. Charts show the latest 20/80/200 available samples; filters do not change cumulative metrics. Traceroute reports each hop separately: TTL expiry is a hop response, and an intermediate timeout alone does not establish a broken route.
+
+## CLI usage
+
+Run from the extracted package directory:
+
+| Platform | Full CLI | Equivalent short entry |
+| --- | --- | --- |
+| Windows PowerShell | `.\hopkit-cli.exe` | `.\shortcuts\hk.exe` |
+| macOS Terminal | `./hopkit-cli` | `./shortcuts/hk` |
+
+Examples use `hk`; replace it with the appropriate entry above, or manually add `shortcuts` to PATH after checking for an existing command. The short entry is an identical binary copy with the same arguments, output, and exit codes. New packages do not distribute `nb`. Replace example LAN addresses and file paths with your own.
+
+### Diagnostics
+
+```sh
+hk network --format json
+hk target 'https://example.com:8443/path' --format json
+hk check example.com --format json
+hk check 192.168.1.1:443 --timeout-ms 2000 --format json
+hk check 'https://example.com/path' --source 192.168.1.10 --format json
+hk check example.com --dns-server 192.168.1.1 --trace --format jsonl
+hk check 'https://example.com/' --ca-file ./enterprise-ca.pem --format json
+hk ping 127.0.0.1 --size 1472
+hk ping ::1 -6 -c 4 --format json
+hk trace 192.168.1.1 --max-hops 15
+hk tcping 192.168.1.1 443 -c 10
+hk dns example.com AAAA -s 192.168.1.1
+hk ntp 192.168.1.10 -c 4
+hk doctor --format json
+hk --help
 ```
 
-LAN addresses are examples: replace them with the actual target or local interface address. FTP defaults to TCP 21, NTP to UDP 123, TFTP to UDP 69 and Syslog to UDP 514. Use `--port 2121`, `--port 1123`, `--port 1069` or `--port 1514` to test alternate ports.
-
-GUI and CLI listeners bind to `0.0.0.0` (all IPv4 interfaces) by default. An empty source allowlist accepts all sources. Use `--allow` with comma-separated CIDRs to restrict access. Set `--listen` to a local interface IP, `::` for all IPv6 interfaces, or `127.0.0.1` / `::1` for local-only access.
-
-In the GUI, select **NTP → NTP Server**, set the listen address/port, source CIDRs, stratum and duration, then click **Start service**. A duration of 0 runs until stopped. Live counters show received/replied requests, denied sources and invalid packets; send failures are shown below the preview. Stop, Stop all and quitting the GUI release its listener. Client measurements remain available while the server runs.
-
-The temporary server uses the host system clock as a local reference, with an advertised stratum of 10 by default (`--stratum 1..15`). It does not verify upstream synchronization or adjust the clock; its accuracy depends on the host. It supports only basic 48-byte, unauthenticated NTPv3/v4 client requests and server replies, following the timestamp layout in [RFC 5905](https://www.rfc-editor.org/rfc/rfc5905.html#section-8). Authentication/NTS, extension fields, broadcast, peer and control modes are unsupported. Request previews are sampled; counters include every received datagram, with a final `stopped` event on cancellation or duration expiry. These source changes do not alter the previously published release binaries.
+Ping payload size is **0–65,500 bytes**, default **32**, excluding IP/ICMP headers; JSON records it as `payload_size_bytes`. Large packets depend on path MTU, fragmentation, and device policy.
 
 ### iperf3 network speed test
 
-Select **iperf3** immediately above **TFTP**. Start **Server** on one computer and **Client** on another, using the server IP and port (default 5201). Both peers can use HopKit, or interoperate with standard iperf3. The wire protocol and data transport are implemented in Rust; no executable, libiperf or runtime download is needed.
+Start a server on one computer and a client on another. Both ends may use HopKit, or a supported standard iperf3 peer. The Rust implementation needs no external iperf3 executable, libiperf, or runtime download.
 
 ```sh
 hk iperf3 serve --listen 0.0.0.0 --port 5201
@@ -99,111 +101,106 @@ hk iperf3 client 192.168.1.10 --duration 10 -R
 hk iperf3 client 192.168.1.10 -u --bitrate-mbps 10 --format json
 ```
 
-TCP supports 1–16 streams and an optional target rate per stream (0 = unlimited). UDP supports one stream, 1–10000 Mbps and 1200-byte client datagrams. UDP tests also require TCP on the same port. Test duration is 1–3600 seconds; server duration is 0–86400 seconds (0 = until stopped). Servers process one test at a time and support source CIDRs. Live local rates update every 0.5 seconds. Cancellation preserves partial byte counts, elapsed time and local statistics; peer metrics remain unavailable until result exchange. Results support history, rerun, JSON and image export.
+TCP supports **1–16 streams**; target rates apply per stream, with 0 meaning unlimited. UDP supports **one stream**, **1–10,000 Mbps**, and 1,200-byte client datagrams, plus TCP control traffic on the same port. Client duration is 1–3,600 seconds; server duration is 0–86,400 seconds, with 0 meaning until stopped. Servers handle one test at a time. Rates update every 0.5 seconds; cancellation preserves partial local statistics, while peer metrics require result exchange.
 
-Unsupported: iperf2, authentication, SCTP, simultaneous bidirectional tests, omit/warm-up, byte/block-count termination, parallel UDP, GSO/GRO, and custom MSS/window/TOS/congestion tuning. Unsupported client modes are explicitly rejected without stopping the server. TCP retransmits and CPU utilization are not measured; CPU fields are wire-format placeholders, not measurements. Optional standard iperf3 paths in `scripts/iperf3-test.py` are development-only test peers; native tests run with an empty PATH.
+### File transfer and temporary services
 
-Select **FTP** immediately below **TFTP** in the GUI for **List / Download / Upload / Server**. Choose the local root, listen address, port, credentials, source CIDRs and duration for a server. Anonymous read-only access is the default; enable uploads explicitly to create new files. A named account requires a password. Server counters, task cancellation and JSON export use the same task center as the other tools. Passwords are omitted from serialized requests and results. CLI passwords come from `HOPKIT_FTP_PASSWORD` (falling back to `NETBOX_FTP_PASSWORD` only when absent), or the variable named by `--password-env`; for example, set `$env:HOPKIT_FTP_PASSWORD='your-password'` in PowerShell before using `--user operator`. Do not put a password in a target URL.
+```sh
+hk ftp list 192.168.1.10 /backups --user operator
+hk ftp get 192.168.1.10 /backups/config.cfg -o ./config.cfg
+hk ftp put 192.168.1.10 ./config.cfg --remote-name /backups/config.cfg
+hk ftp serve --root ./files --port 2121 --allow 192.168.1.0/24 --write
+hk tftp get 192.168.1.10 config.cfg -o ./config.cfg
+hk tftp put 192.168.1.10 ./config.cfg
+hk tftp serve --root ./files --port 1069 --allow 192.168.1.0/24
+hk ntp serve --listen 127.0.0.1 --port 1123 --duration 60 --format jsonl
+hk syslog listen --port 1514 --allow 192.168.1.0/24 --dir ./logs
+hk syslog send 127.0.0.1 'HopKit test' --port 1514
+```
 
-`shortcuts/hk.exe` is a copy of `hopkit-cli.exe`, with identical arguments, output and exit codes. Use `.\shortcuts\hk.exe --help` without changing PATH. Check for an existing `hk` before adding the shortcuts directory yourself; installers never change PATH or overwrite a system command. New packages do not distribute `nb`.
+For named FTP login, set `HOPKIT_FTP_PASSWORD` before using `--user`: PowerShell uses `$env:HOPKIT_FTP_PASSWORD='your-password'`; macOS uses `export HOPKIT_FTP_PASSWORD='your-password'`. Only an absent variable falls back to `NETBOX_FTP_PASSWORD`; an empty new value still takes precedence. Use `--password-env` for another variable. Passwords are excluded from caches, snapshots, and exports, and must be re-entered for reruns. Supply a host/IP without URL credentials.
 
-See [migration and compatibility](MIGRATION.md) for legacy settings, FTP password priority, log directories and package contents. New Windows installers and portable ZIPs contain both CLI entries; the single portable EXE contains only the GUI. macOS ZIPs contain both CLI entries; release DMGs include them in `HopKit.app/Contents/Resources/`.
+### Output and exit codes
 
-`--format json` emits one object for a finite task. `--format jsonl` emits events line by line for continuous probes and services. For services, `--duration <seconds>` enables automatic stopping; the default of 0 runs until Ctrl+C. A duration-limited service can also emit a final JSON object.
+`--format json` emits one final object for finite tasks, including duration-limited services. Use `--format jsonl` for event streams and continuous operations. Services default to `--duration 0` and run until Ctrl+C. Trace uses `schema_version: 2`; other commands use version 1.
 
-Exit codes: 0 = diagnostic criterion met; 1 = network/remote result did not meet the criterion; 2 = invalid arguments; 3 = local permissions, resource conflict, or unsupported capability; 4 = local I/O or output failure; 130 = cancelled. Ping/TCPing succeed if at least one probe receives a response; `--strict` requires zero loss. Task `status=succeeded` means the operation completed; inspect `data.success` and the exit code for the diagnostic outcome.
+| Code | Meaning |
+| --- | --- |
+| `0` | Command completed and its applicable diagnostic criterion was met |
+| `1` | Network or remote result did not meet the criterion |
+| `2` | Invalid arguments |
+| `3` | Local permissions, resource conflict, or unsupported capability |
+| `4` | Local I/O or output failure |
+| `130` | Cancelled; partial results are preserved when available |
 
-## Preview limitations
+`status=succeeded` means execution completed. Inspect `data.success` where present, the exit code, and individual evidence. A completed `check` can retain HTTP 403/500, certificate errors, or connection refusals. Ping/TCPing succeed with at least one successful probe; `--strict` requires zero loss.
 
-- The Windows package targets x64. See `README-macOS.md` for macOS packages and supported execution scope. Verified systems and artifact hashes are recorded in `测试报告.md` and `validation/`. Older LTSC releases, minimum Windows 10 configurations, other architectures, and real device models have not been certified.
-- The GUI is portable and uses the installed WebView2 Runtime; no private Fixed Version runtime is bundled. The CLI requires no WebView2, Node, Python, or development tools.
-- FTP is plaintext, following basic [RFC 959](https://www.rfc-editor.org/rfc/rfc959.html) commands and [RFC 2428](https://www.rfc-editor.org/rfc/rfc2428.html) EPSV, with IPv4 PASV fallback. There is no FTPS/SFTP, active mode, resume, ASCII file conversion, deletion, rename or directory creation. The server permits four concurrent control sessions, supports LIST/NLST/MLSD and existing subdirectories, and hides unsafe filenames and symbolic links. Select a trusted local root without concurrent external path changes. Uploads create new files atomically and never replace server files; local downloads replace files only with `--overwrite` and after a successful final reply. Other FTP servers may replace their files on upload. Listings are limited to 10,000 entries / 4 MiB. Data ports are dynamically assigned by the OS; LAN firewall rules must allow the application's TCP data connections. After an interrupted upload, check the remote file before retrying. Published release binaries do not include these new source changes.
-- TFTP supports octet mode, 512-byte blocks, one active transfer, and single-component filenames within the selected root. There is no blksize negotiation, block-number rollover, netascii, or resume support. The maximum file size is 33,553,919 bytes. Server uploads only create new files and never overwrite existing files. Transfer ports are allocated by the OS rather than a fixed TID range; LAN firewall rules must permit the application's actual UDP traffic.
-- TFTP waits one second per block and retries up to five times. The receiver waits two seconds after committing a transfer. If an upload's final ACK is lost, the remote file may already exist. Choose a trusted local directory for the server root.
-- Syslog uses UDP and a dedicated receive/write thread, without the planned asynchronous queue, SQLite index, or advanced queries. Production throughput is not guaranteed. After the first ten messages, the preview is sampled at approximately 20 messages per second. The GUI filters the latest 200 preview events; full received messages are saved under `hopkit-syslog/` in the selected directory.
-- Syslog preserves original bytes as `raw_hex` alongside decoded text with UTF-8 replacement. Segments are 64 MiB, with a seven-day / approximately 2 GiB retention cap. Cleanup occurs when a segment closes, allowing a temporary overrun of up to one segment. Writes are synchronized every second and again on normal shutdown. Strict crash recovery and index rebuilding are not guaranteed; forced termination can leave a partial final line. Writing stops below 1 GiB of free disk space.
-- ICMP and TCP connect calls may wait for the configured timeout, one second by default. Cancellation takes effect when the current call returns. DNS TCP fallback can also wait for read/write timeouts. A cancellation P95 of at most one second is not guaranteed for all settings.
-- AI/MCP, automatic updates, update signature verification, permanent history, configuration import/export, and Syslog TCP/TLS are outside this evaluation build. Telemetry is disabled. Diagnostic network requests are initiated by user actions.
-- Executables have no commercial code signature and use a local preview application identity. This preview does not represent full acceptance against the v0.3 production design.
+## Usage notes and limitations
 
-## Suggested evaluation sequence
+### Troubleshooting scope
 
-1. Ping `127.0.0.1`, then Ping/Traceroute your gateway. Check success, timeout, cancellation, and English/Chinese display.
-2. Run TCPing against known open and closed ports to check connection, refusal, and timeout results.
-3. Compare system DNS and corporate DNS A/AAAA results. Check clock offset against a reachable NTP server.
-4. Transfer a small TFTP configuration file in a controlled directory and verify its contents before testing real devices. The server is read-only by default; explicitly allow file creation for backup uploads.
-5. Start Syslog on UDP 1514 and send a test message to the local LAN IP. Verify both preview and JSONL output, then restrict source networks as needed.
-6. Run multiple tasks and check stop-all, GUI shutdown, and independent CLI lifecycles.
+Targets support IPs, internationalized domains, explicit ports, and HTTP(S) URLs. A bare host does not imply HTTP. URL credentials are rejected. Requests use the original query, but snapshots, JSON, PNG, and rerun parameters remove queries/fragments; re-enter the original URL when needed. Target handoff passes the host and relevant port to individual tools.
 
-When reporting an issue, include the app version, Windows version, tool parameters, expected/actual result, and exported JSON. Review and redact sensitive logs before sharing.
+TCP/HTTP bind the selected source IP and record local/remote addresses. System DNS, specified DNS comparisons, and route queries follow system policy without source binding. Selecting a source skips ICMP/Trace, which do not support source binding. Link-local TCP requires numeric IPv6 interface scopes; named scopes and URL zone identifiers are unsupported. Source selection does not guarantee a fixed physical interface through route/VPN changes.
+
+HTTP/TLS uses built-in HTTP/1.1, rustls, and Mozilla roots, without curl/OpenSSL programs, system proxies/certificate stores, or proxy/certificate environment overrides. It sends **HEAD only**, reads no body, and follows at most **5 redirects**. Credentials, non-HTTP(S) redirects, and HTTPS downgrades are rejected; no Cookie, Authorization, or Referer is sent. Headers are limited to 64 KiB, 128 fields, and 8 interim responses. HEAD and GET results may differ.
+
+Validation is enabled by default. Add an enterprise PEM CA with `--ca-file` (maximum 1 MiB); snapshots record its path without file contents. `--insecure-tls` visibly marks chain, hostname, and time validation as skipped. Roots update with releases; online revocation checks and missing-intermediate retrieval are unsupported.
+
+System DNS has a 5-second bound. Each TCP attempt and entire HTTP hop uses the selected timeout, with up to 8 candidate addresses; optional Trace is bounded to 120 seconds. Evidence timestamps use UTC; stage duration includes adapter overhead, with protocol timing recorded separately. Some ICMP/TCP/DNS calls may wait until timeout before cancellation. One session does not establish long-term availability or fault ownership.
+
+### Temporary service configuration
+
+Listeners default to `0.0.0.0` (all IPv4 interfaces); an empty allowlist on a non-loopback listener accepts all sources. Use `--listen` for a local IP, `::` for all IPv6 interfaces, or `127.0.0.1` / `::1` for local-only access. Restrict sources with `--allow` and comma-separated CIDRs. The GUI exposes the same settings in server/receive mode.
+
+| Service | Default port | Alternative for testing |
+| --- | --- | --- |
+| FTP | TCP 21 | 2121 |
+| NTP | UDP 123 | 1123 |
+| TFTP | UDP 69 | 1069 |
+| Syslog | UDP 514 | 1514 |
+| iperf3 | TCP 5201; UDP tests also use UDP 5201 | Any available port |
+
+Port access depends on permissions, occupancy, and firewall policy; services do not elevate privileges or switch ports automatically. FTP/TFTP servers are read-only by default; `--write` permits new files without replacing existing server files. Choose trusted roots without concurrent external path changes. FTP data connections and TFTP transfer sockets use OS-assigned ports that must be allowed through the firewall.
+
+### Protocol and storage limits
+
+- **NTP:** 1–20 client samples. The server uses the host clock, advertises stratum 10 by default (`--stratum 1..15`), and neither verifies upstream synchronization nor adjusts time. Only basic 48-byte unauthenticated NTPv3/v4 requests; no NTS, extensions, broadcast, peer, or control modes. Counters cover all received datagrams; previews are sampled.
+- **iperf3:** no iperf2, authentication, SCTP, simultaneous bidirectional tests, warm-up, byte/block-count termination, parallel UDP, GSO/GRO, or custom MSS/window/TOS/congestion tuning. TCP retransmits and CPU usage are not measured; protocol CPU placeholders are not measurements.
+- **FTP:** plaintext passive mode, EPSV with IPv4 PASV fallback, up to 4 control sessions, and LIST/NLST/MLSD within existing subdirectories. No FTPS/SFTP, active mode, resume, ASCII conversion, deletion, rename, or directory creation. Listings are limited to 10,000 entries / 4 MiB; symbolic links and unsafe filenames are hidden. Downloads replace local files only with `--overwrite` after a successful final reply. Other servers' upload replacement policies may differ; check remote files after interrupted uploads.
+- **TFTP:** octet, 512-byte blocks, one active transfer, single-component filenames; maximum **33,553,919 bytes**. No option negotiation, block rollover, netascii, or resume. Blocks wait 1 second with up to 5 retries; receivers wait 2 seconds after committing. A lost final ACK can leave an uploaded file present despite a reported failure.
+- **Syslog:** UDP delivery is not guaranteed. Preview sampling is approximately 20 messages/second after the first 10, with up to 200 visible events. Complete received messages go to `hopkit-syslog/`, preserving `raw_hex` and decoded text. Existing `netbox-syslog/` logs stay in place without automatic merging.
+- **Log storage:** 64 MiB segments, 7-day / approximately 2 GiB retention, cleanup on segment closure, and up to one segment of temporary overrun. Writes synchronize every second and on normal shutdown, and stop below 1 GiB free space. Forced termination may leave a partial final line. Production throughput, strict crash recovery, SQLite indexing, and advanced queries are not guaranteed.
+
+AI/MCP, automatic updates and update signature verification, persistent history, configuration import/export, and Syslog TCP/TLS are outside this preview. Telemetry is disabled; diagnostic probes require user action. This preview is not full acceptance of the original v0.3 production design.
 
 ## Development and verification
 
-Use Node 24 (`.nvmrc`: 24.14.0) and the pinned Rust 1.96.0 toolchain. The historical Windows package used Rust 1.94.0, Node 24.3.0, and Visual Studio 2022 Build Tools. Dependencies are locked by `Cargo.lock` and `package-lock.json`. The original Windows package uses Rust 1.94.0; `rust-toolchain.toml` currently pins 1.96.0 for the macOS extension. GitHub release builds use the pinned toolchain and run core tests, local protocol integration tests, and installer/GUI launch smoke checks. Keep the dependency lockfiles intact.
-
-```powershell
-# Node 24 (see .nvmrc); select Node 24 before installing.
-npm ci
-npm run build
-# Appearance checks require development-only puppeteer-core and a browser:
-# $env:HOPKIT_BROWSER='absolute path to your Chrome/Chromium executable'
-# node scripts/appearance-test.mjs
-cargo test -p hopkit-core
-cargo build --release --features hopkit-desktop/custom-protocol -p hopkit-desktop -p hopkit-cli
-python scripts/integration_test.py --exe target/release/hopkit-cli.exe
-powershell -NoProfile -File scripts/package.ps1
-```
-
-For GUI development, run `npm run desktop`. The integration script uses only Python's standard library and independent local protocol peers on temporary ports, without public Internet access or real devices. Reports contain per-scenario evidence. GUI CDP tests enable the WebView2 debugging port only for test launches; normal release startup does not enable it.
-
-Release packaging includes both `README.md` and `README.zh-CN.md`; Windows also keeps `使用说明.md` as a Chinese-language convenience copy. Build-time defaults apply to new installations; rebuilding or upgrading does not discard an existing GUI language preference.
-
-## Source and feedback
-
-The public source repository is [lhuaizhong/HopKit](https://github.com/lhuaizhong/HopKit). Clone it with:
+Use **Node 24** (`.nvmrc`: `24.14.0`) and **Rust 1.96.0** (`rust-toolchain.toml`), keeping `package-lock.json` and `Cargo.lock` intact. Desktop builds also need Visual Studio 2022 Build Tools on Windows, or Xcode Command Line Tools on macOS.
 
 ```sh
 git clone https://github.com/lhuaizhong/HopKit.git
 cd HopKit
+npm ci
+npm run build
+cargo test -p hopkit-core --locked
+cargo build -p hopkit-cli --locked
+npm run desktop
 ```
 
-Follow the development instructions above for Windows or [README-macOS.md](README-macOS.md) for macOS. Report bugs and feature requests through [GitHub Issues](https://github.com/lhuaizhong/HopKit/issues), with sensitive device addresses, configuration files, and log contents removed. Build outputs and local test artifacts are excluded from Git history.
+For a Windows release build and local protocol regression:
 
-## License
-
-Project source code is available under the [MIT License](LICENSE), copyright 2026 Huaizhong Liu. Third-party dependencies retain their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the notices included in release packages.
-
-### Diagnostic statistics and tasks
-
-Ping/TCPing use backend cumulative counters independently of the bounded recent preview. Stopped tasks retain partial results; stopping before the first measurement explicitly shows no samples. Attempted calls, completed measurements and interrupted calls are separate. Latency and failure rates exclude interrupted calls. TCPing labels its measurements as TCP connection time and connection failures.
-
-Traceroute has dedicated hop count, target reached, elapsed time and timeout-probe metrics, with three individual probes and response addresses per hop. TTL expiration is a hop response, not destination success; intermediate timeouts do not prove a broken link. Trace JSON now uses `schema_version: 2` and omits cross-hop Ping loss metrics. Other commands retain version 1, and cancellation keeps exit code 130. See [DIAGNOSTIC-PROTOCOL.md](DIAGNOSTIC-PROTOCOL.md).
-
-The chart has a linear ms axis, time axis, failure markers and time/value/status tooltips. Filter the available recent samples and choose a 20/80/200-sample window. PNG captures that view; cumulative metrics always cover the entire task.
-
-Tool and operation configurations are separate within the session. Transfer the last task's target explicitly. Opening a task preserves the form; rerun loads its original request for review before starting. FTP passwords are excluded from configuration caches, task snapshots and exports, and must be re-entered. The task center exposes up to 40 session tasks, with active tasks pinned above filterable history and individually stoppable. Persistence across application restarts remains a later-stage feature.
-
-### Endpoint troubleshooting workflow (stage 3, source addition)
-
-The desktop opens **Troubleshooting** by default: review local interfaces, addresses/prefixes, gateways, DNS and default routes; enter a target; then inspect staged evidence, possible causes and next verification steps. Local state refreshes every 15 seconds without public probes. Advanced options are collapsed, and individual tools remain available.
-
-```sh
-hk network --format json
-hk target 'https://example.com:8443/path?token=example' --format json
-hk check example.com --format json
-hk check 192.168.1.1:443 --format json
-hk check 'https://example.com/path' --source 192.168.1.10 --format json
-hk check example.com --dns-server 192.168.1.1 --trace --format jsonl
+```powershell
+cargo build --release --locked --features hopkit-desktop/custom-protocol -p hopkit-desktop -p hopkit-cli
+python scripts/integration_test.py --exe target/release/hopkit-cli.exe
 ```
 
-Accepts IPs, IDNs, host:port, `[IPv6]:port` and HTTP(S) URLs, with a normalized preview. A bare host does not imply an HTTP service. URL credentials are rejected. Original query parameters are used for the request but queries/fragments are removed from snapshots, JSON, PNG and rerun parameters; re-enter the original URL before rerunning a redacted target. Explicit handoff actions preserve the host and relevant port without passing URL paths to Ping.
+For macOS packaging and architecture checks, follow the [macOS guide](README-macOS.md). The [release workflow](.github/workflows/release.yml) defines package assembly and acceptance checks. Build metadata, dependency notices, SBOM, and SHA-256 files identify artifacts; historical toolchain versions belong to the corresponding `BUILD_INFO.json`.
 
-TCP/HTTP actually bind the selected source IP and record local/remote addresses. System DNS, direct DNS comparisons and route queries follow system policy without source binding. Source-bound ICMP/Trace, named IPv6 scopes and URL zone identifiers are unsupported and explicitly skipped/rejected. Use numeric interface scopes for link-local TCP endpoints. Selecting a source IP does not pin a physical egress interface through VPN/routing changes.
+Shared protocol regression uses Python's standard library and independent local peers without public network access. Additional checks include `scripts/diagnostic-trust-test.py`, `scripts/iperf3-test.py`, and `scripts/check-test.py`; inspect their platform/development prerequisites before running. UI tests use browser fixtures or test-only debugging; normal releases do not enable a debugging port. Local evidence goes to `test-output/`; packaged evidence, when included, is under `validation/`. Results apply to the recorded platform/artifact, without establishing coverage for other architectures, minimum OS versions, real devices, or changing VPN/multi-interface environments.
 
-HTTP/TLS uses compiled-in Rust HTTP/1.1, rustls and bundled Mozilla roots. It does not invoke curl, OpenSSL or other third-party programs, or read PATH, curl configuration, proxy or certificate environment overrides. Certificate validation is enabled by default. Explicitly add an enterprise PEM CA with advanced options or `--ca-file /path/to/ca.pem` (up to 1 MiB). The request snapshot records its path, without exporting certificate file contents. `--insecure-tls` visibly marks chain, name and time validation as skipped.
+## Feedback and license
 
-HEAD reads no body. Response headers are limited to 64 KiB, 128 fields and 8 interim responses, with at most 5 redirects. Credentials, non-HTTP(S) redirects and HTTPS downgrades are rejected; no cookies, Authorization or Referer are sent. HEAD and GET may differ. This version uses HTTP/1.1 without system proxies or system certificate stores. Bundled roots update with releases; online revocation checks and fetching missing intermediates are not implemented.
+Submit bugs and feature requests through [GitHub Issues](https://github.com/lhuaizhong/HopKit/issues), including the app version, OS/architecture, parameters, expected/actual results, and exported JSON. Remove sensitive addresses, configuration, and log contents before sharing.
 
-Execution completion is separate from diagnostic observations: HTTP 403/500, certificate errors and connection refusal retain their actual stages. Stop/Ctrl+C preserves partial evidence and exits 130. Timestamps use UTC; stage elapsed includes adapter overhead while protocol timing is separate. System DNS has a 5-second bound; each standalone TCP attempt and each entire HTTP hop (connect + TLS + response) uses the requested timeout, up to 8 candidate addresses; optional Trace has a 120-second bound. A single session does not establish long-term health or fault ownership.
-
-See [stage 3 verification and limitations](测试报告-第三阶段终端排障.md). Historical download assets do not include these source changes.
+Copyright © 2026 Huaizhong Liu. Project source is available under the [MIT License](LICENSE). Third-party dependencies retain their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and release package notices.
