@@ -1,1 +1,0 @@
-{"main-window":{"identifier":"main-window","description":"Local preview UI; custom Rust commands are validated by the backend.","local":true,"windows":["main"],"permissions":["core:default"]}}

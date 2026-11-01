@@ -4,6 +4,7 @@
 /.cache/
 /release/
 /test-output/
+/src-tauri/gen/
 *.part
 /licenses/
 

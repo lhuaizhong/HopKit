@@ -62,7 +62,9 @@ jobs:
           python scripts/integration_test.py --exe "target/release/hopkit-cli$suffix" --output test-output/integration-release.json
           python scripts/monitor-soak.py --exe "target/release/hopkit-cli$suffix" --duration 35 --output test-output/monitor-release
       - name: Generate build metadata and dependency licenses
-        run: python scripts/build-info.py --target ${{ matrix.target }} --build-dir target/release --output-dir release/metadata
+        run: |
+          git diff --exit-code
+          python scripts/build-info.py --target ${{ matrix.target }} --build-dir target/release --output-dir release/metadata
       - name: Bundle installer
         run: npx tauri bundle --bundles ${{ matrix.bundles }} --config ${{ matrix.config }}
       - name: Package and verify artifacts

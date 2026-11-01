@@ -72,7 +72,7 @@ shortcut = output/'shortcuts'/('hk'+suffix)
 if shortcut.exists():binaries['shortcuts/hk'+suffix] = shortcut
 elif (build/('hk'+suffix)).exists():binaries['shortcuts/hk'+suffix] = build/('hk'+suffix)
 files={name:{'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size}for name,p in binaries.items()}
-source_files=sorted(p for p in root.rglob('*') if p.is_file() and not any(x in p.relative_to(root).parts for x in ['.git','target','node_modules','dist','release','test-output','licenses','__pycache__']) and p.name not in ['BUILD_INFO.json','THIRD_PARTY_NOTICES.md','SBOM.cdx.json','.DS_Store'])
+source_files=sorted(p for p in root.rglob('*') if p.is_file() and p.relative_to(root).parts[:2] != ('src-tauri', 'gen') and not any(x in p.relative_to(root).parts for x in ['.git','target','node_modules','dist','release','test-output','licenses','__pycache__']) and p.name not in ['BUILD_INFO.json','THIRD_PARTY_NOTICES.md','SBOM.cdx.json','.DS_Store'])
 source_digest=hashlib.sha256()
 for p in source_files:
     source_digest.update(p.relative_to(root).as_posix().encode()+b'\0'+p.read_bytes())
