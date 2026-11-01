@@ -189,6 +189,11 @@ fn read_json(stream: &mut TcpStream, ctx: &Context<'_>) -> Result<Value, ToolErr
     Ok(value)
 }
 fn connect(addr: SocketAddr, ctx: &Context<'_>) -> Result<TcpStream, ToolError> {
+    let connection_error = |stage: &str, e: std::io::Error| {
+        let mut error = ToolError::from(e);
+        error.message = format!("iperf3 {stage} ({addr}): {}", error.message);
+        error
+    };
     // Nonblocking connect keeps cancellation responsive on unreachable hosts.
     let socket = socket2::Socket::new(
         socket2::Domain::for_address(addr),
@@ -202,16 +207,19 @@ fn connect(addr: SocketAddr, ctx: &Context<'_>) -> Result<TcpStream, ToolError> 
         #[cfg(unix)]
         let pending = matches!(e.raw_os_error(), Some(36 | 114 | 115));
         if !pending {
-            return Err(e.into());
+            return Err(connection_error("connect", e));
         }
     }
     let end = ctx.deadline();
     loop {
         ctx.check()?;
-        if let Some(e) = socket.take_error()? {
-            return Err(e.into());
+        if let Some(e) = socket
+            .take_error()
+            .map_err(|e| connection_error("socket status", e))?
+        {
+            return Err(connection_error("connect completion", e));
         }
-        if socket.peer_addr().is_ok() {
+        if connect_ready(&socket)? && socket.peer_addr().is_ok() {
             break;
         }
         if Instant::now() >= end {
@@ -222,10 +230,51 @@ fn connect(addr: SocketAddr, ctx: &Context<'_>) -> Result<TcpStream, ToolError> 
         }
         wait(ctx.cancel, Duration::from_millis(10))?;
     }
-    socket.set_nonblocking(false)?;
+    socket
+        .set_nonblocking(false)
+        .map_err(|e| connection_error("blocking mode", e))?;
     let stream: TcpStream = socket.into();
-    setup(&stream)?;
+    setup(&stream).map_err(|mut e| {
+        e.message = format!("iperf3 socket setup ({addr}): {}", e.message);
+        e
+    })?;
     Ok(stream)
+}
+
+#[cfg(windows)]
+fn connect_ready(socket: &socket2::Socket) -> Result<bool, ToolError> {
+    use std::os::windows::io::AsRawSocket;
+    use windows_sys::Win32::Networking::WinSock::{
+        POLLERR, POLLHUP, POLLNVAL, POLLWRNORM, WSAGetLastError, WSAPOLLFD, WSAPoll,
+    };
+    // getpeername can expose the destination before a Winsock nonblocking
+    // connect completes. Wait for writable readiness before configuring TCP.
+    let mut fd = WSAPOLLFD {
+        fd: socket.as_raw_socket() as _,
+        events: POLLWRNORM,
+        revents: 0,
+    };
+    let ready = unsafe { WSAPoll(&mut fd, 1, 0) };
+    if ready < 0 {
+        return Err(std::io::Error::from_raw_os_error(unsafe { WSAGetLastError() }).into());
+    }
+    if fd.revents & (POLLERR | POLLHUP | POLLNVAL) != 0 {
+        return Err(socket
+            .take_error()?
+            .unwrap_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::ConnectionAborted,
+                    "iperf3 connect failed",
+                )
+            })
+            .into());
+    }
+    Ok(fd.revents & POLLWRNORM != 0)
+}
+
+#[cfg(not(windows))]
+fn connect_ready(_: &socket2::Socket) -> Result<bool, ToolError> {
+    Ok(true)
 }
 fn listener(addr: SocketAddr) -> Result<TcpListener, ToolError> {
     let socket = socket2::Socket::new(
