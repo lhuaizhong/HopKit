@@ -1,4 +1,6 @@
 .sidebar { overflow-y: auto; }
+/* Keep every tool reachable as the navigation grows. */
+.sidebar { overflow-y: auto; }
 /* The switch stays legible in both appearances so it is easy to discover. */
 footer { flex-wrap: wrap; align-items: center; }
 .project-link { color: #1756a9; font-size: 12px; padding: 6px 0; text-underline-offset: 3px; }

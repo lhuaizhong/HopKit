@@ -54,6 +54,8 @@ impl std::error::Error for ToolError {}
 #[serde(default, deny_unknown_fields)]
 pub struct Request {
     pub tool: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub monitor: Option<crate::monitor::Config>,
     #[serde(serialize_with = "crate::target::serialize_target")]
     pub target: String,
     pub source_address: String,
@@ -94,6 +96,7 @@ impl Default for Request {
     fn default() -> Self {
         Self {
             tool: "ping".into(),
+            monitor: None,
             source_address: String::new(),
             insecure_tls: false,
             tls_ca_file: String::new(),
@@ -266,6 +269,9 @@ pub fn is_timeout(e: &std::io::Error) -> bool {
 }
 
 pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
+    if req.tool == "monitor" {
+        return crate::monitor::run(req, c, emit, &Default::default());
+    }
     if !matches!(req.tool.as_str(), "ping" | "tcping" | "trace" | "check") {
         cancelled(c)?;
     }
@@ -311,7 +317,7 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
         "syslog" => crate::syslog::run(req, c, emit),
         "tftp" => crate::tftp::run(req, c, emit),
         "doctor" => Ok(
-            json!({"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"version":env!("CARGO_PKG_VERSION"),"gui_required":false,"icmp_adapter":if cfg!(windows){"windows-iphelper"}else if cfg!(target_os="macos"){"darwin-datagram"}else{"unavailable"},"tools":["check","network","target","ping","trace","tcping","dns","ntp","iperf3","ftp","tftp","syslog"],"preview":true}),
+            json!({"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"version":env!("CARGO_PKG_VERSION"),"gui_required":false,"icmp_adapter":if cfg!(windows){"windows-iphelper"}else if cfg!(target_os="macos"){"darwin-datagram"}else{"unavailable"},"tools":["check","monitor","network","target","ping","trace","tcping","dns","ntp","iperf3","ftp","tftp","syslog"],"preview":true}),
         ),
         _ => Err(ToolError::new("INVALID_ARGUMENT", "Unknown tool")),
     }

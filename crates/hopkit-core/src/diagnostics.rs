@@ -212,7 +212,12 @@ fn probe_with(
     }
 }
 
-fn network_probe(r: &Request, addr: std::net::SocketAddr, hop: u8, c: &Cancel) -> ToolResult {
+pub(crate) fn network_probe(
+    r: &Request,
+    addr: std::net::SocketAddr,
+    hop: u8,
+    c: &Cancel,
+) -> ToolResult {
     if r.tool == "tcping" {
         cancelled(c)?;
         let start = Instant::now();

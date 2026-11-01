@@ -6,6 +6,8 @@ import { resultImage } from './result-image'
 import { preference, savePreference } from './preferences'
 import CheckSetup from './components/CheckSetup.vue'
 import CheckResults from './components/CheckResults.vue'
+import MonitorSetup from './components/MonitorSetup.vue'
+import MonitorResults from './components/MonitorResults.vue'
 
 type Row = Record<string, any>
 type TraceHop = {hop:number;probes:(Row|null)[];addresses:string[]}
@@ -19,7 +21,6 @@ const projectUrl='https://github.com/lhuaizhong/HopKit'
 const projectLinkError=ref('')
 async function openProject(){try{projectLinkError.value='';await invoke('open_project')}catch(e){projectLinkError.value=t('无法打开浏览器，请复制链接访问：','Could not open the browser. Copy this link: ')+projectUrl}}
 const tools=[
- {id:'check',name:'HopKit',glyph:'◈',sub:['网络排障','Troubleshooting'],desc:['确认本机网络与目标，逐项检查并关联证据和下一步。','Confirm the local network and target, then review staged evidence and next steps.']},
  {id:'ping',name:'Ping',glyph:'↗',sub:['连通性测试','ICMP echo'],desc:['检测目标可达性、延迟与丢包。','Measure reachability, latency and packet loss.']},
  {id:'trace',name:'Traceroute',glyph:'⌁',sub:['路由追踪','Route tracing'],desc:['逐跳查看 ICMP 路径，识别响应与超时。','Inspect ICMP responses along the route.']},
  {id:'tcping',name:'TCPing',glyph:'⇄',sub:['TCP 端口测试','TCP connection'],desc:['测量 TCP 建连耗时，区分拒绝与超时。','Measure TCP connections, refusals and timeouts.']},
@@ -28,8 +29,11 @@ const tools=[
  {id:'iperf3',name:'iperf3',glyph:'↔',sub:['网络测速','Network speed test'],desc:['内置 TCP/UDP 测速客户端与服务端，无需安装 iperf3。','Built-in TCP/UDP throughput client and server. No iperf3 installation required.']},
  {id:'tftp',name:'TFTP',glyph:'⇅',sub:['文件传输','File transfer'],desc:['标准 octet 文件传输与临时只读服务。','Standard octet transfers and a temporary file server.']},
  {id:'ftp',name:'FTP',glyph:'⇆',sub:['文件传输与服务','File client / server'],desc:['浏览远端目录、上传下载文件，或启动临时 FTP 服务。','List remote files, upload and download, or start a temporary FTP server.']},
- {id:'syslog',name:'Syslog',glyph:'≡',sub:['临时日志','Temporary logs'],desc:['接收、保存并预览 UDP 设备日志。','Receive, save and preview device logs over UDP.']}
+ {id:'syslog',name:'Syslog',glyph:'≡',sub:['临时日志','Temporary logs'],desc:['接收、保存并预览 UDP 设备日志。','Receive, save and preview device logs over UDP.']},
+ {id:'check',name:'HopKit',glyph:'◈',sub:['网络排障','Troubleshooting'],desc:['确认本机网络与目标，逐项检查并关联证据和下一步。','Confirm the local network and target, then review staged evidence and next steps.']},
+ {id:'monitor',name:'Monitor',glyph:'◴',sub:['多目标持续监测','Multi-target monitoring'],desc:['同时观察网关、外部目标和业务服务器，记录失败与恢复时间。','Observe gateway, external and business targets together, with failure and recovery times.']}
 ]
+const monitorConfig=reactive({targets:[{label:'Gateway',protocol:'ping',target:'',port:0},{label:'External',protocol:'ping',target:'',port:0},{label:'Business',protocol:'tcping',target:'',port:443}],interval_ms:1000,timeout_ms:1000,duration_secs:0,log_directory:''})
 const selected=ref('check'),active=ref(''),tasks=ref<Task[]>([]),rows=ref<Row[]>([]),error=ref(''),loading=ref(false),filter=ref(''),expanded=ref(false),copied=ref(false)
 // List responses contain summaries only. Keep the selected snapshot separately
 // so refreshing the task center cannot remove its result or reset its scroll.
@@ -117,6 +121,7 @@ function reuseTarget(){if(reusableTarget.value)form.target=reusableTarget.value}
 async function rerun(item:Task){try{
  const detail=await invoke<Task>('task_poll',{id:item.id,after:0})
  if(!detail.request)return
+ if(detail.tool==='monitor'&&detail.request.monitor)Object.assign(monitorConfig,JSON.parse(JSON.stringify(detail.request.monitor)))
  pickTool(detail.tool);setMode(detail.tool==='dns'?(detail.request.dns_server?'direct':'system'):detail.action)
  Object.assign(form,detail.request,{continuous:detail.request.count===0,dns_mode:detail.request.dns_server?'direct':'system',ftp_remote_path:detail.action==='list'?detail.request.remote_name:'',ftp_password:''})
  if(detail.tool==='check'&&detail.request.target.includes('?[redacted]')){form.target='';error.value=t('URL 参数已脱敏，请重新输入原 URL。','URL parameters were redacted. Re-enter the original URL.');return}
@@ -135,6 +140,9 @@ async function start(){
  try{
   const request={source_address:selected.value==='check'?form.source_address:'',tls_ca_file:selected.value==='check'?form.tls_ca_file:'',insecure_tls:form.insecure_tls,include_trace:form.include_trace,tool:selected.value,target:form.target.trim(),port:selected.value==='dns'?0:Number(form.port),count:form.continuous&&['ping','tcping'].includes(selected.value)?0:Number(form.count),timeout_ms:Number(form.timeout_ms),interval_ms:Number(form.interval_ms),payload_size_bytes:selected.value==='ping'?Number(form.payload_size_bytes):32,ipv6:form.ipv6,max_hops:Number(form.max_hops),record_type:form.dns_mode==='system'?'A':form.record_type,dns_server:selected.value==='check'||selected.value==='dns'&&form.dns_mode==='direct'?form.dns_server.trim():'',path:form.path,remote_name:selected.value==='ftp'&&form.action==='list'?form.ftp_remote_path:form.remote_name,action:form.action,listen:form.listen.trim(),allow:form.allow.trim(),writable:form.writable,overwrite:form.overwrite,message:form.message,ntp_stratum:Number(form.ntp_stratum),duration_secs:selected.value==='iperf3'||['ntp','ftp'].includes(selected.value)&&service.value?Number(form.duration_secs):0,iperf_protocol:form.iperf_protocol,iperf_parallel:selected.value==='iperf3'&&form.iperf_protocol==='udp'?1:Number(form.iperf_parallel),iperf_reverse:form.iperf_reverse,iperf_bitrate_mbps:Number(form.iperf_bitrate_mbps),ftp_username:selected.value==='ftp'?form.ftp_username:'anonymous',ftp_password:selected.value==='ftp'?form.ftp_password:''}
   if(selected.value==='dns'&&form.dns_mode==='direct'&&!request.dns_server)throw new Error(t('请输入 DNS 服务器 IP。','Enter a DNS server IP.'))
+  if(selected.value==='monitor'){
+   Object.assign(request,{monitor:JSON.parse(JSON.stringify(monitorConfig)),target:monitorConfig.targets.map(x=>x.target).join(' · ')})
+  }
   const normalized=selected.value==='check'?await invoke<Row>('parse_target',{input:request.target}):null
   if(normalized)request.port=normalized.port??0
   const id=await invoke<string>('start_task',{request})
@@ -161,8 +169,9 @@ async function poll(){if(polling)return;polling=true;try{
  const id=active.value
  if(id){
   const cached=activeDetail.value,summary=tasks.value.find(item=>item.id===id)
+  if(cached?.tool==='monitor'&&cached.seq===summary?.seq&&cached.status===summary?.status)return
   if(cached?.id===id&&cached.result&&!['running','cancelling'].includes(cached.status)&&(!summary||summary.status===cached.status&&summary.seq===cached.seq))return
-  const preview=rows.value,after=preview.length?Number(preview[preview.length-1]?.cursor||0):0
+  const preview=rows.value,after=cached?.tool==='monitor'?cached.seq:preview.length?Number(preview[preview.length-1]?.cursor||0):0
   const detail=await invoke<Task>('task_poll',{id,after})
   if(active.value!==id||rows.value!==preview)return
   if(detail.events.length){if(after&&detail.events[0].cursor>after+1)error.value=t('部分实时预览已淘汰；全程统计独立保留。','Some preview events expired; cumulative statistics are retained independently.');rows.value=[...preview,...detail.events].slice(-300)}
@@ -220,8 +229,9 @@ onUnmounted(()=>clearInterval(timer))
    <main>
     <div class="page-heading"><div><div class="eyebrow">NETWORK DIAGNOSTICS</div><h1>{{current.name}}<span>{{en?current.sub[1]:current.sub[0]}}</span></h1><p>{{en?current.desc[1]:current.desc[0]}}</p></div><span class="local-pill"><span>◈</span>{{t('本机执行','LOCAL EXECUTION')}}</span></div>
     <div class="content-grid">
+     <section class="panel config-panel" v-if="selected==='monitor'"><MonitorSetup :en="en" :config="monitorConfig" :disabled="startDisabled" @run="start"/><p v-if="error" class="error" role="alert">{{error}}</p></section>
      <section class="panel config-panel" v-if="selected==='check'"><CheckSetup :en="en" :config="form" :disabled="startDisabled" @run="start"/><div v-if="error" class="error" role="alert">{{error}}</div><button v-if="running" class="stop" @click="stop">■ {{t('停止排障','Stop troubleshooting')}}</button></section>
-     <section class="panel config-panel" v-else>
+     <section class="panel config-panel" v-else-if="selected!=='monitor'">
       <div class="panel-title"><h2>{{t('任务配置','Configuration')}}</h2><span>01</span></div>
       <form @submit.prevent="start">
        <template v-if="['ftp','tftp','syslog','ntp','iperf3'].includes(selected)"><label>{{t('操作模式','Operation')}}</label><div class="segmented"><button v-for="a in selected==='ftp'?['list','get','put','serve']:selected==='tftp'?['get','put','serve']:selected==='ntp'?['query','serve']:selected==='iperf3'?['client','serve']:['listen','send']" :key="a" type="button" :class="{chosen:form.action===a}" @click="setMode(a)">{{({client:t('客户端','Client'),list:t('目录','List'),get:t('下载','Download'),put:t('上传','Upload'),query:t('时间测量','Client'),serve:selected==='ntp'?t('时间服务','NTP Server'):selected==='iperf3'?t('服务端','Server'):t('文件服务','Server'),listen:t('接收','Receive'),send:t('发送','Send')} as Row)[a]}}</button></div></template>
@@ -268,6 +278,7 @@ onUnmounted(()=>clearInterval(timer))
        <div class="panel-title"><h2>{{t('实时结果','Live results')}}<span v-if="task" :class="['status',task.status]">{{statusText(task.status)}}</span></h2><div class="result-tools"><button :disabled="!task?.result||exportingImage" @click="exportImage('file')">{{exportingImage?t('正在导出…','Exporting…'):t('导出图片','Export image')}}</button><button :disabled="!task?.result||exportingImage" @click="exportImage('clipboard')">{{imageCopied?t('图片已复制','Image copied'):t('复制图片','Copy image')}}</button><span v-if="imageSaved" role="status">{{t('图片已保存','Image saved')}}</span><button :disabled="!task" @click="copy">{{copied?t('已复制','Copied'):t('复制','Copy')}}</button><button :disabled="!task" @click="exportData">{{t('导出 JSON','Export JSON')}}</button></div></div>
        <div v-if="imageError" class="result-error" role="alert">{{imageError}}</div>
        <div v-if="resultTool==='check'"><CheckResults :data="data" :events="rows" :en="en" @use="useCheckTarget"/><p v-if="task?.result?.error" class="result-error">{{statusText(task.status)}} · {{task.result.error.code}}</p></div>
+       <div v-else-if="resultTool==='monitor'"><MonitorResults :en="en" :data="data??latestStats" :task-id="task?.id??''" :running="running" @stop="stop"/><p v-if="task?.result?.error" :class="['result-error',{cancelled:task.status==='cancelled'}]">{{statusText(task.status)}} · {{task.result.error.code}} · {{task.result.error.message}}</p></div>
        <div v-else-if="!active" class="empty-state"><div class="radar"><span></span><i></i><b>⌁</b></div><h3>{{t('准备就绪，开始第一次测试','Ready for your first test')}}</h3><p>{{t('配置左侧参数，结果将实时显示在这里。','Configure a task on the left. Results will appear here.')}}</p><div class="example">{{t('快速开始','QUICK START')}}<code>hk {{resultTool==='ntp'&&resultService?'ntp serve --help':['ftp','tftp','iperf3'].includes(resultTool)?resultTool+' --help':resultTool==='syslog'?'syslog --help':resultTool+' 127.0.0.1'+(resultTool==='tcping'?' 443':'')}}</code></div></div>
        <template v-else>
         <div class="result-meta"><code>{{task?.target}}</code><span v-if="task?.tool==='tcping'&&task.port!=null" class="tcp-port">{{t('TCP 端口','TCP port')}} {{task.port}}</span><span v-if="resultTool==='ping'&&probeSize!=null">{{t('测试包','Packet')}} {{probeSize}} B</span><span>{{active.slice(0,8)}} · {{t('本地任务','local task')}}</span></div>
@@ -277,7 +288,7 @@ onUnmounted(()=>clearInterval(timer))
          <span v-if="cumulative?.started_at_ms"> · {{new Date(Number(cumulative.started_at_ms)).toLocaleString()}} → {{cumulative.ended_at_ms?new Date(Number(cumulative.ended_at_ms)).toLocaleString():t('运行中','Running')}}</span><span> · {{t('实际持续 ms','Actual duration ms')}}: {{number(cumulative?.duration_ms)}}</span>
          <p v-if="cumulative?.failure_counts&&Object.keys(cumulative.failure_counts).length">{{t('失败分类','Failures by status')}}: {{Object.entries(cumulative.failure_counts).map(([key,value])=>`${key}: ${value}`).join(' · ')}}</p><p v-if="resultTool==='trace'">{{t('中间设备可能不响应或限制探测；单次超时不能证明链路断开。','Intermediate devices may ignore or limit probes; a timeout does not prove a broken link.')}}</p>
         </div>
-        <div v-if="task?.request" class="request-summary"><small>{{t('任务参数','Task parameters')}}</small><code>{{task.tool}} {{task.action}} · {{resultService?task.target:task.request.target}}<template v-if="task.request.port&&!resultService&&!['ping','trace'].includes(resultTool)">:{{task.request.port}}</template><template v-if="resultTool==='iperf3'"> · {{resultService?'TCP / UDP':task.request.iperf_protocol.toUpperCase()}} · {{task.request.duration_secs||t('持续','Continuous')}} s<template v-if="!resultService"> · {{task.request.iperf_parallel}} {{t('流','streams')}} · {{task.request.iperf_reverse?t('下载','Download'):t('上传','Upload')}} · {{task.request.iperf_bitrate_mbps||t('不限速','Unlimited')}} Mbps</template></template><template v-else> · {{t('超时','Timeout')}} {{task.request.timeout_ms}} ms · {{t('间隔','Interval')}} {{task.request.interval_ms}} ms<template v-if="!['trace','dns'].includes(resultTool)"> · {{t('次数','Count')}} {{task.request.count||t('持续','Continuous')}}</template></template></code><button v-if="!resultService" @click="reuseTarget">{{t('沿用此目标','Use this target')}}</button></div>
+        <div v-if="task?.request" class="request-summary"><small>{{t('任务参数','Task parameters')}}</small><code>{{task.tool}} {{task.action}} · {{resultService?task.target:task.request.target}}<template v-if="task.request.port&&!resultService&&!['ping','trace'].includes(resultTool)">:{{task.request.port}}</template><template v-if="resultTool==='iperf3'"> · {{resultService?'TCP / UDP':task.request.iperf_protocol.toUpperCase()}} · {{task.request.duration_secs||t('持续','Continuous')}} s<template v-if="!resultService"> · {{task.request.iperf_parallel}} {{t('流','streams')}} · {{task.request.iperf_reverse?t('下载','Download'):t('上传','Upload')}} · {{task.request.iperf_bitrate_mbps||t('不限速','Unlimited')}} Mbps</template></template><template v-else> · {{t('超时','Timeout')}} {{task.request.timeout_ms}} ms<template v-if="!['trace','dns'].includes(resultTool)"> · {{t('间隔','Interval')}} {{task.request.interval_ms}} ms · {{t('次数','Count')}} {{task.request.count||t('持续','Continuous')}}</template></template></code><button v-if="!resultService" @click="reuseTarget">{{t('沿用此目标','Use this target')}}</button></div>
         <p v-if="task?.result" class="diagnostic-outcome">{{statusText(task.status)}} · {{diagnosticText}}</p>
         <div v-if="resultTool==='iperf3'&&task" class="structured iperf-summary"><p>{{t('发送端 / 接收端平均速率','Sender / receiver average')}}: {{number(cumulative?.sent_mbps)}} / {{number(cumulative?.received_mbps)}} Mbps</p><p>{{t('本端角色','Local role')}}: {{cumulative?.local_role==='sender'?t('发送端','Sender'):cumulative?.local_role==='receiver'?t('接收端','Receiver'):'—'}} · {{t('实测时长','Measured duration')}}: {{number(cumulative?.duration_secs)}} s<span v-if="resultService"> · {{t('已完成测试','Completed tests')}}: {{cumulative?.completed_tests??0}}</span></p><small>{{t('MB 为十进制兆字节；实时图为本端最近采样，统计由后端独立累计。未完成结果交换时，对端速率显示为 —。','MB uses decimal units. The chart shows recent local samples; counters accumulate in the backend. Peer rates appear after result exchange.')}}</small></div>
         <div v-if="resultTool==='iperf3'&&speedRows.length" class="throughput-chart"><div>{{t('本端实时速率 / Mbps · 最近采样','Local throughput / Mbps · recent samples')}} · {{t('纵轴最大值','Axis maximum')}} {{number(speedMax)}}</div><div class="throughput-bars"><span v-for="(sample,i) in speedRows" :key="sample.cursor??i" :style="{height:Math.max(1,Number(sample.mbps)/speedMax*100)+'%'}" :title="`${number(sample.duration_secs)} s · ${number(sample.mbps)} Mbps`"></span></div><small>0 Mbps · {{t('每 0.5 秒采样','Sampled every 0.5 seconds')}}</small></div>

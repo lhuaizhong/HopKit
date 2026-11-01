@@ -32,9 +32,18 @@ struct Task {
     result: Option<Value>,
     request: Value,
     latest_stats: Option<Value>,
+    monitor_control: Arc<hopkit_core::monitor::Control>,
 }
 impl Task {
     fn record_event(&mut self, body: Value) {
+        if matches!(
+            body["event_type"].as_str(),
+            Some("monitor_snapshot" | "monitor_finished")
+        ) {
+            self.latest_stats = Some(body);
+            self.seq += 1;
+            return;
+        }
         if matches!(
             body["event_type"].as_str(),
             Some("stats" | "stopped" | "test_complete")
@@ -105,6 +114,14 @@ fn snap(t: &Task, after: u64) -> Snapshot {
 
 #[tauri::command]
 fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String, String> {
+    if request.tool == "monitor" {
+        request
+            .monitor
+            .as_ref()
+            .ok_or("Monitor configuration required")?
+            .validate()
+            .map_err(|e| e.to_string())?;
+    }
     if request.tool == "check" {
         hopkit_core::target::parse(&request.target).map_err(|e| e.to_string())?;
     }
@@ -113,6 +130,7 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
     }
     let id = uuid::Uuid::new_v4().to_string();
     let cancel = Arc::new(AtomicBool::new(false));
+    let monitor_control = Arc::new(hopkit_core::monitor::Control::default());
     {
         let mut map = tasks.0.lock().map_err(|_| "Task state unavailable")?;
         if map
@@ -153,6 +171,7 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
                 result: None,
                 request: serde_json::to_value(&request).map_err(|e| e.to_string())?,
                 latest_stats: None,
+                monitor_control: monitor_control.clone(),
             },
         );
     }
@@ -174,7 +193,11 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
             }
         };
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run(&request, &cancel, &emit)
+            if request.tool == "monitor" {
+                hopkit_core::monitor::run(&request, &cancel, &emit, &monitor_control)
+            } else {
+                run(&request, &cancel, &emit)
+            }
         }))
         .unwrap_or_else(|_| {
             Err(ToolError::new(
@@ -236,6 +259,22 @@ fn cancel_task(id: String, tasks: tauri::State<'_, Tasks>) -> Result<(), String>
         t.cancel.store(true, Ordering::Relaxed);
     }
     Ok(())
+}
+#[tauri::command]
+fn monitor_action(
+    id: String,
+    action: String,
+    text: String,
+    tasks: tauri::State<'_, Tasks>,
+) -> Result<(), String> {
+    let m = tasks.0.lock().map_err(|_| "Task state unavailable")?;
+    let t = m.get(&id).ok_or("Task not found")?;
+    if t.tool != "monitor" || t.status != "running" {
+        return Err("Monitor is not running".into());
+    }
+    t.monitor_control
+        .send(action, text)
+        .map_err(|e| e.to_string())
 }
 #[tauri::command]
 fn stop_all(tasks: tauri::State<'_, Tasks>) {
@@ -433,6 +472,7 @@ fn main() {
             list_tasks,
             task_poll,
             cancel_task,
+            monitor_action,
             stop_all,
             choose_path,
             export_result,
@@ -528,6 +568,7 @@ mod trust_tests {
             result: None,
             request: serde_json::to_value(&request).unwrap(),
             latest_stats: None,
+            monitor_control: Arc::new(hopkit_core::monitor::Control::default()),
         };
         for n in 1..=1200 {
             task.record_event(json!({"event_type":"sample","seq":n}));

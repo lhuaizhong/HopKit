@@ -28,7 +28,7 @@ export async function resultImage(source: HTMLElement, english: boolean): Promis
       copy.replaceWith(text)
     }
   })
-  clone.querySelectorAll('.task-panel,.result-tools,.raw-result,.check-handoff,.request-summary button,[role="alert"]').forEach(node => node.remove())
+  clone.querySelectorAll('.task-panel,.result-tools,.raw-result,.check-handoff,.request-summary button,.monitor-actions,.monitor-note,[role="alert"]').forEach(node => node.remove())
   clone.querySelectorAll<HTMLElement>('.result-panel').forEach(node => {
     node.style.height = 'auto'; node.style.maxHeight = 'none'
   })

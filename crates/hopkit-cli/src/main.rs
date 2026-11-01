@@ -48,6 +48,22 @@ struct Probe {
 }
 #[derive(Subcommand)]
 enum Command {
+    #[command(about = "Continuous multi-target monitoring / 多目标持续监测")]
+    Monitor {
+        /// Repeat up to 3 times: ping,HOST or tcping,HOST,PORT
+        #[arg(long = "target", required = true)]
+        targets: Vec<String>,
+        #[arg(long, default_value_t = 1000)]
+        interval_ms: u64,
+        #[arg(long, default_value_t = 1000)]
+        timeout_ms: u64,
+        /// 0 runs until Ctrl+C / 0 表示持续运行
+        #[arg(long, default_value_t = 0)]
+        duration: u64,
+        /// Optional bounded JSONL journal directory / 可选有界日志目录
+        #[arg(long, default_value = "")]
+        log_directory: String,
+    },
     #[command(about = "Integrated endpoint troubleshooting / 终端综合排障")]
     Check {
         target: String,
@@ -355,6 +371,50 @@ enum Syslog {
 fn request(cmd: Command) -> Result<Request, ToolError> {
     let mut r = Request::default();
     match cmd {
+        Command::Monitor {
+            targets,
+            interval_ms,
+            timeout_ms,
+            duration,
+            log_directory,
+        } => {
+            let targets = targets
+                .iter()
+                .enumerate()
+                .map(|(i, s)| {
+                    let parts: Vec<_> = s.split(',').collect();
+                    if !matches!(parts.as_slice(), ["ping", _] | ["tcping", _, _]) {
+                        return Err(ToolError::new(
+                            "INVALID_ARGUMENT",
+                            "Use --target ping,HOST or --target tcping,HOST,PORT",
+                        ));
+                    }
+                    Ok(hopkit_core::monitor::Target {
+                        label: format!("Target {}", i + 1),
+                        protocol: parts[0].into(),
+                        target: parts[1].into(),
+                        port: if parts.len() == 3 {
+                            parts[2].parse().map_err(|_| {
+                                ToolError::new("INVALID_ARGUMENT", "Invalid TCP port")
+                            })?
+                        } else {
+                            0
+                        },
+                    })
+                })
+                .collect::<Result<Vec<_>, ToolError>>()?;
+            let config = hopkit_core::monitor::Config {
+                targets,
+                interval_ms,
+                timeout_ms,
+                duration_secs: duration,
+                log_directory,
+            };
+            config.validate()?;
+            r.tool = "monitor".into();
+            r.target = "".into();
+            r.monitor = Some(config);
+        }
         Command::Check {
             target,
             timeout_ms,
@@ -719,7 +779,11 @@ fn main() {
         }
     };
     let is_service = matches!(r.action.as_str(), "serve" | "listen");
-    if cli.format == "json" && (is_service && r.duration_secs == 0 || r.count == 0) {
+    if cli.format == "json"
+        && (is_service && r.duration_secs == 0
+            || r.count == 0
+            || r.monitor.as_ref().is_some_and(|m| m.duration_secs == 0))
+    {
         let _ = writeln!(
             io::stdout(),
             "{}",
@@ -745,6 +809,12 @@ fn main() {
     let broken = failed_output.clone();
     let english = cli.lang == "en-US";
     let emit = |mut v: Value| {
+        if v["event_type"] == "monitor_snapshot" {
+            // Stream only counters; retained timelines are delivered in the final result.
+            v = json!({"event_type":"monitor_stats","timestamp_ms":v["ended_at_ms"],"totals":v["totals"],"paused":v["paused"]});
+        } else if v["event_type"] == "monitor_finished" {
+            return;
+        }
         v["task_id"] = json!(id);
         v["schema_version"] = json!(if r.tool == "trace" { 2 } else { 1 });
         let output = if format == "jsonl" {
@@ -777,7 +847,10 @@ fn main() {
             if v["success"] == false
                 || cli.strict
                     && (v["lost"].as_u64().unwrap_or(0) > 0
-                        || v["timeout_probes"].as_u64().unwrap_or(0) > 0)
+                        || v["timeout_probes"].as_u64().unwrap_or(0) > 0
+                        || v["totals"].as_array().is_some_and(|totals| {
+                            totals.iter().any(|t| t["failed"].as_u64().unwrap_or(0) > 0)
+                        }))
             {
                 1
             } else {

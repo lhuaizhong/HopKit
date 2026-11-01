@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>HopKit monitor fixture</title></head><body><div id="app"></div><script type="module">
+import {mockIPC} from '@tauri-apps/api/mocks'
+import {createApp} from 'vue'
+import App from '../src/App.vue'
+import '../src/style.css'
+import '../src/appearance.css'
+localStorage.setItem('hopkit-language','zh-CN')
+let tasks=[]
+const raw=await(await fetch('/test-output/monitor-short/final.json')).json()
+mockIPC((cmd,args)=>{
+ if(cmd==='app_info')return {version:'monitor-fixture',platform:'Windows fixture',os:'Windows'}
+ if(cmd==='network_overview')return {interfaces:[],default_routes:[{gateway:'192.0.2.1'}],dns:[],captured_at:'fixture'}
+ if(cmd==='list_tasks')return structuredClone(tasks.map(t=>({...t,latest_stats:null,result:null,events:[]})))
+ if(cmd==='start_task'){const r=args.request,id='fixture-monitor';tasks=[{id,tool:'monitor',action:'',target:r.target,port:0,status:'running',started_at:String(Date.now()),seq:1,events:[],result:null,request:r,latest_stats:{...raw.data,config:r.monitor}}];return id}
+ if(cmd==='task_poll')return structuredClone(tasks.find(t=>t.id===args.id))
+ if(cmd==='monitor_action'){const t=tasks[0],d=t.latest_stats;t.seq++;if(args.action==='pause')d.paused=true;if(args.action==='resume')d.paused=false;d.records.push({id:++d.record_count,kind:args.action,text:args.text,timestamp_ms:d.ended_at_ms-1});return}
+ if(cmd==='cancel_task'){const t=tasks[0];t.seq++;t.status='cancelled';t.result={...raw,status:'cancelled',data:t.latest_stats,error:{code:'CANCELLED',message:'Operation cancelled'}};return}
+ if(cmd==='export_result'){document.body.dataset.exported=args.content;return true}
+ if(cmd==='export_result_image'){document.body.dataset.png=btoa(args.png.map(x=>String.fromCharCode(x)).join(''));return true}
+ if(cmd==='parse_target')return {host:args.input,normalized:args.input}
+ throw new Error('Unhandled '+cmd)
+})
+createApp(App).mount('#app')
+</script></body></html>

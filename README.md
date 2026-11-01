@@ -59,6 +59,8 @@ Ping/TCPing statistics cover the entire task independently of the recent preview
 
 ## CLI usage
 
+Multi-target monitoring: `hk monitor --target ping,192.168.1.1 --target ping,example.com --target tcping,business.example,443 --format jsonl`. Select **Monitor** in the GUI sidebar for a common timeline, pause/resume, notes, network events and before/after comparisons. Up to three targets are sampled sequentially using system routes; monitors share the existing four-task limit. Measurement gaps do not create failure samples. See [monitoring behavior, budgets and validation](MONITORING.md). Extended endurance, physical sleep/interface switching and macOS validation remain outstanding for this change.
+
 Run from the extracted package directory:
 
 | Platform | Full CLI | Equivalent short entry |
