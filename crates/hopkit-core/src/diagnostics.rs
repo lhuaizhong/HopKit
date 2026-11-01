@@ -93,12 +93,27 @@ fn icmp(ip: IpAddr, ttl: u8, timeout: u32, payload_size: usize) -> Result<Value,
             )
         } else {
             let reply = &*(buf.as_ptr() as *const ICMPV6_ECHO_REPLY_LH);
-            let from = std::net::Ipv6Addr::from(reply.Address.sin6_addr);
+            let from = icmpv6_reply_address(reply.Address.sin6_addr);
             Ok(
                 json!({"ok":reply.Status==0,"responded":reply.Status!=11010,"status_code":reply.Status,"status":if reply.Status==0{"reply"}else if reply.Status==11010{"timeout"}else if reply.Status==11013||reply.Status==11014{"ttl_expired"}else if (11002..=11005).contains(&reply.Status){"unreachable"}else{"icmp_error"},"rtt_ms":start.elapsed().as_secs_f64()*1000.0,"address":from.to_string()}),
             )
         }
     }
+}
+#[cfg(windows)]
+fn icmpv6_reply_address(words: [u16; 8]) -> std::net::Ipv6Addr {
+    // Windows stores network-order bytes in native u16 fields; Rust expects
+    // numeric IPv6 segments in host order.
+    std::net::Ipv6Addr::from(words.map(u16::from_be))
+}
+
+#[cfg(all(test, windows))]
+#[test]
+fn icmpv6_reply_preserves_network_byte_order() {
+    let address: std::net::Ipv6Addr = "2408:8256:1234:abcd:1:20:300:4567".parse().unwrap();
+    let bytes = address.octets();
+    let words = std::array::from_fn(|i| u16::from_ne_bytes([bytes[i * 2], bytes[i * 2 + 1]]));
+    assert_eq!(icmpv6_reply_address(words), address);
 }
 #[cfg(not(any(windows, target_os = "macos")))]
 fn icmp(_: std::net::SocketAddr, _: u8, _: u32, _: usize, _: &Cancel) -> Result<Value, ToolError> {
