@@ -36,7 +36,9 @@ def check(name, fn):
     print(json.dumps(result, ensure_ascii=False), flush=True)
 
 def cli(*argv, code=0):
-    p = subprocess.run([EXE, *map(str,argv), '--format', 'json'], capture_output=True, timeout=25)
+    # On Windows os.putenv(name, '') deletes the inherited native variable even
+    # though os.environ retains it. Build an explicit block to test present-empty.
+    p = subprocess.run([EXE, *map(str,argv), '--format', 'json'], capture_output=True, timeout=25, env=os.environ.copy())
     assert p.returncode == code, (argv, p.returncode, p.stdout.decode('utf-8','replace'),p.stderr.decode('utf-8','replace'))
     value = json.loads(p.stdout)
     assert value['schema_version'] == (2 if value.get('command') == 'trace' else 1)
