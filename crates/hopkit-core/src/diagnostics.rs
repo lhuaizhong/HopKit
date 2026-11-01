@@ -6,10 +6,7 @@ use serde_json::Value;
 use serde_json::json;
 #[cfg(windows)]
 use std::net::IpAddr;
-use std::{
-    net::TcpStream,
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
-};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 #[cfg(windows)]
 fn icmp(ip: IpAddr, ttl: u8, timeout: u32, payload_size: usize) -> Result<Value, ToolError> {
@@ -235,14 +232,13 @@ pub(crate) fn network_probe(
 ) -> ToolResult {
     if r.tool == "tcping" {
         cancelled(c)?;
-        let start = Instant::now();
-        match TcpStream::connect_timeout(&addr, Duration::from_millis(r.timeout_ms)) {
-            Ok(stream) => {
-                drop(stream);
-                Ok(
-                    json!({"ok":true,"status":"connected","address":addr.ip().to_string(),"rtt_ms":start.elapsed().as_secs_f64()*1000.0}),
-                )
-            }
+        match tcp_connect_rtt(addr, Duration::from_millis(r.timeout_ms)) {
+            Ok((elapsed, kernel_rtt)) => Ok(
+                json!({"ok":true,"status":"connected","address":addr.ip().to_string(),
+                    "rtt_ms":kernel_rtt.unwrap_or(elapsed).as_secs_f64()*1000.0,
+                    "connect_elapsed_ms":elapsed.as_secs_f64()*1000.0,
+                    "rtt_source":if kernel_rtt.is_some(){"tcp_info"}else{"connect_elapsed"}}),
+            ),
             Err(e) => Ok(
                 json!({"ok":false,"status":if e.kind()==std::io::ErrorKind::ConnectionRefused{"refused"}else if is_timeout(&e){"timeout"}else{"connect_error"},"detail":e.to_string(),"rtt_ms":null,"address":addr.ip().to_string()}),
             ),
@@ -262,6 +258,66 @@ pub(crate) fn network_probe(
             icmp(addr, hop, r.timeout_ms as u32, size, c)
         }
     }
+}
+
+fn tcp_connect_rtt(
+    addr: std::net::SocketAddr,
+    timeout: Duration,
+) -> std::io::Result<(Duration, Option<Duration>)> {
+    // Socket creation can initialize Winsock/providers on the first probe.
+    // Keep that work and socket teardown outside the connection measurement.
+    let socket = socket2::Socket::new(
+        socket2::Domain::for_address(addr),
+        socket2::Type::STREAM,
+        Some(socket2::Protocol::TCP),
+    )?;
+    let start = Instant::now();
+    socket.connect_timeout(&addr.into(), timeout)?;
+    let rtt = start.elapsed();
+    let kernel_rtt = tcp_kernel_rtt(&socket);
+    drop(socket);
+    Ok((rtt, kernel_rtt))
+}
+
+#[cfg(windows)]
+fn tcp_kernel_rtt(socket: &socket2::Socket) -> Option<Duration> {
+    use std::os::windows::io::AsRawSocket;
+    use windows_sys::Win32::Networking::WinSock::{SIO_TCP_INFO, TCP_INFO_v0, WSAIoctl};
+    let version = 0_u32;
+    let mut info: TCP_INFO_v0 = unsafe { std::mem::zeroed() };
+    let mut returned = 0;
+    // Read the handshake RTT measured by the TCP stack, excluding application
+    // scheduling and first-use connect/provider overhead. No data is sent.
+    let status = unsafe {
+        WSAIoctl(
+            socket.as_raw_socket() as _,
+            SIO_TCP_INFO,
+            (&version as *const u32).cast(),
+            std::mem::size_of_val(&version) as u32,
+            (&mut info as *mut TCP_INFO_v0).cast(),
+            std::mem::size_of_val(&info) as u32,
+            &mut returned,
+            std::ptr::null_mut(),
+            None,
+        )
+    };
+    if status != 0 || returned < std::mem::size_of_val(&info) as u32 {
+        return None;
+    }
+    valid_tcp_rtt(info.RttUs, info.SynRetrans)
+}
+
+#[cfg(any(windows, test))]
+fn valid_tcp_rtt(micros: u32, syn_retransmits: u8) -> Option<Duration> {
+    // Retransmission delay is part of this attempt and must not be hidden by
+    // the smoothed RTT. Unsupported/empty statistics use measured connect time.
+    (micros > 0 && micros != u32::MAX && syn_retransmits == 0)
+        .then(|| Duration::from_micros(u64::from(micros)))
+}
+
+#[cfg(not(windows))]
+fn tcp_kernel_rtt(_: &socket2::Socket) -> Option<Duration> {
+    None
 }
 
 fn wall_ms() -> u128 {
@@ -491,6 +547,60 @@ mod trust_tests {
 
     fn cancel() -> Cancel {
         Arc::new(AtomicBool::new(false))
+    }
+    #[test]
+    fn tcp_rtt_keeps_real_delays_and_rejects_missing_or_retransmitted_estimates() {
+        assert_eq!(valid_tcp_rtt(2215, 0), Some(Duration::from_micros(2215)));
+        assert_eq!(valid_tcp_rtt(91314, 0), Some(Duration::from_micros(91314)));
+        assert_eq!(valid_tcp_rtt(0, 0), None);
+        assert_eq!(valid_tcp_rtt(u32::MAX, 0), None);
+        assert_eq!(valid_tcp_rtt(2215, 1), None);
+    }
+    #[test]
+    fn tcping_reports_every_connection_without_extra_warmup_probes() {
+        for host in ["127.0.0.1", "::1"] {
+            let listener = std::net::TcpListener::bind((host, 0)).unwrap();
+            let addr = listener.local_addr().unwrap();
+            let request = Request {
+                tool: "tcping".into(),
+                target: host.into(),
+                port: addr.port(),
+                count: 5,
+                timeout_ms: 1000,
+                ..Request::default()
+            };
+            let result = probe_with(
+                &request,
+                &cancel(),
+                &|_| {},
+                &mut network_probe,
+                &mut |_, _| Ok(()),
+            )
+            .unwrap();
+            assert_eq!(result["sent"], 5);
+            assert_eq!(result["received"], 5);
+            let samples = result["samples"].as_array().unwrap();
+            assert_eq!(samples.len(), 5);
+            for (i, sample) in samples.iter().enumerate() {
+                assert_eq!(sample["seq"], i + 1);
+                assert!(sample["rtt_ms"].as_f64().unwrap() >= 0.0);
+                listener.accept().unwrap();
+            }
+            listener.set_nonblocking(true).unwrap();
+            assert_eq!(
+                listener.accept().unwrap_err().kind(),
+                std::io::ErrorKind::WouldBlock
+            );
+            drop(listener);
+            // Windows can delay reporting a refused loopback connect beyond 1 s.
+            let request = Request {
+                timeout_ms: 5000,
+                ..request
+            };
+            let refused = network_probe(&request, addr, 128, &cancel()).unwrap();
+            assert_eq!(refused["status"], "refused");
+            assert!(refused["rtt_ms"].is_null());
+        }
     }
     fn fixture(seq: u64) -> serde_json::Value {
         if seq.is_multiple_of(5) {

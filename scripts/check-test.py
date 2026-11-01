@@ -3,7 +3,7 @@
 import datetime, hashlib, http.server, json, os, platform, signal, socket, socketserver, ssl, subprocess, tempfile, threading, time
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-CLI=ROOT/'target/debug/hopkit-cli'
+CLI=ROOT/'target/debug'/('hopkit-cli.exe' if os.name=='nt' else 'hopkit-cli')
 OUT=ROOT/'test-output/check'
 OUT.mkdir(parents=True,exist_ok=True)
 checks=[]
@@ -34,26 +34,31 @@ def serve(context=None):
     threading.Thread(target=s.serve_forever,daemon=True).start()
     return s
 
-def run(target,*args,env=None):
-    p=subprocess.run([str(CLI),'check',target,'--timeout-ms','700','--format','json',*args],capture_output=True,text=True,timeout=25,env=env)
+def run(target,*args,env=None,timeout_ms=700):
+    p=subprocess.run([str(CLI),'check',target,'--timeout-ms',str(timeout_ms),'--format','json',*args],capture_output=True,text=True,encoding='utf-8',timeout=25,env=env)
     assert p.returncode==0,(p.returncode,p.stdout,p.stderr)
     v=json.loads(p.stdout)
     assert v['status']=='succeeded',v
     assert 'request-secret' not in p.stdout and 'redirect-secret' not in p.stdout and 'credential-secret' not in p.stdout
     return v
 
-def byid(v,id): return next(e for e in v['data']['evidence'] if e['id']==id)
+def byid(v,id):
+    evidence=next((e for e in v['data']['evidence'] if e['id']==id),None)
+    assert evidence is not None, (id,v)
+    return evidence
 def record(name,v=None):
     checks.append({'test':name,'passed':True})
     if v:(OUT/(name+'.json')).write_text(json.dumps(v,ensure_ascii=False,indent=2))
 
 with tempfile.TemporaryDirectory(prefix='hopkit-check-') as temp:
     temp=Path(temp)
-    def openssl(*args):subprocess.run(['openssl',*map(str,args)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    def openssl(*args):
+        result=subprocess.run(['openssl',*map(str,args)],stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
+        if result.returncode:raise RuntimeError(result.stderr)
     ca=temp/'ca.pem';key=temp/'ca.key'
     openssl('req','-x509','-newkey','rsa:2048','-nodes','-keyout',key,'-out',ca,'-days','2','-subj','/CN=HopKit Test CA')
     config=temp/'ca.cnf';(temp/'index').touch();(temp/'serial').write_text('01\n');(temp/'new').mkdir()
-    config.write_text(f'[ca]\ndefault_ca=test\n[test]\ndatabase={temp}/index\nserial={temp}/serial\nnew_certs_dir={temp}/new\ncertificate={ca}\nprivate_key={key}\ndefault_md=sha256\npolicy=policy\nunique_subject=no\nx509_extensions=ext\n[policy]\ncommonName=supplied\n[ext]\nsubjectAltName=DNS:localhost,IP:127.0.0.1\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n')
+    config.write_text(f'[ca]\ndefault_ca=test\n[test]\ndatabase={temp.as_posix()}/index\nserial={temp.as_posix()}/serial\nnew_certs_dir={temp.as_posix()}/new\ncertificate={ca.as_posix()}\nprivate_key={key.as_posix()}\ndefault_md=sha256\npolicy=policy\nunique_subject=no\nx509_extensions=ext\n[policy]\ncommonName=supplied\n[ext]\nsubjectAltName=DNS:localhost,IP:127.0.0.1\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n')
     contexts={}
     for kind in ('valid','expired','wrongname'):
         k=temp/(kind+'.key');csr=temp/(kind+'.csr');cert=temp/(kind+'.pem')
@@ -79,7 +84,7 @@ with tempfile.TemporaryDirectory(prefix='hopkit-check-') as temp:
         v=run(base+'/redirect');assert byid(v,'http_1')['data']['status_code']==200;record('redirect',v)
         v=run(base+'/loop');assert byid(v,'redirect')['error']['code']=='REDIRECT_LIMIT';record('redirect-loop',v)
         v=run(base+'/credentials');assert byid(v,'redirect')['error']['code']=='INVALID_REDIRECT';record('redirect-credentials',v)
-        v=run(base+'/cross');assert byid(v,'http_1')['data']['status_code']==200;assert not any(k.lower() in ('authorization','cookie','referer') for k in requests[-1]['headers']);record('cross-origin-no-credentials',v)
+        v=run(base+'/cross',timeout_ms=5000);assert byid(v,'http_1')['data']['status_code']==200;assert not any(k.lower() in ('authorization','cookie','referer') for k in requests[-1]['headers']);record('cross-origin-no-credentials',v)
         v=run(base+'/large');assert byid(v,'http_0')['error']['code']=='RESOURCE_EXHAUSTED';record('bounded-headers',v)
         v=run(base+'/slow');assert byid(v,'http_0')['stage']=='http' and byid(v,'http_0')['error']['code']=='TIMEOUT';record('http-response-timeout',v)
         v=run(f'https://127.0.0.1:{valid.server_port}/ok',*ca_args);assert byid(v,'tls_0')['status']=='observed' and 'passed' in byid(v,'tls_0')['data']['certificate_validation'];record('tls-valid',v)
@@ -123,16 +128,16 @@ with tempfile.TemporaryDirectory(prefix='hopkit-check-') as temp:
             v=run(f'http://[::1]:{v6.server_port}/ok','--source','::1');assert byid(v,'http_0')['data']['local_address']=='::1';record('ipv6-http-source',v)
         finally:v6.shutdown();v6.server_close()
         closed=socket.socket();closed.bind(('127.0.0.1',0));port=closed.getsockname()[1];closed.close()
-        v=run(f'127.0.0.1:{port}');assert byid(v,'tcp')['error']['code']=='CONNECTION_REFUSED';record('tcp-refused',v)
+        v=run(f'127.0.0.1:{port}',timeout_ms=5000);assert byid(v,'tcp')['error']['code']=='CONNECTION_REFUSED';record('tcp-refused',v)
         v=run('hopkit-does-not-exist.invalid');assert byid(v,'dns')['status']=='failed' and byid(v,'tcp')['status']=='skipped';record('system-nxdomain',v)
         v=run('localhost');assert byid(v,'http')['status']=='skipped' and byid(v,'tcp')['status']=='skipped';record('hostname-not-assumed-http',v)
         slow.clear()
-        p=subprocess.Popen([str(CLI),'check',base+'/slow','--timeout-ms','10000','--format','jsonl'],stdout=subprocess.PIPE,text=True)
+        p=subprocess.Popen([str(CLI),'check',base+'/slow','--timeout-ms','10000','--format','jsonl'],stdout=subprocess.PIPE,text=True,encoding='utf-8',creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name=='nt' else 0)
         lines=[]
         def collect():
             for line in p.stdout: lines.append(json.loads(line))
         worker=threading.Thread(target=collect);worker.start();assert slow.wait(15)
-        began=time.monotonic();p.send_signal(signal.SIGINT);assert p.wait(timeout=2)==130;worker.join(timeout=2)
+        began=time.monotonic();p.send_signal(signal.CTRL_BREAK_EVENT if os.name=='nt' else signal.SIGINT);assert p.wait(timeout=2)==130;worker.join(timeout=2)
         assert time.monotonic()-began<2 and lines[-1]['status']=='cancelled' and lines[-1]['data']['evidence']
         record('cancel-http-retains-evidence',lines[-1])
     finally:

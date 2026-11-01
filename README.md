@@ -17,7 +17,7 @@ HopKit combines endpoint troubleshooting, network measurements, file transfer, a
 | Network / target | Inspect interfaces, addresses, gateways, DNS, and default routes; normalize targets without sending probes |
 | Ping | IPv4/IPv6, finite or continuous probes, configurable payload/timeout/interval, latency, and packet loss |
 | Traceroute | ICMP tracing, three probes per hop, configurable hop limit, response addresses, and destination status |
-| TCPing | TCP connection timing with separate success, refusal, and timeout results |
+| TCPing | TCP latency with separate success, refusal, and timeout results |
 | DNS | System resolver or a specified server; A/AAAA/CNAME/MX/TXT/NS/PTR/SOA queries; TCP fallback for truncated UDP replies |
 | NTP | Clock offset, delay, stratum, and KoD detection; temporary NTPv3/v4 server; no system clock changes |
 | iperf3 | Built-in TCP/UDP throughput client/server, reverse download, parallel TCP streams, UDP jitter/loss, and live rates |
@@ -57,6 +57,8 @@ The GUI starts in English with the **Fresh** appearance. Switch **中文 / Engli
 The task center supports **4 concurrent tasks** and **40 session tasks**, with active tasks pinned above filterable history. Opening a task preserves the form; **Rerun** loads its saved request for review. Tool/mode parameters are retained separately during the session. Stop tasks individually or use **Stop all**; partial evidence is preserved. Closing the GUI stops its tasks while independent CLI processes continue. Task history and tool configurations do not persist across restarts.
 
 Ping/TCPing statistics cover the entire task independently of the recent preview. Interrupted calls are counted separately and excluded from latency and failure rates. Charts show the latest 20/80/200 available samples; filters do not change cumulative metrics. Traceroute reports each hop separately: TTL expiry is a hop response, and an intermediate timeout alone does not establish a broken route.
+
+Windows TCPing prefers the TCP stack's RTT from `SIO_TCP_INFO`, excluding application scheduling and first-use overhead. Unsupported or invalid statistics and SYN retransmissions fall back to measured connection time. Successful samples export `rtt_source` (`tcp_info` or `connect_elapsed`) and preserve the full connection call duration in `connect_elapsed_ms`. Each probe opens its own connection; the first sample is retained.
 
 ## CLI usage
 
