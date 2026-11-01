@@ -14,6 +14,8 @@ parser.add_argument('--build-dir',type=Path)
 parser.add_argument('--output-dir',type=Path)
 parser.add_argument('--minimum-system')
 args=parser.parse_args()
+if args.minimum_system is None and platform.system() == 'Darwin':
+    args.minimum_system = os.environ.get('MACOSX_DEPLOYMENT_TARGET', '11.0')
 output=args.output_dir or root
 output.mkdir(parents=True,exist_ok=True)
 build=args.build_dir or root/'target/release'

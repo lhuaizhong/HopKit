@@ -6,12 +6,13 @@
 
 HopKit combines endpoint troubleshooting, network measurements, file transfer, and log collection in a desktop GUI and an independent CLI. Both share a Rust core, providing consistent results for interactive work and automation.
 
-**Version: `0.1.0-alpha.1` — evaluation preview.** This README describes the current source tree. Historical downloads use the former **netbox** name and do not include `hk` or subsequent source additions. Build from source to use the capabilities documented here.
+**Version: `0.1.0-beta.1` — HopKit Pre-release 1.** Download native Windows x64, macOS Apple Silicon, or macOS Intel packages below. This release includes the current troubleshooting workflow, multi-target monitoring, and independent CLI. See the [changelog](CHANGELOG.md).
 
 ## Capabilities
 
 | Tool | Capabilities |
 | --- | --- |
+| Multi-target monitoring | Common timeline for up to three ICMP/TCP targets, failure periods, pause/resume, notes, network events, and before/after comparison; see [monitoring guide](MONITORING.md) |
 | Troubleshooting | Local network overview; staged DNS, route, ICMP, TCP, and HTTP/TLS evidence; possible causes and next steps |
 | Network / target | Inspect interfaces, addresses, gateways, DNS, and default routes; normalize targets without sending probes |
 | Ping | IPv4/IPv6, finite or continuous probes, configurable payload/timeout/interval, latency, and packet loss |
@@ -26,16 +27,16 @@ HopKit combines endpoint troubleshooting, network measurements, file transfer, a
 
 ## Downloads and startup
 
-[Historical release v0.1.0-alpha.1](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-alpha.1) · [SHA-256 checksums](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt)
+[HopKit Pre-release 1](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-beta.1) · [SHA-256 checksums](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/SHA256SUMS.txt)
 
-| Platform | Historical netbox package |
+| Platform | Package |
 | --- | --- |
-| Windows x64 | [Installer](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-setup.exe) |
-| Windows x64 | [Portable EXE](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.exe) · [Portable ZIP with CLI](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.zip) |
-| macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg) |
-| macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg) |
+| Windows x64 | [Installer](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-windows-x64-setup.exe) |
+| Windows x64 | [Portable ZIP with CLI](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-windows-x64-portable.zip) · [Portable GUI EXE](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-windows-x64-portable.exe) |
+| macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-arm64.dmg) · [App ZIP with CLI](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-arm64.zip) |
+| macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-x86_64.dmg) · [App ZIP with CLI](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-x86_64.zip) |
 
-The release page also provides macOS ZIPs with the CLI and per-file checksums. Historical archives retain their original executable names; the following names apply to current source builds.
+The release also provides separate macOS CLI ZIPs, dependency licenses, build metadata, and checksums. See [migration notes](MIGRATION.md) when upgrading from netbox.
 
 - **Windows:** install the package or extract the ZIP into a writable local directory, then run `HopKit.exe`. The GUI requires [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/); the installer downloads it if missing. The installer and portable ZIP include the CLI; the single portable EXE contains only the GUI.
 - **macOS:** choose the package for your CPU, open the DMG, and drag `HopKit.app` to Applications, or extract the app ZIP. The GUI uses the system WKWebView. ZIPs provide the CLI; release DMGs place it in `HopKit.app/Contents/Resources/`. See the [macOS guide](README-macOS.md).
@@ -59,7 +60,7 @@ Ping/TCPing statistics cover the entire task independently of the recent preview
 
 ## CLI usage
 
-Multi-target monitoring: `hk monitor --target ping,192.168.1.1 --target ping,example.com --target tcping,business.example,443 --format jsonl`. Select **Monitor** in the GUI sidebar for a common timeline, pause/resume, notes, network events and before/after comparisons. Up to three targets are sampled sequentially using system routes; monitors share the existing four-task limit. Measurement gaps do not create failure samples. See [monitoring behavior, budgets and validation](MONITORING.md). Extended endurance, physical sleep/interface switching and macOS validation remain outstanding for this change.
+Multi-target monitoring: `hk monitor --target ping,192.168.1.1 --target ping,example.com --target tcping,business.example,443 --format jsonl`. Select **Monitor** in the GUI sidebar for a common timeline, pause/resume, notes, network events and before/after comparisons. Up to three targets are sampled sequentially using system routes; monitors share the existing four-task limit. Measurement gaps do not create failure samples. See [monitoring behavior, budgets and validation](MONITORING.md). Release validation runs native protocol regression and a 35-second monitoring fault/recovery check on all three architectures. Extended endurance and physical sleep/interface switching remain outstanding.
 
 Run from the extracted package directory:
 
@@ -193,11 +194,12 @@ npm run desktop
 For a Windows release build and local protocol regression:
 
 ```powershell
-cargo build --release --locked --features hopkit-desktop/custom-protocol -p hopkit-desktop -p hopkit-cli
+cargo build --release --locked -p hopkit-cli
+npx tauri build --no-bundle -- --locked
 python scripts/integration_test.py --exe target/release/hopkit-cli.exe
 ```
 
-For macOS packaging and architecture checks, follow the [macOS guide](README-macOS.md). The [release workflow](.github/workflows/release.yml) defines package assembly and acceptance checks. Build metadata, dependency notices, SBOM, and SHA-256 files identify artifacts; historical toolchain versions belong to the corresponding `BUILD_INFO.json`.
+For macOS packaging and architecture checks, follow the [macOS guide](README-macOS.md). The [release workflow](.github/workflows/release.yml) defines package assembly and acceptance checks. Build metadata, dependency notices, SBOM, and SHA-256 files identify artifacts; artifact-specific metadata is generated during each build, inside the ZIP or installed resources rather than the source tree. See [release instructions](RELEASING.md).
 
 Shared protocol regression uses Python's standard library and independent local peers without public network access. Additional checks include `scripts/diagnostic-trust-test.py`, `scripts/iperf3-test.py`, and `scripts/check-test.py`; inspect their platform/development prerequisites before running. UI tests use browser fixtures or test-only debugging; normal releases do not enable a debugging port. Local evidence goes to `test-output/`; packaged evidence, when included, is under `validation/`. Results apply to the recorded platform/artifact, without establishing coverage for other architectures, minimum OS versions, real devices, or changing VPN/multi-interface environments.
 

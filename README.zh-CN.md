@@ -6,7 +6,7 @@
 
 HopKit 集成终端排障、网络测量、文件传输与日志采集，提供桌面 GUI 和独立 CLI。两种入口共享 Rust 核心，为交互操作和自动化脚本提供一致的诊断结果。
 
-**当前版本：`0.1.0-alpha.1`，用于测试与评估。** 本文说明当前源码能力。历史下载仍使用原名称 **netbox**，不含 `hk` 及后续源码新增功能；体验本文所述能力，请从源码构建。
+**当前版本：`0.1.0-beta.1` — HopKit 首个 Pre-release。** 下方提供 Windows x64、macOS Apple Silicon 和 macOS Intel 原生安装包，包含当前网络排障、多目标持续监测及独立 CLI。更新内容见 [版本记录](CHANGELOG.md)。
 
 ## 功能概览
 
@@ -27,16 +27,16 @@ HopKit 集成终端排障、网络测量、文件传输与日志采集，提供�
 
 ## 下载与启动
 
-[历史版本 v0.1.0-alpha.1](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-alpha.1) · [SHA-256 校验清单](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt)
+[HopKit 首个 Pre-release](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-beta.1) · [SHA-256 校验清单](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/SHA256SUMS.txt)
 
-| 平台 | 历史 netbox 安装包 |
+| 平台 | 安装包 |
 | --- | --- |
-| Windows x64 | [安装版](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-setup.exe) |
-| Windows x64 | [便携 EXE](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.exe) · [含 CLI 的便携 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-windows-x64-portable.zip) |
-| macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg) |
-| macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg) |
+| Windows x64 | [安装版](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-windows-x64-setup.exe) |
+| Windows x64 | [含 CLI 的免安装 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-windows-x64-portable.zip) · [免安装单 EXE](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-windows-x64-portable.exe) |
+| macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-arm64.dmg) · [含 CLI 的应用 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-arm64.zip) |
+| macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-x86_64.dmg) · [含 CLI 的应用 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-x86_64.zip) |
 
-Release 页面还提供含 CLI 的 macOS ZIP 及各文件校验值。历史包保留原有程序名称；下列名称适用于当前源码构建产物。
+Release 另提供 macOS 独立 CLI ZIP、依赖许可、构建信息及校验值。从 netbox 升级请参阅 [迁移说明](MIGRATION.md)。
 
 - **Windows：** 安装程序，或将 ZIP 解压至本地可写目录，运行 `HopKit.exe`。GUI 依赖 [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)，安装版会在缺失时联网下载。安装版与便携 ZIP 包含 CLI，便携单 EXE 仅包含 GUI。
 - **macOS：** 按 CPU 架构选择安装包，打开 DMG 并将 `HopKit.app` 拖入 Applications，或解压应用 ZIP。GUI 使用系统 WKWebView。ZIP 提供 CLI，发布 DMG 中的 CLI 位于 `HopKit.app/Contents/Resources/`。详见 [macOS 指南](README-macOS.md)。
@@ -62,7 +62,7 @@ Ping/TCPing 按整个任务累计统计，与最近预览分离。中断调用�
 
 ## CLI 使用
 
-多目标监测示例：`hk monitor --target ping,192.168.1.1 --target ping,example.com --target tcping,business.example,443 --format jsonl`。在 GUI 侧栏选择 Monitor。采用系统路由，最多三个目标、依次探测，共用现有四任务上限；休眠或采样中断不补造失败。详见 [参数、预算和验证边界](MONITORING.md)。两小时以上监测、物理休眠/网卡切换与 macOS 本轮实测尚未完成。
+多目标监测示例：`hk monitor --target ping,192.168.1.1 --target ping,example.com --target tcping,business.example,443 --format jsonl`。在 GUI 侧栏选择 Monitor。采用系统路由，最多三个目标、依次探测，共用现有四任务上限；休眠或采样中断不补造失败。详见 [参数、预算和验证边界](MONITORING.md)。发布验收在三个原生架构上运行协议回归及 35 秒监测故障/恢复检查；两小时以上监测与物理休眠/网卡切换尚待实测。
 
 在解压后的目录中运行：
 
@@ -196,11 +196,12 @@ npm run desktop
 Windows 发布构建与本地协议复测：
 
 ```powershell
-cargo build --release --locked --features hopkit-desktop/custom-protocol -p hopkit-desktop -p hopkit-cli
+cargo build --release --locked -p hopkit-cli
+npx tauri build --no-bundle -- --locked
 python scripts/integration_test.py --exe target/release/hopkit-cli.exe
 ```
 
-macOS 打包与分架构检查见 [macOS 指南](README-macOS.md)，安装包组装与验收流程见 [发布工作流](.github/workflows/release.yml)。构建信息、依赖声明、SBOM 与 SHA-256 用于标识产物；历史工具链版本以对应包的 `BUILD_INFO.json` 为准。
+macOS 打包与分架构检查见 [macOS 指南](README-macOS.md)，安装包组装与验收流程见 [发布工作流](.github/workflows/release.yml)。构建信息、依赖声明、SBOM 与 SHA-256 用于标识产物；每次构建在 ZIP 或安装资源中生成对应产物的元数据，源码目录不保存历史二进制清单。详见 [发布说明](RELEASING.md)。
 
 共用协议集成脚本使用 Python 标准库与独立本地对端，不依赖公网。专项检查包括 `scripts/diagnostic-trust-test.py`、`scripts/iperf3-test.py`、`scripts/check-test.py`，运行前需核对平台与开发依赖。UI 测试使用浏览器 fixture 或测试专用调试，正式启动不开放调试端口。本地证据写入 `test-output/`，包内证据如有提供则位于 `validation/`。结论仅适用于记录的平台与产物，不等同于其他架构、最低系统版本、真实设备或多网卡/VPN 动态环境已通过验证。
 

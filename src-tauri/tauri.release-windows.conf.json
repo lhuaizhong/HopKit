@@ -1,8 +1,12 @@
 {
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "icon": ["icons/icon.ico"],
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/icon.ico"
+    ],
     "resources": {
       "../target/release/hopkit-cli.exe": "hopkit-cli.exe",
       "../target/release/hk.exe": "shortcuts/hk.exe",
@@ -11,11 +15,27 @@
       "../release/metadata/licenses/": "licenses/",
       "../release/metadata/THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
       "../release/metadata/SBOM.cdx.json": "SBOM.cdx.json",
-      "../release/metadata/BUILD_INFO.json": "BUILD_INFO.json"
+      "../release/metadata/BUILD_INFO.json": "BUILD_INFO.json",
+      "../README.md": "README.md",
+      "../README.zh-CN.md": "README.zh-CN.md",
+      "../README-macOS.md": "README-macOS.md",
+      "../MONITORING.md": "MONITORING.md",
+      "../CHANGELOG.md": "CHANGELOG.md",
+      "../RELEASING.md": "RELEASING.md"
     },
     "windows": {
-      "webviewInstallMode": {"type": "downloadBootstrapper", "silent": true},
-      "nsis": {"installMode": "currentUser", "languages": ["English", "SimpChinese"], "displayLanguageSelector": true}
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "English",
+          "SimpChinese"
+        ],
+        "displayLanguageSelector": true
+      }
     }
   }
 }

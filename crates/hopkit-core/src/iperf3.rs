@@ -140,6 +140,25 @@ fn state(stream: &mut TcpStream, ctx: &Context<'_>) -> Result<u8, ToolError> {
         s => Ok(s),
     }
 }
+
+fn deny_connection(stream: &mut TcpStream) {
+    // Closing with an unread client cookie can reset the connection on Windows,
+    // discarding DENIED. Drain the small handshake within one tick before replying.
+    let _ = stream.set_nonblocking(false);
+    let _ = stream.set_write_timeout(Some(IO_TICK));
+    let _ = stream.set_read_timeout(Some(IO_TICK));
+    let deadline = Instant::now() + IO_TICK;
+    let mut cookie = [0; 37];
+    let mut received = 0;
+    while received < cookie.len() && Instant::now() < deadline {
+        match stream.read(&mut cookie[received..]) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => received += n,
+        }
+    }
+    let _ = stream.write_all(&[DENIED]);
+    let _ = stream.shutdown(Shutdown::Write);
+}
 fn expect(stream: &mut TcpStream, wanted: u8, ctx: &Context<'_>) -> Result<(), ToolError> {
     let received = state(stream, ctx)?;
     if received != wanted {
@@ -661,7 +680,7 @@ fn measure(
         if let Some(listener) = listener {
             while let Ok((mut busy, _)) = listener.accept() {
                 setup(&busy)?;
-                let _ = busy.write_all(&[DENIED]);
+                deny_connection(&mut busy);
             }
         }
         let elapsed = workers.began.elapsed();
@@ -930,7 +949,7 @@ fn server_session(
                 Ok((mut stream, from)) => {
                     setup(&stream)?;
                     if from.ip() != peer.ip() {
-                        let _ = stream.write_all(&[DENIED]);
+                        deny_connection(&mut stream);
                         continue;
                     }
                     let mut received = [0; 37];
@@ -999,7 +1018,7 @@ fn serve(r: &Request, ctx: &Context<'_>, emit: &Sink<'_>) -> ToolResult {
         match listener.accept() {
             Ok((mut stream, peer)) => {
                 if !crate::syslog::allowed(peer.ip(), &nets) {
-                    let _ = stream.write_all(&[DENIED]);
+                    deny_connection(&mut stream);
                     denied += 1;
                     continue;
                 }

@@ -1,20 +1,21 @@
-# HopKit macOS 基础功能测试版
+# HopKit for macOS / macOS 使用指南
 
-版本：`0.1.0-alpha.1`，基于《netbox 技术方案 v0.3》及现有 Windows 基础测试版。GUI 和独立 CLI 共享 Rust 协议核心。此包用于基础评估；不是 v0.3 的正式版完整验收结果。
+**版本：`0.1.0-beta.1` — HopKit Pre-release 1。** GUI 和独立 CLI 共享 Rust 协议核心，包含网络排障、多目标监测和完整基础工具，用于测试与评估。
 
-## 历史下载
+## 下载
 
-当前分支已改名 HopKit（原 netbox），尚未发布新的 HopKit 包。以下历史下载仍使用 netbox 名称且不含 `hk`；下文命令用于当前源码生成的新包。
+| CPU | DMG | 应用与 CLI ZIP |
+| --- | --- | --- |
+| Apple Silicon（M 系列） | [arm64 DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-arm64.dmg) | [arm64 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-arm64.zip) |
+| Intel | [x86_64 DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-x86_64.dmg) | [x86_64 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-x86_64.zip) |
 
-- [Apple Silicon DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-arm64.dmg)
-- [Intel DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-alpha.1/netbox-0.1.0-alpha.1-macos-x86_64.dmg)
-- [全部安装包、CLI ZIP 和 SHA-256](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-alpha.1)
+[全部安装包、CLI ZIP 和 SHA-256](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-beta.1) · [版本记录](CHANGELOG.md)
 
-DMG 打开后将 `HopKit.app` 拖入 Applications；两种 DMG 均以 macOS 11.0 为最低构建目标，最低版本尚未实机验证。
+DMG 打开后将 `HopKit.app` 拖入 Applications；两种架构均以 macOS 11.0 为最低构建目标，最低系统仍需实机验证。DMG 的完整 CLI 与 `shortcuts/hk` 位于 `HopKit.app/Contents/Resources/`，ZIP 则位于解压目录。应用资源中还附带文档、依赖许可、SBOM 及构建信息。
 
 ## 启动
 
-- Apple Silicon（M 系列）：使用 `macos-arm64` 包；Intel：使用 `macos-x86_64` 包。Intel 包的构建成功不代表已通过 Intel 实机测试。
+- Apple Silicon（M 系列）：使用 `macos-arm64` 包；Intel：使用 `macos-x86_64` 包。两种架构分别在原生 CI 环境运行发布回归；最低系统与完整 GUI 仍需验收。
 - 解压 ZIP，将 `HopKit.app` 复制到本地目录，双击打开。无需安装 Node、Rust、Python、WebView2 或 Rosetta；GUI 使用 macOS 自带的 WKWebView。
 - CLI 在终端前台独立运行，不启动 GUI。关闭 GUI 会停止该 GUI 的任务；其他终端中运行的 CLI 不受影响。
 - 应用使用 ad-hoc 签名，未做 Developer ID 签名和 Apple 公证。对于从网络下载的包，先尝试打开，再按系统“系统设置 → 隐私与安全性 → 仍要打开”的逐应用流程处理。参见 [Apple 官方说明](https://support.apple.com/102445)。不需要全局关闭 Gatekeeper，也不需要清除所有应用的 quarantine 属性。组织策略可能禁止运行未公证应用。
@@ -25,6 +26,9 @@ DMG 打开后将 `HopKit.app` 拖入 Applications；两种 DMG 均以 macOS 11.0
 
 | 工具 | macOS 测试版功能 |
 | --- | --- |
+| 网络排障 | 本机概览、目标规范化，关联 DNS、路由、ICMP、TCP、HTTP/TLS 证据 |
+| 多目标监测 | 最多三个 ICMP/TCP 目标，共用时间轴、故障恢复、暂停、备注及范围前后对比；见 [MONITORING.md](MONITORING.md) |
+| iperf3 | 内置 TCP/UDP 测速客户端/服务端、反向下载、TCP 并行流、实时速率及 UDP 抖动/丢包 |
 | Ping | Darwin 普通用户 ICMP 数据报套接字；IPv4/IPv6、次数/持续、测试包大小、超时、间隔、延迟、丢包；不调用系统 ping 命令 |
 | Traceroute | ICMP 逐跳 TTL / IPv6 hop limit，每跳一行并列显示 3 次探测；区分回复、超时、TTL 到期及不可达 |
 | TCPing | TCP connect，区分成功、拒绝和超时 |
@@ -76,7 +80,7 @@ export HOPKIT_FTP_PASSWORD='你的密码'
 
 示例局域网地址请替换为实际设备地址。FTP 默认 TCP 21，NTP 默认 UDP 123，TFTP 默认 UDP 69，Syslog 默认 UDP 514。标准端口是否可用取决于运行环境与端口占用；早期受限环境曾返回 `PERMISSION_DENIED`。遇到权限错误时可手动使用 FTP 2121 / NTP 1123 / TFTP 1069 / Syslog 1514 测试；GUI 不提权，错误时不会自动换端口。如需只允许某个局域网段，可设置 `--allow 192.168.1.0/24`；多个来源 CIDR 用逗号分隔。
 
-GUI 选择 **NTP → 时间服务** 可设置监听参数、层级（默认 10）和自动停止秒数（0 为手动停止）。服务以本机系统时间响应基本无认证 NTPv3/v4 请求，不校验上游同步、不校时，精度取决于本机时钟。实时显示请求/响应/拒绝/无效报文统计，停止后释放端口。认证/NTS、扩展、广播、对等和控制模式不在支持范围。本次源码能力及完整用法见 [README.zh-CN.md](README.zh-CN.md)，此前发布的二进制包不包含此次新增功能。
+GUI 选择 **NTP → 时间服务** 可设置监听参数、层级（默认 10）和自动停止秒数（0 为手动停止）。服务以本机系统时间响应基本无认证 NTPv3/v4 请求，不校验上游同步、不校时，精度取决于本机时钟。实时显示请求/响应/拒绝/无效报文统计，停止后释放端口。认证/NTS、扩展、广播、对等和控制模式不在支持范围。完整用法与限制见 [README.zh-CN.md](README.zh-CN.md)。
 
 可选短入口为 `./shortcuts/hk`，它是完整 CLI 的独立副本，参数、输出和退出码相同。加入 PATH 前先运行 `type -a hk` 检查冲突；本包不覆盖已有命令。
 
@@ -84,8 +88,8 @@ GUI 选择 **NTP → 时间服务** 可设置监听参数、层级（默认 10�
 
 ## 验证及边界
 
-- 当前完整运行证据来自 Apple Silicon、macOS 27.0.1。本次构建目标下限为 arm64 macOS 11、Intel macOS 10.15；最低系统和 Intel 真机仍需验证，不能从 Mach-O 下限或交叉编译成功推导运行支持。
-- FTP 是明文被动模式，不支持 FTPS/SFTP、主动模式或续传；服务最多 4 个并发连接，只能访问所选可信根目录中的普通文件及已有子目录，默认只读，允许上传后只新建不覆盖。支持 IPv4 PASV 和 IPv4/IPv6 EPSV，数据端口由系统分配。完整使用说明及限制见 [README.zh-CN.md](README.zh-CN.md)。此前发布包不包含本次新增功能。
+- 当前发布在 Apple Silicon 与 Intel 原生 CI 运行核心测试、协议回归及 35 秒监测故障恢复场景，校验 Mach-O 架构、ad-hoc 签名、DMG 完整性与只读挂载及分发的 CLI。两种架构最低构建目标均为 macOS 11.0；最低系统、完整 GUI、物理设备与长时间运行仍需验收。
+- FTP 是明文被动模式，不支持 FTPS/SFTP、主动模式或续传；服务最多 4 个并发连接，只能访问所选可信根目录中的普通文件及已有子目录，默认只读，允许上传后只新建不覆盖。支持 IPv4 PASV 和 IPv4/IPv6 EPSV，数据端口由系统分配。完整使用说明及限制见 [README.zh-CN.md](README.zh-CN.md)。
 - TFTP 仅 octet、512 字节、一次一个活动传输、根目录单层文件名；不协商选项、不回绕、不支持 netascii，最大 33,553,919 字节。服务写入只允许新建。最终 ACK 丢失可能导致远端结果不确定，不应盲目重传上传。文件根目录须可信；防火墙需允许实际动态 UDP 传输端口。
 - Syslog 仅 UDP，JSONL 段 64 MiB、7 天/约 2 GiB 上限；不承诺正式版吞吐量、SQLite 索引和严格崩溃恢复。预览有界且采样，完整日志以指定目录中 `hopkit-syslog/` 文件为准。
 - 无 AI/MCP、Syslog TCP/TLS、自动更新或更新签名验证、永久任务历史。本包的 SHA-256 仅供完整性核对，ad-hoc 签名不证明发布者身份。
@@ -93,30 +97,29 @@ GUI 选择 **NTP → 时间服务** 可设置监听参数、层级（默认 10�
 
 ## 构建和复测
 
-需要 Xcode Command Line Tools、Rust、Node。依赖使用已提交的 Cargo/npm 锁文件。实际构建版本记录在 `BUILD_INFO.json`；历史 macOS 包使用 Rust 1.96.0、Node 25.5.0、SDK 27.0；当前开发统一 Node 24，未更新原有协议依赖版本。
+需要 Xcode Command Line Tools、Node 24 和 `rust-toolchain.toml` 固定的 Rust 工具链，保留 Cargo/npm 锁文件。当前版本以 [发布工作流](.github/workflows/release.yml) 在两种原生架构构建 DMG、应用 ZIP 和独立 CLI ZIP，构建元数据随包生成；完整步骤见 [RELEASING.md](RELEASING.md)。
 
 ```sh
-# 使用 Node 24（nvm use，见 .nvmrc）
 npm ci
 cargo test -p hopkit-core --locked
-cargo clippy --workspace --all-targets --locked -- -D warnings
-rustup target add aarch64-apple-darwin x86_64-apple-darwin
-./scripts/package-macos.sh --arch arm64
-./scripts/package-macos.sh --arch x86_64
-python3 scripts/integration_test.py --exe release/hopkit-0.1.0-alpha.1-macos-arm64/hopkit-cli
-python3 scripts/macos_test.py --exe release/hopkit-0.1.0-alpha.1-macos-arm64/hopkit-cli
+cargo build --release --locked -p hopkit-cli
+python3 scripts/prepare-cli.py
+npx tauri build --no-bundle --config src-tauri/tauri.macos.conf.json -- --locked
+python3 scripts/integration_test.py --exe target/release/hopkit-cli --output test-output/integration-release.json
+python3 scripts/monitor-soak.py --exe target/release/hopkit-cli --duration 35 --output test-output/monitor-release
+python3 scripts/build-info.py --target aarch64-apple-darwin --minimum-system 11.0 --build-dir target/release --output-dir release/metadata
+npx tauri bundle --bundles app,dmg --config src-tauri/tauri.release-macos.conf.json
+python3 scripts/release-assets.py --platform macos-arm64
 ```
 
-打包脚本按架构设置 deployment target、生成 `.app` ZIP 和独立 CLI `.zip`，执行 ad-hoc 签名验证，附带构建信息、第三方许可、SBOM 和 SHA-256。默认拒绝覆盖已有发布目录；`--skip-build` 只用于打包已经生成的同架构 release 产物。只交叉编译的 Intel 包不能套用 arm64 运行测试报告作为实机证据。
-
-迁移策略和各包入口见 [MIGRATION.md](MIGRATION.md)；新旧日志不自动合并，GUI 的“浏览已有日志…”可选择旧目录并在 Finder 中查看。
+以上命令在 Apple Silicon 执行；Intel 替换为 `x86_64-apple-darwin` 和 `macos-x86_64`。构建前设置 `MACOSX_DEPLOYMENT_TARGET=11.0`。迁移策略和入口见 [MIGRATION.md](MIGRATION.md)，新旧日志不自动合并。
 
 ## 内置 iperf3 测速
 
 左侧 iperf3 位于 TFTP 正上方，提供客户端和服务端，默认 5201 端口。实现内置于 Rust 核心，无需 Homebrew、外部 iperf3 或 libiperf。支持 TCP 上传/反向下载、1–16 并行流，UDP 单流限速、抖动和丢包，IPv4/IPv6、来源 CIDR、实时速率、停止和结果导出。UDP 同时使用同端口 TCP 控制连接。服务每次接受一个测试；不支持 iperf2、认证、同时双向传输、预热和按字节结束。CLI 用法与范围见 [中文说明](README.zh-CN.md#iperf3-网络测速)。
 
-## 第三阶段源码新增：网络排障首页
+## 网络排障首页
 
 本机概览使用 `ifconfig`、`netstat -rn`、`scutil --dns`、`networksetup -listallhardwareports`；目标路由使用 `route -n get`。这些查询不向公网发送探测。HTTP/TLS 使用内置 Rust HTTP/1.1 + rustls 和随程序分发的 Mozilla 根证书，仅发 HEAD，无需 curl/OpenSSL 可执行文件。需要信任企业 CA 时显式指定 `--ca-file` 或界面中的附加 CA 文件。指定源地址用于 TCP/HTTP 实际绑定，其他检查的能力限制会直接显示。
 
-使用 `hk network`、`hk target <目标>` 或 `hk check <目标>`；完整参数、脱敏和超时口径见 [中文说明](README.zh-CN.md#终端排障主流程第三阶段源码新增)。本机 macOS 12.7.6 Intel 核心/CLI、独立 HTTP/TLS 对端及浏览器 fixture 已验证，详见 [第三阶段测试报告](测试报告-第三阶段终端排障.md)。Windows、Apple Silicon、原生 WebView 新流程与多网卡/VPN 动态切换尚需对应环境验收。
+使用 `hk network`、`hk target <目标>` 或 `hk check <目标>`；完整参数、脱敏和超时口径见 [中文说明](README.zh-CN.md#终端排障主流程第三阶段源码新增)。当前发布的验证范围见上文与包内 `validation/`；完整 GUI、多网卡/VPN 动态切换及物理休眠尚需对应环境验收。

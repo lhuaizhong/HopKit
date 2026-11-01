@@ -27,6 +27,8 @@ shutil.copy2(original_exe, a.exe)
 class Peer:
     def __init__(self):
         self.sock = socket.socket()
+        if os.name != 'nt':
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind(('127.0.0.1', 0))
         self.port = self.sock.getsockname()[1]
         self.sock.listen(64)
@@ -46,6 +48,8 @@ class Peer:
                 continue
             if self.sock is None:
                 self.sock = socket.socket()
+                if os.name != 'nt':
+                    self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 self.sock.bind(('127.0.0.1', self.port))
                 self.sock.listen(64)
                 self.sock.settimeout(.2)

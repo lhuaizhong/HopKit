@@ -22,7 +22,7 @@ assets.mkdir(parents=True, exist_ok=True)
 build = ROOT / 'target/release'
 package = ROOT / 'release' / name
 shutil.copytree(ROOT / 'release/metadata', package)
-for doc in ['LICENSE', 'README.md', 'README.zh-CN.md', 'README-macOS.md', 'MIGRATION.md', '测试报告-HopKit命名迁移.md']:
+for doc in ['LICENSE', 'README.md', 'README.zh-CN.md', 'README-macOS.md', 'MONITORING.md', 'CHANGELOG.md', 'RELEASING.md', 'MIGRATION.md']:
     shutil.copy2(ROOT / doc, package / doc)
 validation = package / 'validation'
 validation.mkdir()
@@ -30,6 +30,11 @@ evidence = ROOT / 'test-output/integration-release.json'
 cli_suffix = '.exe' if args.platform == 'windows-x64' else ''
 assert json.loads(evidence.read_text())['sha256'] == hashlib.sha256((build / ('hopkit-cli'+cli_suffix)).read_bytes()).hexdigest(), 'Stale protocol report'
 shutil.copy2(evidence, validation)
+monitor_evidence = ROOT / 'test-output/monitor-release/progress.json'
+monitor_report = json.loads(monitor_evidence.read_text())
+assert monitor_report['status'] == 'passed', 'Monitor regression failed'
+assert monitor_report['binary_sha256'] == hashlib.sha256((build / ('hopkit-cli'+cli_suffix)).read_bytes()).hexdigest(), 'Stale monitor report'
+shutil.copy2(monitor_evidence, validation / 'monitor-release.json')
 
 def run(*cmd):
     subprocess.run(list(map(str, cmd)), check=True)
@@ -68,8 +73,9 @@ else:
     assert platform.system() == 'Darwin'
     expected_arch = args.platform.removeprefix('macos-')
     app = build / 'bundle/macos/HopKit.app'
-    actual = subprocess.check_output(['lipo', '-archs', str(app / 'Contents/MacOS/HopKit')], text=True).strip()
-    assert actual == expected_arch, actual
+    for binary in [app / 'Contents/MacOS/HopKit', build / 'hopkit-cli']:
+        actual = subprocess.check_output(['lipo', '-archs', str(binary)], text=True).strip()
+        assert actual == expected_arch, (binary, actual)
     run('codesign', '--verify', '--deep', '--strict', app)
     shutil.copytree(app, package / 'HopKit.app', symlinks=True)
     shutil.copy2(build / 'hopkit-cli', package / 'hopkit-cli')

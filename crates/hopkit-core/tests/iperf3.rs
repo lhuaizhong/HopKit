@@ -229,12 +229,8 @@ fn idle_partial_handshake_cancel_source_restriction_and_port_conflict() {
     assert_eq!(error.code, "ADDRESS_IN_USE");
     server.stop();
     let mut server = Server::start("127.0.0.1", "192.0.2.0/24");
-    assert_eq!(
-        run(&server.client(false, false, 1), &cancel(), &|_| {})
-            .unwrap_err()
-            .code,
-        "SERVER_BUSY"
-    );
+    let error = run(&server.client(false, false, 1), &cancel(), &|_| {}).unwrap_err();
+    assert_eq!(error.code, "SERVER_BUSY", "{}", error.message);
     server.stop();
     let mut server = Server::start("127.0.0.1", "");
     server.stop();

@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
 env:
   PYTHONUTF8: '1'
+  MACOSX_DEPLOYMENT_TARGET: '11.0'
 permissions:
   contents: read
 jobs:
@@ -47,6 +48,7 @@ jobs:
           cache-on-failure: true
       - run: npm ci
       - run: npm run test:preferences
+      - run: npm run test:monitor-range
       - run: cargo test -p hopkit-core --locked
       - run: cargo build --release --locked -p hopkit-cli
       - run: python scripts/prepare-cli.py
@@ -58,6 +60,7 @@ jobs:
           suffix=""
           if [[ "$RUNNER_OS" == Windows ]]; then suffix=".exe"; fi
           python scripts/integration_test.py --exe "target/release/hopkit-cli$suffix" --output test-output/integration-release.json
+          python scripts/monitor-soak.py --exe "target/release/hopkit-cli$suffix" --duration 35 --output test-output/monitor-release
       - name: Generate build metadata and dependency licenses
         run: python scripts/build-info.py --target ${{ matrix.target }} --build-dir target/release --output-dir release/metadata
       - name: Bundle installer
@@ -70,3 +73,13 @@ jobs:
           path: release/assets/*
           if-no-files-found: error
           retention-days: 14
+      - name: Upload validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-${{ matrix.platform }}
+          path: |
+            test-output/integration-release.json
+            test-output/monitor-release/*.json
+            release/metadata/BUILD_INFO.json
+          if-no-files-found: warn

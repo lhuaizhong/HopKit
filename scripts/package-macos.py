@@ -57,7 +57,7 @@ for folder in (package,cli_package):
     run(['codesign','--verify','--strict',folder/'hopkit-cli'])
     add_shortcut(folder/'hopkit-cli', folder)
     shutil.copy2(ROOT/'README-macOS.md',folder/'使用说明.md')
-    for doc in ('LICENSE','README.md','README.zh-CN.md','README-macOS.md','MIGRATION.md','测试报告-HopKit命名迁移.md'):
+    for doc in ('LICENSE','README.md','README.zh-CN.md','README-macOS.md','MIGRATION.md','MONITORING.md','CHANGELOG.md','RELEASING.md'):
         if (ROOT/doc).is_file():shutil.copy2(ROOT/doc,folder/doc)
     (folder/'validation').mkdir()
     evidence_names=[f'integration-release-macos-{a.arch}.json',f'platform-macos-{a.arch}.json',f'gui-macos-{a.arch}.json']

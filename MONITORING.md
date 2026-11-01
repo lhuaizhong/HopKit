@@ -54,4 +54,4 @@ python scripts/monitor-soak.py --duration 7200
 
 浏览器回归：先运行 35 秒故障样本到 `test-output/monitor-short`，再运行 `npm run test:monitor-ui`。`HOPKIT_PLAYWRIGHT`/`HOPKIT_BROWSER` 可指定现有开发依赖和 Chromium；它们不进入产品依赖。Windows 原生回归脚本 `scripts/monitor-native-test.mjs` 连接仅供本地测试的 WebView CDP 9237。测试参数不写入发布配置。
 
-物理休眠唤醒、真实双网卡/VPN 切换、macOS Intel/Apple Silicon、两小时以上持续运行及发布包仍需平台验收。注入时钟/事件测试与回环测试不能替代这些实测。
+0.1.0-beta.1 发布流程在 Windows x64、macOS Intel/Apple Silicon 原生 CI 上执行 35 秒三目标监测与故障恢复检查，并校验分发 CLI。物理休眠唤醒、真实双网卡/VPN 切换、两小时以上持续运行及完整 GUI 流程仍需验收。注入时钟/事件测试与回环测试不能替代这些实测。
