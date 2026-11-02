@@ -22,6 +22,7 @@ HopKit combines endpoint troubleshooting, network measurements, file transfer, a
 | NTP | Clock offset, delay, stratum, and KoD detection; temporary NTPv3/v4 server; no system clock changes |
 | iperf3 | Built-in TCP/UDP throughput client/server, reverse download, parallel TCP streams, UDP jitter/loss, and live rates |
 | FTP | Passive client with directory listing and binary upload/download; temporary IPv4/IPv6 server with anonymous or password login; read-only by default |
+| HTTP file sharing | Browser downloads, directory browsing and optional uploads; configurable port, default 80; no extra software required |
 | TFTP | octet-mode upload/download and temporary server; atomic local writes; read-only server by default |
 | Syslog | UDP send/receive, priority extraction, sampled preview, and rotating JSONL files preserving original message bytes |
 
@@ -59,6 +60,19 @@ The task center supports **4 concurrent tasks** and **40 session tasks**, with a
 Ping/TCPing statistics cover the entire task independently of the recent preview. Interrupted calls are counted separately and excluded from latency and failure rates. Charts show the latest 20/80/200 available samples; filters do not change cumulative metrics. Traceroute reports each hop separately: TTL expiry is a hop response, and an intermediate timeout alone does not establish a broken route.
 
 Windows TCPing prefers the TCP stack's RTT from `SIO_TCP_INFO`, excluding application scheduling and first-use overhead. Unsupported or invalid statistics and SYN retransmissions fall back to measured connection time. Successful samples export `rtt_source` (`tcp_info` or `connect_elapsed`) and preserve the full connection call duration in `connect_elapsed_ms`. Each probe opens its own connection; the first sample is retained.
+
+## HTTP file sharing
+
+Select **HTTP**, directly below FTP in the sidebar, choose an existing directory, and start the service. The default port is **80** and can be changed. Open or copy an interface URL for another device. The IP and port must be reachable from that device.
+
+Browsers can navigate subdirectories and download files without additional software. Uploads are disabled by default. Enable **Allow file uploads** before starting to upload multiple files to the current directory, with progress and cancellation. Existing files are never overwritten; interrupted uploads are cleaned up. Transfers stream between disk and socket and support UTF-8 filenames, IPv4/IPv6, HEAD and download ranges.
+
+Source CIDRs and an optional service duration are available. Stopping the service or closing HopKit closes listeners and active transfers while retaining transfer statistics. This temporary server uses plain HTTP without login or HTTPS. Dotfiles and symlinks are excluded. On macOS, use a port such as 8080 if port 80 requires elevated privileges.
+
+```sh
+hk http serve --root ./shared
+hk http serve --root ./shared --port 8080 --write
+```
 
 ## CLI usage
 

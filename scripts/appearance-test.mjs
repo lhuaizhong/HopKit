@@ -36,6 +36,8 @@ try {
   await page.setViewport({ width: 1220, height: 820 })
   page.on('pageerror', e => errors.push(e.message))
   await page.evaluateOnNewDocument(() => {
+    // The application now follows the system locale when no preference exists.
+    Object.defineProperty(navigator, 'language', {value: 'en-US'})
     let task
     window.__detailPolls = 0
     window.__imageExports = []
@@ -82,7 +84,8 @@ try {
       const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
       while (walk.nextNode()) {
         const node = walk.currentNode, e = node.parentElement, text = node.textContent.trim()
-        if (!text || !e.checkVisibility() || e.closest('button:disabled,.brand-icon,.nav-glyph,.radar,.task-icon')) continue
+        // The chart's × is a graphical failure marker; status text is checked below.
+        if (!text || !e.checkVisibility() || e.closest('button:disabled,.brand-icon,.nav-glyph,.radar,.task-icon,.failure-marker')) continue
         const s = getComputedStyle(e), bg = background(e), fg = blend(rgba(s.color), bg)
         const a = luminance(fg), b = luminance(bg), ratio = (Math.max(a, b) + .05) / (Math.min(a, b) + .05)
         if (ratio < 4.5) issues.push({ text: text.slice(0, 60), ratio, color: s.color })
@@ -93,6 +96,7 @@ try {
   }
   await page.goto(url)
   await page.waitForSelector('.appearance-switch')
+  await pick('Ping')
   await check('Fresh appearance and English are the initial defaults', async () => { await assertTheme('fresh'); assert.equal(await page.$eval('#target', e => getComputedStyle(e).fontSize), '12px'); assert.equal(await page.$eval('form .primary', e => e.textContent.trim()), '▶Run test') })
   await page.screenshot({ path: path.join(out, 'fresh.png'), fullPage: true })
   await check('Keyboard activates readable style and exposes selected state', async () => {
@@ -116,6 +120,7 @@ try {
     assert.equal(await page.$eval('.header-actions > .quiet', e => e.textContent), '中文')
   })
   await check('Switching style preserves parameters and a completed task', async () => {
+    await pick('Ping')
     await page.$eval('#target', e => { e.value = 'localhost'; e.dispatchEvent(new Event('input', { bubbles: true })) })
     await page.click('form .primary'); await page.waitForSelector('tbody .event-label')
     await page.click('.appearance-switch button:first-of-type'); await assertTheme('fresh')
@@ -199,13 +204,13 @@ try {
     await page.click('.task-row'); await page.waitForSelector('.raw-result')
     assert.equal(await page.$$eval('tbody tr',rows=>rows.length),2,'Reopening history must fetch preview again')
   })
-  await check('Both languages and all nine tools fit at 960, 1220 and 1440px', async () => {
+  await check('Both languages and all protocol tools fit at 960, 1220 and 1440px', async () => {
     for (const width of [960, 1220, 1440]) {
       await page.setViewport({ width, height: 820 })
       for (const english of [false, true]) {
         await page.evaluate(english => { localStorage.setItem('hopkit-language', english ? 'en-US' : 'zh-CN') }, english)
         await page.reload(); await assertTheme('readable')
-        for (const name of ['Ping', 'Traceroute', 'TCPing', 'DNS', 'NTP', 'iperf3', 'TFTP', 'FTP', 'Syslog']) {
+        for (const name of ['Ping', 'Traceroute', 'TCPing', 'DNS', 'NTP', 'iperf3', 'TFTP', 'FTP', 'HTTP', 'Syslog']) {
           await pick(name); await noOverflow(); await contrast()
           if (['Ping', 'Traceroute', 'TCPing', 'DNS', 'NTP'].includes(name)) {
             await page.click('form .primary'); await page.waitForSelector('.raw-result'); await contrast(); await noOverflow()

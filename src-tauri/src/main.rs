@@ -224,6 +224,15 @@ async fn network_overview() -> Result<Value, String> {
     .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+async fn http_file_addresses() -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        hopkit_core::http_files::interface_addresses(&Arc::new(AtomicBool::new(false)))
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
 fn parse_target(input: String) -> Result<hopkit_core::target::Target, String> {
     hopkit_core::target::parse(&input).map_err(|e| e.to_string())
 }
@@ -353,34 +362,52 @@ async fn export_result(content: String) -> Result<bool, String> {
 }
 #[tauri::command]
 async fn open_project() -> Result<(), String> {
-    // Keep the destination fixed: this command cannot launch arbitrary URLs or programs.
-    tauri::async_runtime::spawn_blocking(|| {
-        let url = "https://github.com/lhuaizhong/HopKit";
+    open_browser_url("https://github.com/lhuaizhong/HopKit".into()).await
+}
+#[tauri::command]
+async fn open_file_service(
+    id: String,
+    url: String,
+    tasks: tauri::State<'_, Tasks>,
+) -> Result<(), String> {
+    {
+        let map = tasks.0.lock().map_err(|_| "Task state unavailable")?;
+        let task = map.get(&id).ok_or("Task not found")?;
+        let port = if task.port == 0 { 80 } else { task.port };
+        hopkit_core::http_files::validate_browser_url(&url, port).map_err(|e| e.to_string())?;
+        if task.tool != "http" || task.status != "running" {
+            return Err("HTTP file service is not running".into());
+        }
+    }
+    open_browser_url(url).await
+}
+async fn open_browser_url(url: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
         #[cfg(target_os = "macos")]
         let mut command = {
             let mut command = std::process::Command::new("/usr/bin/open");
-            command.arg(url);
+            command.arg(&url);
             command
         };
         #[cfg(target_os = "windows")]
         let mut command = {
             use std::os::windows::process::CommandExt;
             let mut command = std::process::Command::new("rundll32.exe");
-            command.args(["url.dll,FileProtocolHandler", url]);
+            command.args(["url.dll,FileProtocolHandler", &url]);
             command.creation_flags(0x08000000);
             command
         };
         #[cfg(not(any(target_os = "macos", target_os = "windows")))]
         let mut command = {
             let mut command = std::process::Command::new("xdg-open");
-            command.arg(url);
+            command.arg(&url);
             command
         };
         let status = command.status().map_err(|e| e.to_string())?;
         if status.success() {
             Ok(())
         } else {
-            Err("Could not open the project in the default browser".into())
+            Err("Could not open the default browser".into())
         }
     })
     .await
@@ -468,6 +495,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             start_task,
             network_overview,
+            http_file_addresses,
             parse_target,
             list_tasks,
             task_poll,
@@ -478,6 +506,7 @@ fn main() {
             export_result,
             export_result_image,
             open_project,
+            open_file_service,
             browse_syslog_logs,
             app_info
         ])

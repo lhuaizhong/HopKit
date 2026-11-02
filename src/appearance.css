@@ -201,3 +201,9 @@ footer { flex-wrap: wrap; align-items: center; }
 .throughput-bars span { flex: 1; min-width: 2px; max-width: 24px; background: #3379e8; border-radius: 3px 3px 0 0; }
 :root[data-theme="readable"] .throughput-chart { color: var(--read-secondary); font-size: 16px; }
 :root[data-theme="readable"] .throughput-bars span { background: var(--read-accent); }
+
+/* HTTP file sharing result cards. */
+:root[data-theme="readable"] .file-service-results { font-size:16px; }
+:root[data-theme="readable"] .file-service-results :is(p,small,.file-url>span) { color:var(--read-secondary); }
+:root[data-theme="readable"] .file-service-results h3 { font-size:18px; }
+:root[data-theme="readable"] .file-service-results .file-url button { min-height:40px; }

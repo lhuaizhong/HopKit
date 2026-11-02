@@ -297,7 +297,7 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
             req.tool.as_str(),
             "ping" | "tcping" | "syslog" | "tftp" | "iperf3"
         )
-        && !(matches!(req.tool.as_str(), "ntp" | "ftp") && req.action == "serve")
+        && !(matches!(req.tool.as_str(), "ntp" | "ftp" | "http") && req.action == "serve")
     {
         return Err(ToolError::new(
             "INVALID_ARGUMENT",
@@ -313,11 +313,12 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
         "dns" => crate::dns::query(req, c, emit),
         "ntp" => crate::ntp::run(req, c, emit),
         "ftp" => crate::ftp::run(req, c, emit),
+        "http" => crate::http_files::run(req, c, emit),
         "iperf3" => crate::iperf3::run(req, c, emit),
         "syslog" => crate::syslog::run(req, c, emit),
         "tftp" => crate::tftp::run(req, c, emit),
         "doctor" => Ok(
-            json!({"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"version":env!("CARGO_PKG_VERSION"),"gui_required":false,"icmp_adapter":if cfg!(windows){"windows-iphelper"}else if cfg!(target_os="macos"){"darwin-datagram"}else{"unavailable"},"tools":["check","monitor","network","target","ping","trace","tcping","dns","ntp","iperf3","ftp","tftp","syslog"],"preview":true}),
+            json!({"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"version":env!("CARGO_PKG_VERSION"),"gui_required":false,"icmp_adapter":if cfg!(windows){"windows-iphelper"}else if cfg!(target_os="macos"){"darwin-datagram"}else{"unavailable"},"tools":["check","monitor","network","target","ping","trace","tcping","dns","ntp","iperf3","ftp","http","tftp","syslog"],"preview":true}),
         ),
         _ => Err(ToolError::new("INVALID_ARGUMENT", "Unknown tool")),
     }

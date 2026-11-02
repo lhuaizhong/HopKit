@@ -1,5 +1,18 @@
 # Changelog / 版本记录
 
+## Unreleased / 未发布
+
+- Add HTTP file sharing directly below FTP in the desktop sidebar, with default
+  port 80, configurable port/directory, optional uploads, browser URLs and counters.
+- Include a browser page with subdirectory navigation, multiple uploads, progress
+  and cancellation, downloads and English/Chinese labels. Files stream to disk;
+  uploads never overwrite and incomplete transfers are cleaned up.
+- Add `hk http serve --root <directory> [--port 8080] [--write]`.
+
+新增 HTTP 文件服务：入口位于 FTP 下一行，默认端口 80，可修改。浏览器可直接
+浏览目录和下载文件，勾选允许上传后支持多文件上传、进度和取消，无需额外软件。
+同名文件不覆盖，未完成上传会清理；支持中英文界面及 IPv4/IPv6。
+
 ## 0.1.0-beta.1 — 2026-11-01
 
 **HopKit Pre-release 1 / HopKit 首个预发布版本**

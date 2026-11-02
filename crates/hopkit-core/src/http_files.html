@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>HopKit · 文件服务 / File sharing</title>
+<style>
+[hidden]{display:none!important}
+*{box-sizing:border-box}body{margin:0;background:#f4f7fb;color:#243b53;font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}main{max-width:980px;margin:40px auto;padding:0 20px}header{display:flex;align-items:center;justify-content:space-between;gap:16px}h1{font-size:28px;letter-spacing:-.6px;margin:4px 0}.brand{color:#2469c8;font-size:13px;letter-spacing:2px;font-weight:650}.intro,small{color:#52677e}.card{background:white;border:1px solid #dce5ef;border-radius:14px;padding:22px;margin-top:20px;box-shadow:0 4px 16px #20364e05}button,.button{font:inherit;cursor:pointer;border:1px solid #cad8e6;background:white;border-radius:7px;color:#235c9a;padding:8px 14px;text-decoration:none;display:inline-block}button:disabled{opacity:.5;cursor:default}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #548ee2;outline-offset:3px}.primary{background:#2469c8;color:white;border-color:#2469c8}.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.path{font-weight:600;overflow-wrap:anywhere;flex:1;min-width:150px}table{border-collapse:collapse;width:100%;text-align:left;margin-top:16px}th,td{border-bottom:1px solid #e7edf4;padding:13px 8px;vertical-align:top}th{font-size:13px;color:#52677e;font-weight:500}th:first-child{width:55%}td:first-child{overflow-wrap:anywhere}td:nth-child(2){white-space:nowrap}td:last-child{font-size:13px;color:#52677e}a{color:#2162b5}.folder{font-weight:600}.badge{font-size:13px;color:#235c9a;background:#edf5ff;border-radius:20px;padding:5px 12px;white-space:nowrap}#message{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:14px}#message.error{color:#b52e37}#progress{width:100%;margin-top:12px;accent-color:#2469c8}#queue{padding-left:22px;overflow-wrap:anywhere}.upload-note{margin:0 0 14px;color:#52677e}input[type=file]{max-width:100%;font:inherit}#empty{text-align:center;color:#52677e;padding:30px}footer{text-align:center;color:#52677e;font-size:13px;margin:26px 0}#upload[hidden],#progress[hidden]{display:none}@media(max-width:600px){main{margin:20px auto;padding:0 12px}.card{padding:16px}header{align-items:flex-start}h1{font-size:22px}th:last-child,td:last-child{display:none}th:first-child{width:70%}.toolbar button{padding:7px 10px}}
+</style>
+<main>
+ <header><div><div class="brand">HOPKIT</div><h1 data-zh="文件服务" data-en="File sharing">文件服务</h1></div><button id="language" type="button">English</button></header>
+ <p class="intro" data-zh="用浏览器下载或上传文件，无需安装其他软件。" data-en="Download and upload files in your browser. No extra software needed.">用浏览器下载或上传文件，无需安装其他软件。</p>
+ <section class="card">
+  <div class="toolbar"><span class="path" id="path">/</span><span class="badge" id="mode"></span><button id="parent" type="button" data-zh="上级目录" data-en="Up">上级目录</button><button id="refresh" type="button" data-zh="刷新" data-en="Refresh">刷新</button></div>
+  <table><thead><tr><th data-zh="名称 · 点击文件下载" data-en="Name · click a file to download">名称 · 点击文件下载</th><th data-zh="大小" data-en="Size">大小</th><th data-zh="修改时间" data-en="Modified">修改时间</th></tr></thead><tbody id="files"></tbody></table>
+  <div id="empty" hidden data-zh="此目录为空" data-en="This directory is empty">此目录为空</div>
+ </section>
+ <section class="card" id="upload" hidden>
+  <h2 style="font-size:19px;margin:0 0 8px" data-zh="上传到当前目录" data-en="Upload to this directory">上传到当前目录</h2>
+  <p class="upload-note" data-zh="可选择多个文件；同名文件不会覆盖。" data-en="Select multiple files. Existing files are never overwritten.">可选择多个文件；同名文件不会覆盖。</p>
+  <form id="upload-form"><div class="toolbar"><input id="file-input" type="file" multiple required aria-label="选择文件 / Choose files"><button id="send" class="primary" type="submit" data-zh="开始上传" data-en="Upload">开始上传</button><button id="cancel" type="button" hidden data-zh="取消上传" data-en="Cancel upload">取消上传</button></div></form>
+  <progress id="progress" max="100" value="0" hidden></progress><ul id="queue"></ul>
+ </section>
+ <div id="message" role="status" aria-live="polite"></div>
+ <noscript>请启用浏览器 JavaScript 以浏览和上传文件。 / Enable JavaScript to browse and upload files.</noscript>
+ <footer>HopKit · <span data-zh="临时 HTTP 文件服务" data-en="Temporary HTTP file server">临时 HTTP 文件服务</span></footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let english=!navigator.language.toLowerCase().startsWith('zh'),config={writable:false},uploading=false,currentXHR=null,cancelled=false,listing=0;
+const t=(zh,en)=>english?en:zh;
+const currentPath=()=>new URL(location.href).searchParams.get('path')||'';
+function language(){document.documentElement.lang=english?'en':'zh-CN';document.querySelectorAll('[data-zh]').forEach(e=>e.textContent=e.dataset[english?'en':'zh']);$('language').textContent=english?'中文':'English';$('mode').textContent=config.writable?t('允许上传','Uploads allowed'):t('仅供下载','Download only');}
+function message(text,error=false){$('message').textContent=text;$('message').className=error?'error':'';}
+async function json(url){const response=await fetch(url,{cache:'no-store'});const data=await response.json();if(!response.ok)throw Error(data.error||response.status);return data;}
+function navigate(path){if(uploading)return;const url=new URL(location.href);url.search='';if(path)url.searchParams.set('path',path);history.pushState(null,'',url);load();}
+function size(bytes){if(bytes===null)return '—';if(bytes<1024)return bytes+' B';const units=['KiB','MiB','GiB','TiB'];let i=-1;do{bytes/=1024;i++;}while(bytes>=1024&&i<units.length-1);return bytes.toFixed(1)+' '+units[i];}
+async function load(){const seq=++listing;const path=currentPath();$('path').textContent='/'+path;$('parent').disabled=!path||uploading;try{const data=await json('/api/list?path='+encodeURIComponent(path));if(seq!==listing)return;$('files').replaceChildren();$('empty').hidden=!!data.entries.length;for(const file of data.entries){const tr=document.createElement('tr'),name=document.createElement('td'),bytes=document.createElement('td'),modified=document.createElement('td'),link=document.createElement('a');const full=(path?path+'/':'')+file.name;link.textContent=(file.directory?'▣ ':'')+file.name+(file.directory?'/':'');if(file.directory){link.href='/?path='+encodeURIComponent(full);link.className='folder';link.onclick=e=>{e.preventDefault();navigate(full);};}else{link.href='/files/'+encodeURIComponent(full);link.download=file.name;}name.append(link);bytes.textContent=size(file.size);modified.textContent=file.modified?new Date(file.modified).toLocaleString():'';tr.append(name,bytes,modified);$('files').append(tr);}}catch(e){if(seq===listing)message(t('无法读取目录：','Unable to read directory: ')+e.message,true);}}
+$('language').onclick=()=>{english=!english;language();};
+$('parent').onclick=()=>navigate(currentPath().split('/').slice(0,-1).join('/'));
+$('refresh').onclick=()=>{message('');load();};window.addEventListener('popstate',()=>load());
+$('cancel').onclick=()=>{cancelled=true;currentXHR?.abort();};
+function upload(file,path,row){return new Promise(resolve=>{const xhr=new XMLHttpRequest();currentXHR=xhr;xhr.open('PUT','/files/'+encodeURIComponent((path?path+'/':'')+file.name));xhr.setRequestHeader('X-HopKit-Upload',config.upload_token);xhr.upload.onprogress=e=>{if(e.lengthComputable){const p=Math.floor(e.loaded/e.total*100);$('progress').value=p;row.textContent=file.name+' · '+p+'%';}};xhr.onload=()=>{let error='HTTP '+xhr.status;try{error=JSON.parse(xhr.responseText).error||error;}catch{}const ok=xhr.status===201;row.textContent=file.name+' · '+(ok?t('上传完成','Uploaded'):error);resolve(ok);};xhr.onerror=()=>{row.textContent=file.name+' · '+t('连接中断','Connection interrupted');resolve(false);};xhr.onabort=()=>{row.textContent=file.name+' · '+t('已取消','Cancelled');resolve(false);};xhr.send(file);});}
+$('upload-form').onsubmit=async event=>{event.preventDefault();if(uploading)return;const files=Array.from($('file-input').files);if(!files.length)return;const path=currentPath();uploading=true;cancelled=false;$('queue').replaceChildren();$('send').disabled=true;$('file-input').disabled=true;$('cancel').hidden=false;$('progress').hidden=false;$('parent').disabled=true;message('');let done=0;try{for(const file of files){if(cancelled)break;const row=document.createElement('li');row.textContent=file.name;$('queue').append(row);$('progress').value=0;if(await upload(file,path,row))done++;}message(t('上传完成：','Uploaded: ')+done+' / '+files.length,done!==files.length);}finally{uploading=false;currentXHR=null;$('send').disabled=false;$('file-input').disabled=false;$('cancel').hidden=true;$('progress').hidden=true;$('file-input').value='';await load();}};
+language();(async()=>{try{config=await json('/api/config');$('upload').hidden=!config.writable;language();await load();}catch(e){message(t('无法连接服务：','Unable to connect: ')+e.message,true);}})();
+</script>
+</html>

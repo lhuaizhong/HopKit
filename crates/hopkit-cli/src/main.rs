@@ -15,7 +15,7 @@ use std::{
     bin_name = "hopkit-cli",
     version,
     about = "HopKit Network Toolkit / 网络工具箱 · Windows / macOS preview",
-    long_about = "HopKit Network Toolkit / 开源网络排障工具箱\nWindows / macOS preview: Ping / Trace / TCPing / DNS / NTP / iperf3 / FTP / TFTP / Syslog UDP.\nGUI is never launched by CLI. Ctrl+C cancels the current operation.\n命令行独立运行；Ctrl+C 取消。Run help <command> for arguments."
+    long_about = "HopKit Network Toolkit / 开源网络排障工具箱\nWindows / macOS preview: Ping / Trace / TCPing / DNS / NTP / iperf3 / FTP / HTTP files / TFTP / Syslog UDP.\nGUI is never launched by CLI. Ctrl+C cancels the current operation.\n命令行独立运行；Ctrl+C 取消。Run help <command> for arguments."
 )]
 struct Cli {
     #[arg(long,global=true,default_value="text",value_parser=["text","json","jsonl"])]
@@ -160,6 +160,11 @@ enum Command {
     Ftp(Ftp),
     #[command(
         subcommand,
+        about = "Browser file download/upload server / HTTP 文件服务"
+    )]
+    Http(Http),
+    #[command(
+        subcommand,
         about = "Native iperf3 TCP/UDP client/server / 内置网络测速，无需安装 iperf3"
     )]
     Iperf3(Iperf3),
@@ -169,6 +174,26 @@ enum Command {
     Syslog(Syslog),
     #[command(about = "Local environment; no network probes / 本机检查")]
     Doctor,
+}
+#[derive(Subcommand)]
+enum Http {
+    #[command(about = "Share a directory with web browsers / 通过浏览器上传下载文件")]
+    Serve {
+        #[arg(long)]
+        root: String,
+        #[arg(long, default_value = "0.0.0.0")]
+        listen: String,
+        #[arg(long, default_value_t = 80, value_parser = clap::value_parser!(u16).range(1..))]
+        port: u16,
+        #[arg(long, default_value = "")]
+        allow: String,
+        /// Allow new uploads; existing files are never overwritten / 允许上传，不覆盖
+        #[arg(long)]
+        write: bool,
+        /// 0 runs until Ctrl+C / 0 表示持续运行
+        #[arg(long, default_value_t = 0)]
+        duration: u64,
+    },
 }
 #[derive(Subcommand)]
 enum Ntp {
@@ -723,6 +748,23 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
                 }
             }
         }
+        Command::Http(Http::Serve {
+            root,
+            listen,
+            port,
+            allow,
+            write,
+            duration,
+        }) => {
+            r.tool = "http".into();
+            r.action = "serve".into();
+            r.path = root;
+            r.listen = listen;
+            r.port = port;
+            r.allow = allow;
+            r.writable = write;
+            r.duration_secs = duration;
+        }
         Command::Doctor => r.tool = "doctor".into(),
     }
     Ok(r)
@@ -899,6 +941,32 @@ mod tests {
 
     fn parse(args: &[&str]) -> Request {
         request(Cli::try_parse_from(args).unwrap().command.unwrap()).unwrap()
+    }
+
+    #[test]
+    fn http_server_defaults_and_upload_opt_in() {
+        let r = parse(&["hopkit-cli", "http", "serve", "--root", "."]);
+        assert_eq!(r.tool, "http");
+        assert_eq!(r.action, "serve");
+        assert_eq!(r.port, 80);
+        assert_eq!(r.listen, "0.0.0.0");
+        assert!(!r.writable);
+        let r = parse(&[
+            "hopkit-cli",
+            "http",
+            "serve",
+            "--root",
+            ".",
+            "--port",
+            "8080",
+            "--write",
+        ]);
+        assert_eq!(r.port, 8080);
+        assert!(r.writable);
+        assert!(
+            Cli::try_parse_from(["hopkit-cli", "http", "serve", "--root", ".", "--port", "0"])
+                .is_err()
+        );
     }
 
     #[test]
