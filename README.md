@@ -6,7 +6,7 @@
 
 HopKit combines endpoint troubleshooting, network measurements, file transfer, and log collection in a desktop GUI and an independent CLI. Both share a Rust core, providing consistent results for interactive work and automation.
 
-**Version: `0.1.0-beta.1` — HopKit Pre-release 1.** Download native Windows x64, macOS Apple Silicon, or macOS Intel packages below. This release includes the current troubleshooting workflow, multi-target monitoring, and independent CLI. See the [changelog](CHANGELOG.md).
+**Version: `0.1.0-rc.1` — HopKit RC.1.** Download native Windows x64, macOS Apple Silicon, or macOS Intel packages below. This release includes the current troubleshooting workflow, multi-target monitoring, and independent CLI. See the [changelog](CHANGELOG.md).
 
 ## Capabilities
 
@@ -28,14 +28,14 @@ HopKit combines endpoint troubleshooting, network measurements, file transfer, a
 
 ## Downloads and startup
 
-[HopKit Pre-release 1](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-beta.1) · [SHA-256 checksums](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/SHA256SUMS.txt)
+[HopKit RC.1](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-rc.1) · [SHA-256 checksums](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/SHA256SUMS.txt)
 
 | Platform | Package |
 | --- | --- |
-| Windows x64 | [Installer](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-windows-x64-setup.exe) |
-| Windows x64 | [Portable ZIP with CLI](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-windows-x64-portable.zip) · [Portable GUI EXE](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-windows-x64-portable.exe) |
-| macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-arm64.dmg) · [App ZIP with CLI](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-arm64.zip) |
-| macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-x86_64.dmg) · [App ZIP with CLI](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-x86_64.zip) |
+| Windows x64 | [Installer](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-windows-x64-setup.exe) |
+| Windows x64 | [Portable ZIP with CLI](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-windows-x64-portable.zip) · [Portable GUI EXE](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-windows-x64-portable.exe) |
+| macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-arm64.dmg) · [App ZIP with CLI](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-arm64.zip) |
+| macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-x86_64.dmg) · [App ZIP with CLI](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-x86_64.zip) |
 
 The release also provides separate macOS CLI ZIPs, dependency licenses, build metadata, and checksums. See [migration notes](MIGRATION.md) when upgrading from netbox.
 

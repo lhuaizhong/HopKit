@@ -1,6 +1,6 @@
 # Changelog / 版本记录
 
-## Unreleased / 未发布
+## 0.1.0-rc.1 — 2026-11-02
 
 - Add HTTP file sharing directly below FTP in the desktop sidebar, with default
   port 80, configurable port/directory, optional uploads, browser URLs and counters.

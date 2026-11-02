@@ -6,7 +6,7 @@
 
 HopKit 集成终端排障、网络测量、文件传输与日志采集，提供桌面 GUI 和独立 CLI。两种入口共享 Rust 核心，为交互操作和自动化脚本提供一致的诊断结果。
 
-**当前版本：`0.1.0-beta.1` — HopKit 首个 Pre-release。** 下方提供 Windows x64、macOS Apple Silicon 和 macOS Intel 原生安装包，包含当前网络排障、多目标持续监测及独立 CLI。更新内容见 [版本记录](CHANGELOG.md)。
+**当前版本：`0.1.0-rc.1` — HopKit RC.1 预发布。** 下方提供 Windows x64、macOS Apple Silicon 和 macOS Intel 原生安装包，包含当前网络排障、多目标持续监测及独立 CLI。更新内容见 [版本记录](CHANGELOG.md)。
 
 ## 功能概览
 
@@ -28,14 +28,14 @@ HopKit 集成终端排障、网络测量、文件传输与日志采集，提供�
 
 ## 下载与启动
 
-[HopKit 首个 Pre-release](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-beta.1) · [SHA-256 校验清单](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/SHA256SUMS.txt)
+[HopKit RC.1 预发布](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-rc.1) · [SHA-256 校验清单](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/SHA256SUMS.txt)
 
 | 平台 | 安装包 |
 | --- | --- |
-| Windows x64 | [安装版](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-windows-x64-setup.exe) |
-| Windows x64 | [含 CLI 的免安装 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-windows-x64-portable.zip) · [免安装单 EXE](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-windows-x64-portable.exe) |
-| macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-arm64.dmg) · [含 CLI 的应用 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-arm64.zip) |
-| macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-x86_64.dmg) · [含 CLI 的应用 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-beta.1/hopkit-0.1.0-beta.1-macos-x86_64.zip) |
+| Windows x64 | [安装版](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-windows-x64-setup.exe) |
+| Windows x64 | [含 CLI 的免安装 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-windows-x64-portable.zip) · [免安装单 EXE](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-windows-x64-portable.exe) |
+| macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-arm64.dmg) · [含 CLI 的应用 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-arm64.zip) |
+| macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-x86_64.dmg) · [含 CLI 的应用 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-x86_64.zip) |
 
 Release 另提供 macOS 独立 CLI ZIP、依赖许可、构建信息及校验值。从 netbox 升级请参阅 [迁移说明](MIGRATION.md)。
 
