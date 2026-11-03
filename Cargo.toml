@@ -1,5 +1,6 @@
 [workspace]
 members = ["crates/hopkit-core", "crates/hopkit-cli", "src-tauri"]
+exclude = ["vendor/magic-wormhole"]
 resolver = "2"
 
 [workspace.package]
@@ -21,3 +22,6 @@ strip = true
 lto = "thin"
 codegen-units = 1
 
+
+[patch.crates-io]
+magic-wormhole = { path = "vendor/magic-wormhole" }

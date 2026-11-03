@@ -22,7 +22,7 @@ assets.mkdir(parents=True, exist_ok=True)
 build = ROOT / 'target/release'
 package = ROOT / 'release' / name
 shutil.copytree(ROOT / 'release/metadata', package)
-for doc in ['LICENSE', 'README.md', 'README.zh-CN.md', 'README-macOS.md', 'MONITORING.md', 'CHANGELOG.md', 'RELEASING.md', 'MIGRATION.md']:
+for doc in ['LICENSE', 'README.md', 'README.zh-CN.md', 'README-macOS.md', 'DISTRIBUTION_LICENSES.md', 'CHANGELOG.md', 'RELEASING.md', 'WORMHOLE_IMPLEMENTATION.md']:
     shutil.copy2(ROOT / doc, package / doc)
 validation = package / 'validation'
 validation.mkdir()

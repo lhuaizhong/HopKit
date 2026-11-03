@@ -1,5 +1,6 @@
 pub mod diagnostics;
 pub mod dns;
+pub mod file_io;
 pub mod ftp;
 pub mod http_files;
 pub mod iperf3;
@@ -14,6 +15,7 @@ pub mod syslog;
 pub mod target;
 pub mod tftp;
 pub mod troubleshoot;
+pub mod wormhole;
 pub use runtime::*;
 
 mod native_http;

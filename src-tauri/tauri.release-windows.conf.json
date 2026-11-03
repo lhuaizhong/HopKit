@@ -10,7 +10,6 @@
     "resources": {
       "../target/release/hopkit-cli.exe": "hopkit-cli.exe",
       "../target/release/hk.exe": "shortcuts/hk.exe",
-      "../MIGRATION.md": "MIGRATION.md",
       "../LICENSE": "LICENSE",
       "../release/metadata/licenses/": "licenses/",
       "../release/metadata/THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
@@ -19,9 +18,11 @@
       "../README.md": "README.md",
       "../README.zh-CN.md": "README.zh-CN.md",
       "../README-macOS.md": "README-macOS.md",
-      "../MONITORING.md": "MONITORING.md",
       "../CHANGELOG.md": "CHANGELOG.md",
-      "../RELEASING.md": "RELEASING.md"
+      "../RELEASING.md": "RELEASING.md",
+      "../DISTRIBUTION_LICENSES.md": "DISTRIBUTION_LICENSES.md",
+      "../WORMHOLE_IMPLEMENTATION.md": "WORMHOLE_IMPLEMENTATION.md",
+      "../release/metadata/HopKit-corresponding-source.tar.gz": "HopKit-corresponding-source.tar.gz"
     },
     "windows": {
       "webviewInstallMode": {

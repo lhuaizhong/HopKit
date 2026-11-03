@@ -1,4 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#[cfg(all(feature = "native-test", not(debug_assertions)))]
+compile_error!("native-test is forbidden in release builds");
 use hopkit_core::*;
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -33,9 +35,15 @@ struct Task {
     request: Value,
     latest_stats: Option<Value>,
     monitor_control: Arc<hopkit_core::monitor::Control>,
+    wormhole_control: Arc<hopkit_core::wormhole::Control>,
 }
 impl Task {
     fn record_event(&mut self, body: Value) {
+        if body["event_type"] == "wormhole_state" {
+            self.latest_stats = Some(body);
+            self.seq += 1;
+            return;
+        }
         if matches!(
             body["event_type"].as_str(),
             Some("monitor_snapshot" | "monitor_finished")
@@ -104,7 +112,7 @@ fn snap(t: &Task, after: u64) -> Snapshot {
             t.result.clone()
         },
         request: t.request.clone(),
-        latest_stats: if after == u64::MAX {
+        latest_stats: if after == u64::MAX && t.tool != "wormhole" {
             None
         } else {
             t.latest_stats.clone()
@@ -114,6 +122,16 @@ fn snap(t: &Task, after: u64) -> Snapshot {
 
 #[tauri::command]
 fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String, String> {
+    if request.tool == "wormhole" {
+        let config = request
+            .wormhole
+            .as_ref()
+            .ok_or("Wormhole configuration required")?;
+        config.validate().map_err(|e| e.to_string())?;
+        if request.action != config.operation {
+            return Err("Operation and action must match".into());
+        }
+    }
     if request.tool == "monitor" {
         request
             .monitor
@@ -131,6 +149,8 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
     let id = uuid::Uuid::new_v4().to_string();
     let cancel = Arc::new(AtomicBool::new(false));
     let monitor_control = Arc::new(hopkit_core::monitor::Control::default());
+    let wormhole_control = Arc::new(hopkit_core::wormhole::Control::default());
+    wormhole_control.set_task_id(&id);
     {
         let mut map = tasks.0.lock().map_err(|_| "Task state unavailable")?;
         if map
@@ -158,7 +178,22 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
                 port: request.port,
                 tool: request.tool.clone(),
                 action: request.action.clone(),
-                target: if matches!(request.action.as_str(), "serve" | "listen") {
+                target: if request.tool == "wormhole" {
+                    request
+                        .wormhole
+                        .as_ref()
+                        .map(|w| {
+                            format!(
+                                "{} {}",
+                                w.operation,
+                                std::path::Path::new(&w.send_path)
+                                    .file_name()
+                                    .unwrap_or_default()
+                                    .to_string_lossy()
+                            )
+                        })
+                        .unwrap_or_default()
+                } else if matches!(request.action.as_str(), "serve" | "listen") {
                     format!("{}:{}", request.listen, request.port)
                 } else {
                     hopkit_core::target::redact(&request.target)
@@ -172,6 +207,7 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
                 request: serde_json::to_value(&request).map_err(|e| e.to_string())?,
                 latest_stats: None,
                 monitor_control: monitor_control.clone(),
+                wormhole_control: wormhole_control.clone(),
             },
         );
     }
@@ -193,7 +229,9 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
             }
         };
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            if request.tool == "monitor" {
+            if request.tool == "wormhole" {
+                hopkit_core::wormhole::run(&request, &cancel, &emit, &wormhole_control)
+            } else if request.tool == "monitor" {
                 hopkit_core::monitor::run(&request, &cancel, &emit, &monitor_control)
             } else {
                 run(&request, &cancel, &emit)
@@ -296,10 +334,88 @@ fn stop_all(tasks: tauri::State<'_, Tasks>) {
         }
     }
 }
+
 #[tauri::command]
-async fn choose_path(kind: String) -> Option<String> {
+async fn wormhole_file_info(path: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let file = hopkit_core::wormhole::file_info(&path)?;
+        Ok(file)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+fn wormhole_private_state(id: String, tasks: tauri::State<'_, Tasks>) -> Result<Value, String> {
+    let map = tasks.0.lock().map_err(|_| "Task state unavailable")?;
+    let t = map.get(&id).ok_or("Task not found")?;
+    if t.tool != "wormhole" || t.status != "running" {
+        return Ok(json!({}));
+    }
+    Ok(t.wormhole_control.private_state())
+}
+#[tauri::command]
+fn wormhole_action(
+    id: String,
+    decision_id: String,
+    action: String,
+    save_path: Option<String>,
+    tasks: tauri::State<'_, Tasks>,
+) -> Result<(), String> {
+    let (control, cancel) = {
+        let map = tasks.0.lock().map_err(|_| "Task state unavailable")?;
+        let t = map.get(&id).ok_or("Task not found")?;
+        if t.tool != "wormhole" || t.status != "running" {
+            return Err("Task is not running".into());
+        }
+        (t.wormhole_control.clone(), t.cancel.clone())
+    };
+    cancelled(&cancel).map_err(|e| e.to_string())?;
+    control
+        .action(&decision_id, &action, save_path)
+        .map_err(|e| e.to_string())
+}
+#[tauri::command]
+async fn wormhole_open_folder(id: String, tasks: tauri::State<'_, Tasks>) -> Result<(), String> {
+    let path = {
+        let map = tasks.0.lock().map_err(|_| "Task state unavailable")?;
+        let t = map.get(&id).ok_or("Task not found")?;
+        let state = t.wormhole_control.snapshot();
+        if state["local_saved"] != true {
+            return Err("File has not been saved".into());
+        }
+        std::path::PathBuf::from(state["save_path"].as_str().ok_or("Missing path")?)
+            .parent()
+            .ok_or("Missing directory")?
+            .to_path_buf()
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        std::process::Command::new(if cfg!(target_os = "macos") {
+            "/usr/bin/open"
+        } else if cfg!(windows) {
+            "explorer.exe"
+        } else {
+            "xdg-open"
+        })
+        .arg(path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn choose_path(kind: String, suggested_name: Option<String>) -> Option<String> {
     tauri::async_runtime::spawn_blocking(move || {
         let dialog = rfd::FileDialog::new();
+        let dialog = if let Some(n) =
+            suggested_name.filter(|n| hopkit_core::file_io::safe_name(n).is_ok())
+        {
+            dialog.set_file_name(n)
+        } else {
+            dialog
+        };
         match kind.as_str() {
             "directory" => dialog.pick_folder(),
             "save" => dialog.save_file(),
@@ -489,10 +605,41 @@ fn shutdown(handle: tauri::AppHandle, state: Tasks) {
         handle.exit(0);
     });
 }
+#[cfg(feature = "native-test")]
+#[tauri::command]
+fn native_test_report(value: Value, app: tauri::AppHandle) -> Result<(), String> {
+    let output = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-output/wormhole/native.json");
+    std::fs::write(output, serde_json::to_vec_pretty(&value).unwrap())
+        .map_err(|e| e.to_string())?;
+    app.exit(0);
+    Ok(())
+}
 fn main() {
     let app = tauri::Builder::default()
+        .on_page_load(|webview, payload| {
+            #[cfg(feature = "native-test")]
+            if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
+                if let Ok(config) = std::env::var("HOPKIT_NATIVE_TEST_CONFIG") {
+                    if let Ok(value) = std::fs::read_to_string(config).and_then(|s| {
+                        serde_json::from_str::<Value>(&s).map_err(std::io::Error::other)
+                    }) {
+                        let script = format!(
+                            "window.__HOPKIT_TEST_CONFIG__={};{}",
+                            value,
+                            include_str!("../../scripts/wormhole-native-driver.js")
+                        );
+                        let _ = webview.eval(&script);
+                    }
+                }
+            }
+            #[cfg(not(feature = "native-test"))]
+            let _ = (webview, payload);
+        })
         .manage(Tasks::default())
         .invoke_handler(tauri::generate_handler![
+            #[cfg(feature = "native-test")]
+            native_test_report,
             start_task,
             network_overview,
             http_file_addresses,
@@ -501,6 +648,10 @@ fn main() {
             task_poll,
             cancel_task,
             monitor_action,
+            wormhole_action,
+            wormhole_file_info,
+            wormhole_private_state,
+            wormhole_open_folder,
             stop_all,
             choose_path,
             export_result,
@@ -598,6 +749,7 @@ mod trust_tests {
             request: serde_json::to_value(&request).unwrap(),
             latest_stats: None,
             monitor_control: Arc::new(hopkit_core::monitor::Control::default()),
+            wormhole_control: Arc::new(hopkit_core::wormhole::Control::default()),
         };
         for n in 1..=1200 {
             task.record_event(json!({"event_type":"sample","seq":n}));

@@ -23,12 +23,13 @@ export async function resultImage(source: HTMLElement, english: boolean): Promis
     if (node instanceof HTMLInputElement || node instanceof HTMLSelectElement) {
       const text = document.createElement('span')
       text.style.cssText = copy.style.cssText
+      if(node.matches('[data-sensitive]'))text.setAttribute('data-sensitive','')
       text.textContent = node instanceof HTMLSelectElement ? node.selectedOptions[0]?.textContent || node.value : node.value || node.placeholder
       if (node instanceof HTMLInputElement && !node.value) text.style.color = getComputedStyle(node, '::placeholder').color
       copy.replaceWith(text)
     }
   })
-  clone.querySelectorAll('.task-panel,.result-tools,.raw-result,.check-handoff,.request-summary button,.monitor-actions,.monitor-note,[role="alert"]').forEach(node => node.remove())
+  clone.querySelectorAll('[data-sensitive],.wormhole-controls,.task-panel,.result-tools,.raw-result,.check-handoff,.request-summary button,.monitor-actions,.monitor-note,[role="alert"]').forEach(node => node.remove())
   clone.querySelectorAll<HTMLElement>('.result-panel').forEach(node => {
     node.style.height = 'auto'; node.style.maxHeight = 'none'
   })

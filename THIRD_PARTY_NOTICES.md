@@ -1,6 +1,6 @@
 # Third-party notices / 第三方依赖声明
 
-HopKit source is licensed under MIT. Third-party components retain their own licenses.
+HopKit-owned source remains MIT. Combined distributions containing Wormhole require EUPL-1.2 source and licensing materials; see DISTRIBUTION_LICENSES.md. Third-party components retain their own licenses.
 
 Every release build generates an architecture-specific `THIRD_PARTY_NOTICES.md`,
 `SBOM.cdx.json`, and `licenses/` directory from the committed Cargo/npm lock files
@@ -12,3 +12,7 @@ installer/application resources and portable ZIPs, alongside `BUILD_INFO.json`.
 
 Generate notices with `python scripts/build-info.py --target <Rust target> --build-dir target/release --output-dir release/metadata`
 after building the GUI and CLI. See [RELEASING.md](RELEASING.md).
+
+## magic-wormhole 0.8.1 + HopKit patches
+
+Source: vendor/magic-wormhole/; EUPL-1.2. Original license: vendor/magic-wormhole/LICENSE. Modification record: vendor/magic-wormhole/HOPKIT_PATCHES.md.

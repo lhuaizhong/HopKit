@@ -55,3 +55,22 @@ unsigned; macOS uses ad-hoc signing and is not notarized. Artifact-specific
 `BUILD_INFO.json`, `SBOM.cdx.json`, `THIRD_PARTY_NOTICES.md` and `licenses/` are
 generated in each build and shipped in packages; old binary manifests are not
 stored at the source root.
+
+
+## Wormhole release gate
+
+Run scripts/wormhole-test.py with pinned development peers: magic-wormhole 0.23.0,
+magic-wormhole-mailbox-server 0.8.0, magic-wormhole-transit-relay 0.5.0. Use local
+services and relay-only mode. Run --large for an actual >4 GiB transfer. Run the
+UI test and native test (debug-only native-test feature, forbidden in release).
+Record each platform/architecture and separate public-network smoke evidence.
+Do not substitute compilation or browser fixtures for native runtime acceptance.
+
+Build with the locked Rust toolchain and Node 24: npm ci; npm run build;
+cargo test --workspace --locked; cargo build --release -p hopkit-cli --locked;
+npx tauri build --no-bundle -- --locked. Do not enable native-test for distribution.
+The source archive includes manifests, frontend sources, patches and licenses;
+rebuild it with scripts/source-archive.py. Include DISTRIBUTION_LICENSES.md,
+licenses/magic-wormhole-0.8.1/LICENSE and HOPKIT_PATCHES.md, SBOM and the exact
+corresponding-source archive alongside the binary. Verify the archive digest in
+BUILD_INFO.json and final distribution terms before external release.

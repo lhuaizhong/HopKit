@@ -27,7 +27,7 @@ DMG 打开后将 `HopKit.app` 拖入 Applications；两种架构均以 macOS 11.
 | 工具 | macOS 测试版功能 |
 | --- | --- |
 | 网络排障 | 本机概览、目标规范化，关联 DNS、路由、ICMP、TCP、HTTP/TLS 证据 |
-| 多目标监测 | 最多三个 ICMP/TCP 目标，共用时间轴、故障恢复、暂停、备注及范围前后对比；见 [MONITORING.md](MONITORING.md) |
+| 多目标监测 | 最多三个 ICMP/TCP 目标，共用时间轴、故障恢复、暂停、备注及范围前后对比 |
 | iperf3 | 内置 TCP/UDP 测速客户端/服务端、反向下载、TCP 并行流、实时速率及 UDP 抖动/丢包 |
 | Ping | Darwin 普通用户 ICMP 数据报套接字；IPv4/IPv6、次数/持续、测试包大小、超时、间隔、延迟、丢包；不调用系统 ping 命令 |
 | Traceroute | ICMP 逐跳 TTL / IPv6 hop limit，每跳一行并列显示 3 次探测；区分回复、超时、TTL 到期及不可达 |
@@ -112,7 +112,7 @@ npx tauri bundle --bundles app,dmg --config src-tauri/tauri.release-macos.conf.j
 python3 scripts/release-assets.py --platform macos-arm64
 ```
 
-以上命令在 Apple Silicon 执行；Intel 替换为 `x86_64-apple-darwin` 和 `macos-x86_64`。构建前设置 `MACOSX_DEPLOYMENT_TARGET=11.0`。迁移策略和入口见 [MIGRATION.md](MIGRATION.md)，新旧日志不自动合并。
+以上命令在 Apple Silicon 执行；Intel 替换为 `x86_64-apple-darwin` 和 `macos-x86_64`。构建前设置 `MACOSX_DEPLOYMENT_TARGET=11.0`。新旧日志不自动合并。
 
 ## 内置 iperf3 测速
 

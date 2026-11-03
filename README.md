@@ -12,7 +12,7 @@ HopKit combines endpoint troubleshooting, network measurements, file transfer, a
 
 | Tool | Capabilities |
 | --- | --- |
-| Multi-target monitoring | Common timeline for up to three ICMP/TCP targets, failure periods, pause/resume, notes, network events, and before/after comparison; see [monitoring guide](MONITORING.md) |
+| Multi-target monitoring | Common timeline for up to three ICMP/TCP targets, failure periods, pause/resume, notes, network events, and before/after comparison |
 | Troubleshooting | Local network overview; staged DNS, route, ICMP, TCP, and HTTP/TLS evidence; possible causes and next steps |
 | Network / target | Inspect interfaces, addresses, gateways, DNS, and default routes; normalize targets without sending probes |
 | Ping | IPv4/IPv6, finite or continuous probes, configurable payload/timeout/interval, latency, and packet loss |
@@ -37,7 +37,7 @@ HopKit combines endpoint troubleshooting, network measurements, file transfer, a
 | macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-arm64.dmg) · [App ZIP with CLI](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-arm64.zip) |
 | macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-x86_64.dmg) · [App ZIP with CLI](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-x86_64.zip) |
 
-The release also provides separate macOS CLI ZIPs, dependency licenses, build metadata, and checksums. See [migration notes](MIGRATION.md) when upgrading from netbox.
+The release also provides separate macOS CLI ZIPs, dependency licenses, build metadata, and checksums. The CLI shortcut remains hk.
 
 - **Windows:** install the package or extract the ZIP into a writable local directory, then run `HopKit.exe`. The GUI requires [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/); the installer downloads it if missing. The installer and portable ZIP include the CLI; the single portable EXE contains only the GUI.
 - **macOS:** choose the package for your CPU, open the DMG, and drag `HopKit.app` to Applications, or extract the app ZIP. The GUI uses the system WKWebView. ZIPs provide the CLI; release DMGs place it in `HopKit.app/Contents/Resources/`. See the [macOS guide](README-macOS.md).
@@ -76,7 +76,7 @@ hk http serve --root ./shared --port 8080 --write
 
 ## CLI usage
 
-Multi-target monitoring: `hk monitor --target ping,192.168.1.1 --target ping,example.com --target tcping,business.example,443 --format jsonl`. Select **Monitor** in the GUI sidebar for a common timeline, pause/resume, notes, network events and before/after comparisons. Up to three targets are sampled sequentially using system routes; monitors share the existing four-task limit. Measurement gaps do not create failure samples. See [monitoring behavior, budgets and validation](MONITORING.md). Release validation runs native protocol regression and a 35-second monitoring fault/recovery check on all three architectures. Extended endurance and physical sleep/interface switching remain outstanding.
+Multi-target monitoring: `hk monitor --target ping,192.168.1.1 --target ping,example.com --target tcping,business.example,443 --format jsonl`. Select **Monitor** in the GUI sidebar for a common timeline, pause/resume, notes, network events and before/after comparisons. Up to three targets are sampled sequentially using system routes; monitors share the existing four-task limit. Measurement gaps do not create failure samples. Release validation runs native protocol regression and a 35-second monitoring fault/recovery check on all three architectures. Extended endurance and physical sleep/interface switching remain outstanding.
 
 Run from the extracted package directory:
 
@@ -224,3 +224,32 @@ Shared protocol regression uses Python's standard library and independent local 
 Submit bugs and feature requests through [GitHub Issues](https://github.com/lhuaizhong/HopKit/issues), including the app version, OS/architecture, parameters, expected/actual results, and exported JSON. Remove sensitive addresses, configuration, and log contents before sharing.
 
 Copyright © 2026 Huaizhong Liu. Project source is available under the [MIT License](LICENSE). Third-party dependencies retain their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and release package notices.
+
+
+## Wormhole / 端到端文件传输
+
+Wormhole appears directly below HTTP and above Syslog. Send one regular file or
+receive using a one-time code; choose a destination and explicitly accept.
+Existing files are never replaced. Archives from Python directory offers are
+saved as ZIP files without extraction. Both peers must remain online. Relay data
+is end-to-end encrypted; signaling/relay/STUN services still observe connection
+metadata and direct peers learn each other's addresses. No resume or offline delivery.
+
+```sh
+hk wormhole send ./report.zip
+hk wormhole receive --dir ./received
+hk wormhole receive --code-stdin --dir ./received --yes --format jsonl
+hk wormhole send ./report.zip --connection relay --format jsonl --emit-code
+```
+
+默认使用公共 WSS Mailbox 和 Transit Relay，只有点击开始才联网。支持自动、仅直连、仅中继及自定义服务；仅直连仍需信令服务。仅中继不使用 STUN 或直连监听。接收配对码不保存到历史或导出；重跑需重新配对。JSON/JSONL 接收必须显式 `--yes`，`--verify` 仅用于交互文本终端。默认机器输出不含配对码；发送码写 stderr，仅发送端 JSONL `--emit-code` 可主动输出一次敏感码。
+
+Wormhole uses the system native TLS trust store; HTTP diagnostics use their
+existing rustls roots. There is no Wormhole TLS-verification bypass. On interruption,
+HopKit cleans uncommitted `.hopkit-*.part` files. Forced termination/power loss may
+leave these temporary files next to the chosen destination; remove them manually
+once the transfer has stopped. Saved files are retained if receipt delivery fails.
+
+自有源码仍采用 MIT；包含 Wormhole 的组合分发还需遵守 EUPL-1.2，详见
+[DISTRIBUTION_LICENSES.md](DISTRIBUTION_LICENSES.md)。本地验收和未完成的平台项目见
+[WORMHOLE_IMPLEMENTATION.md](WORMHOLE_IMPLEMENTATION.md)。

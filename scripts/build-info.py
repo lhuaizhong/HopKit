@@ -32,15 +32,19 @@ def visit(key):
     used.add(key)
     for d in nodes.get(key,{}).get('deps',[]):visit(d['pkg'])
 for p in metadata['workspace_members']:visit(p)
-lines=['# Third-party dependencies / 第三方依赖','', '本清单记录构建时依赖和声明的许可证。原始许可文件保存在 `licenses/`；HopKit 源码以 MIT 许可证发布；第三方依赖保留各自许可。','', '| Package | Version | License | Source |','| --- | --- | --- | --- |']
+lines=['# Third-party dependencies / 第三方依赖','', '本清单记录构建时依赖和声明的许可证。原始许可文件保存在 `licenses/`；HopKit 源码以 MIT 许可证发布；第三方依赖保留各自许可；含 Wormhole 的组合分发还需遵守 EUPL-1.2，见 DISTRIBUTION_LICENSES.md。','', '| Package | Version | License | Source |','| --- | --- | --- | --- |']
 licenses=output/'licenses';licenses.mkdir(exist_ok=True)
 components=[]
-for p in sorted((packages[k] for k in used if packages[k].get('source')),key=lambda p:p['name']):
+for p in sorted((packages[k] for k in used if packages[k].get('source') or packages[k]['name']=='magic-wormhole'),key=lambda p:p['name']):
     source=p.get('repository')or p.get('homepage')or'https://crates.io/crates/'+p['name']
     lines.append(f"| {p['name']} | {p['version']} | {(p.get('license') or 'see package').replace('|',' / ')} | {source} |")
+    if p['name']=='magic-wormhole':
+        lines[-1]=lines[-1].replace(source,'vendor/magic-wormhole (0.8.1 + HopKit patches)')
     components.append({'type':'library','name':p['name'],'version':p['version'],'purl':f"pkg:cargo/{p['name']}@{p['version']}",'licenses':[{'license':{'name':p.get('license')or'Unspecified'}}]})
+    if p['name']=='magic-wormhole':components[-1]['properties']=[{'name':'hopkit:modified','value':'true'},{'name':'hopkit:source','value':'vendor/magic-wormhole'}]
     source_dir=Path(p['manifest_path']).parent
     candidates=[f for f in source_dir.iterdir()if f.is_file() and any(f.name.lower().startswith(s)for s in['license','licence','copying','notice','copyright'])]
+    if p['name']=='magic-wormhole':candidates.append(source_dir/'HOPKIT_PATCHES.md')
     if p.get('license_file'):
         f=source_dir/p['license_file']
         if f.is_file()and f not in candidates:candidates.append(f)
@@ -81,5 +85,9 @@ if platform.system()=='Darwin':
     info.update(sdk=version(['xcrun','--show-sdk-version']),code_signing='ad-hoc',notarized=False,webview='System WKWebView')
 else:
     info.update(webview2='System installed runtime required')
+info['wormhole']={'upstream':'magic-wormhole 0.8.1','source':'vendor/magic-wormhole','modified':True,'upstream_crate_sha256':'77f48df27b95c28b11b82c1db97d4a95964ef164da4288bac4acc4893329190d','patch_record_sha256':hashlib.sha256((root/'vendor/magic-wormhole/HOPKIT_PATCHES.md').read_bytes()).hexdigest()}
+archive=output/'HopKit-corresponding-source.tar.gz'
+subprocess.check_call([__import__('sys').executable,str(root/'scripts/source-archive.py'),'--output',str(archive)])
+info['corresponding_source']={'file':archive.name,'sha256':hashlib.sha256(archive.read_bytes()).hexdigest()}
 (output/'BUILD_INFO.json').write_text(json.dumps(info,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps({'components':len(components),'target':args.target,'files':files},indent=2))

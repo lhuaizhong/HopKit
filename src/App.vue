@@ -8,6 +8,9 @@ import CheckSetup from './components/CheckSetup.vue'
 import CheckResults from './components/CheckResults.vue'
 import MonitorSetup from './components/MonitorSetup.vue'
 import MonitorResults from './components/MonitorResults.vue'
+import WormholeSetup from './components/WormholeSetup.vue'
+import WormholeResults from './components/WormholeResults.vue'
+import {wormholeDefaults} from './wormhole'
 import FileServerResults from './components/FileServerResults.vue'
 
 type Row = Record<string, any>
@@ -31,10 +34,12 @@ const tools=[
  {id:'tftp',name:'TFTP',glyph:'⇅',sub:['文件传输','File transfer'],desc:['标准 octet 文件传输与临时只读服务。','Standard octet transfers and a temporary file server.']},
  {id:'ftp',name:'FTP',glyph:'⇆',sub:['文件传输与服务','File client / server'],desc:['浏览远端目录、上传下载文件，或启动临时 FTP 服务。','List remote files, upload and download, or start a temporary FTP server.']},
  {id:'http',name:'HTTP',glyph:'▤',sub:['文件服务','Browser file sharing'],desc:['使用浏览器下载、上传文件，无需安装其他软件。','Download and upload files in a browser. No extra software required.']},
+ {id:'wormhole',name:'Wormhole',glyph:'⇌',sub:['端到端文件传输','Encrypted file transfer'],desc:['通过一次性配对码安全收发单个文件。','Send and receive a file securely using a one-time pairing code.']},
  {id:'syslog',name:'Syslog',glyph:'≡',sub:['临时日志','Temporary logs'],desc:['接收、保存并预览 UDP 设备日志。','Receive, save and preview device logs over UDP.']},
  {id:'check',name:'HopKit',glyph:'◈',sub:['网络排障','Troubleshooting'],desc:['确认本机网络与目标，逐项检查并关联证据和下一步。','Confirm the local network and target, then review staged evidence and next steps.']},
  {id:'monitor',name:'Monitor',glyph:'◴',sub:['多目标持续监测','Multi-target monitoring'],desc:['同时观察网关、外部目标和业务服务器，记录失败与恢复时间。','Observe gateway, external and business targets together, with failure and recovery times.']}
 ]
+const wormholeConfig=reactive(wormholeDefaults())
 const monitorConfig=reactive({targets:[{label:'Gateway',protocol:'ping',target:'',port:0},{label:'External',protocol:'ping',target:'',port:0},{label:'Business',protocol:'tcping',target:'',port:443}],interval_ms:1000,timeout_ms:1000,duration_secs:0,log_directory:''})
 const selected=ref('check'),active=ref(''),tasks=ref<Task[]>([]),rows=ref<Row[]>([]),error=ref(''),loading=ref(false),filter=ref(''),expanded=ref(false),copied=ref(false)
 // List responses contain summaries only. Keep the selected snapshot separately
@@ -117,12 +122,13 @@ const number=(n:any,suffix='')=>n==null?'—':`${Number(n).toFixed(2)}${suffix}`
 // Retain newly accepted tasks until a poll observes them, including when an
 // older poll was already in flight while start_task was being submitted.
 const pendingTasks=new Map<string,Task>()
-function pickTool(id:string){saveConfig();modes.set(selected.value,selected.value==='dns'?form.dns_mode:form.action);selected.value=id;loadConfig(id,modes.get(id)??({ftp:'list',http:'serve',tftp:'get',ntp:'query',iperf3:'client',syslog:'listen',dns:'system'} as Row)[id]??'');active.value='';activeDetail.value=null;rows.value=[];error.value='';expanded.value=false}
+function pickTool(id:string){wormholeConfig.code='';saveConfig();modes.set(selected.value,selected.value==='dns'?form.dns_mode:form.action);selected.value=id;loadConfig(id,modes.get(id)??({ftp:'list',http:'serve',tftp:'get',ntp:'query',iperf3:'client',syslog:'listen',dns:'system'} as Row)[id]??'');active.value='';activeDetail.value=null;rows.value=[];error.value='';expanded.value=false}
 function useCheckTarget(tool:string,target:Row){pickTool(tool);form.target=target.host;if(tool==='tcping'&&target.port)form.port=target.port}
 function reuseTarget(){if(reusableTarget.value)form.target=reusableTarget.value}
 async function rerun(item:Task){try{
  const detail=await invoke<Task>('task_poll',{id:item.id,after:0})
  if(!detail.request)return
+ if(detail.tool==='wormhole'&&detail.request.wormhole)Object.assign(wormholeConfig,detail.request.wormhole,{code:''})
  if(detail.tool==='monitor'&&detail.request.monitor)Object.assign(monitorConfig,JSON.parse(JSON.stringify(detail.request.monitor)))
  pickTool(detail.tool);setMode(detail.tool==='dns'?(detail.request.dns_server?'direct':'system'):detail.action)
  Object.assign(form,detail.request,{continuous:detail.request.count===0,dns_mode:detail.request.dns_server?'direct':'system',ftp_remote_path:detail.action==='list'?detail.request.remote_name:'',ftp_password:''})
@@ -145,10 +151,12 @@ async function start(){
   if(selected.value==='monitor'){
    Object.assign(request,{monitor:JSON.parse(JSON.stringify(monitorConfig)),target:monitorConfig.targets.map(x=>x.target).join(' · ')})
   }
+  if(selected.value==='wormhole'){Object.assign(request,{wormhole:{...wormholeConfig},action:wormholeConfig.operation,target:''})}
   const normalized=selected.value==='check'?await invoke<Row>('parse_target',{input:request.target}):null
   if(normalized)request.port=normalized.port??0
   const id=await invoke<string>('start_task',{request})
   const safeRequest={...request,target:normalized?.normalized??request.target}
+  if(selected.value==='wormhole'){wormholeConfig.code='';delete (safeRequest as Row).wormhole.code}
   form.ftp_password=''
   const started:Task={id,tool:request.tool,action:request.action,target:['serve','listen'].includes(request.action)?`${request.listen}:${request.port}`:safeRequest.target,port:request.port,status:'running',started_at:String(Date.now()).padStart(20,'0'),seq:0,events:[],result:null,request:{...safeRequest,ftp_password:undefined}}
   pendingTasks.set(id,started);tasks.value=[started,...tasks.value.filter(x=>x.id!==id)]
@@ -213,7 +221,7 @@ onUnmounted(()=>clearInterval(timer))
    <div class="brand"><div class="brand-icon"><span></span><span></span><span></span></div><div><b>HopKit<span class="brand-dot">.</span></b><small>NETWORK TOOLKIT</small></div></div>
    <div class="nav-label">{{ t('网络工具','NETWORK TOOLS') }}</div>
    <nav><button v-for="item in tools" :key="item.id" :class="['nav-item',{active:selected===item.id}]" @click="pickTool(item.id)"><span class="nav-glyph">{{item.glyph}}</span><span><b>{{item.name}}</b><small>{{en?item.sub[1]:item.sub[0]}}</small></span><i v-if="tasks.some(x=>x.tool===item.id&&['running','cancelling'].includes(x.status))" class="live-dot"></i></button></nav>
-   <div class="sidebar-bottom"><div class="preview-badge">{{appInfo.os.toUpperCase()}} PREVIEW</div><p>v{{appInfo.version}}</p><small>{{t('本地执行 · 离线可用','Local tools · Offline ready')}}</small></div>
+   <div class="sidebar-bottom"><div class="preview-badge">{{appInfo.os.toUpperCase()}} PREVIEW</div><p>v{{appInfo.version}}</p><small>{{t('本地优先 · 基础工具离线可用','Local first · Core tools work offline')}}</small></div>
   </aside>
   <div class="workspace">
    <header>
@@ -232,7 +240,8 @@ onUnmounted(()=>clearInterval(timer))
     <div class="page-heading"><div><div class="eyebrow">NETWORK DIAGNOSTICS</div><h1>{{current.name}}<span>{{en?current.sub[1]:current.sub[0]}}</span></h1><p>{{en?current.desc[1]:current.desc[0]}}</p></div><span class="local-pill"><span>◈</span>{{t('本机执行','LOCAL EXECUTION')}}</span></div>
     <div class="content-grid">
      <section class="panel config-panel" v-if="selected==='monitor'"><MonitorSetup :en="en" :config="monitorConfig" :disabled="startDisabled" @run="start"/><p v-if="error" class="error" role="alert">{{error}}</p></section>
-     <section class="panel config-panel" v-if="selected==='check'"><CheckSetup :en="en" :config="form" :disabled="startDisabled" @run="start"/><div v-if="error" class="error" role="alert">{{error}}</div><button v-if="running" class="stop" @click="stop">■ {{t('停止排障','Stop troubleshooting')}}</button></section>
+     <section class="panel config-panel" v-if="selected==='wormhole'"><WormholeSetup :en="en" :config="wormholeConfig" :disabled="startDisabled" @run="start"/><p v-if="error" class="error" role="alert">{{error}}</p></section>
+     <section class="panel config-panel" v-else-if="selected==='check'"><CheckSetup :en="en" :config="form" :disabled="startDisabled" @run="start"/><div v-if="error" class="error" role="alert">{{error}}</div><button v-if="running" class="stop" @click="stop">■ {{t('停止排障','Stop troubleshooting')}}</button></section>
      <section class="panel config-panel" v-else-if="selected!=='monitor'">
       <div class="panel-title"><h2>{{t('任务配置','Configuration')}}</h2><span>01</span></div>
       <form @submit.prevent="start">
@@ -284,6 +293,7 @@ onUnmounted(()=>clearInterval(timer))
        <div v-if="imageError" class="result-error" role="alert">{{imageError}}</div>
        <div v-if="resultTool==='check'"><CheckResults :data="data" :events="rows" :en="en" @use="useCheckTarget"/><p v-if="task?.result?.error" class="result-error">{{statusText(task.status)}} · {{task.result.error.code}}</p></div>
        <div v-else-if="resultTool==='monitor'"><MonitorResults :en="en" :data="data??latestStats" :task-id="task?.id??''" :running="running" @stop="stop"/><p v-if="task?.result?.error" :class="['result-error',{cancelled:task.status==='cancelled'}]">{{statusText(task.status)}} · {{task.result.error.code}} · {{task.result.error.message}}</p></div>
+       <WormholeResults v-else-if="resultTool==='wormhole'" :en="en" :task="task" @stop="stop"/>
        <div v-else-if="!active" class="empty-state"><div class="radar"><span></span><i></i><b>⌁</b></div><h3>{{selected==='http'?t('选择共享目录，启动文件服务','Choose a directory and start sharing'):t('准备就绪，开始第一次测试','Ready for your first test')}}</h3><p>{{t('配置左侧参数，结果将实时显示在这里。','Configure a task on the left. Results will appear here.')}}</p><div class="example">{{t('快速开始','QUICK START')}}<code>hk {{resultTool==='ntp'&&resultService?'ntp serve --help':['ftp','http','tftp','iperf3'].includes(resultTool)?resultTool+' --help':resultTool==='syslog'?'syslog --help':resultTool+' 127.0.0.1'+(resultTool==='tcping'?' 443':'')}}</code></div></div>
        <template v-else>
         <div class="result-meta"><code>{{task?.target}}</code><span v-if="task?.tool==='tcping'&&task.port!=null" class="tcp-port">{{t('TCP 端口','TCP port')}} {{task.port}}</span><span v-if="resultTool==='ping'&&probeSize!=null">{{t('测试包','Packet')}} {{probeSize}} B</span><span>{{active.slice(0,8)}} · {{t('本地任务','local task')}}</span></div>
@@ -324,7 +334,7 @@ onUnmounted(()=>clearInterval(timer))
         <div v-if="task?.result" class="raw-result"><button @click="expanded=!expanded">{{expanded?'▾':'▸'}} {{t('查看结构化结果','Structured result')}}</button><pre v-if="expanded">{{JSON.stringify(task.result,null,2)}}</pre></div>
        </template>
       </section>
-      <section class="panel task-panel"><div class="panel-title"><h2>{{t('任务中心','Task center')}}<span class="task-count">{{countActive}} {{t('运行中','active')}}</span></h2><button :disabled="!countActive" class="quiet danger" @click="stopAll">{{t('停止全部','Stop all')}}</button></div><div v-if="!tasks.length" class="task-empty">{{t('本次会话的任务将在这里显示。','Tasks from this session will appear here.')}}</div><input v-model="historyFilter" :placeholder="t('筛选会话历史（最多 40 项）','Filter session history (up to 40 tasks)')"><div v-for="item in visibleTasks" :key="item.id" class="task-row"><span class="task-icon">{{tools.find(x=>x.id===item.tool)?.glyph}}</span><strong>{{item.tool}}</strong><code>{{item.target}}</code><span :class="['status',item.status]">{{statusText(item.status)}}</span><button @click="openTask(item)">{{t('打开','Open')}}</button><button v-if="['running','cancelling'].includes(item.status)" @click="stopItem(item.id)">{{t('停止','Stop')}}</button><button v-else @click="rerun(item)">{{t('重跑…','Rerun…')}}</button></div></section>
+      <section class="panel task-panel"><div class="panel-title"><h2>{{t('任务中心','Task center')}}<span class="task-count">{{countActive}} {{t('运行中','active')}}</span></h2><button :disabled="!countActive" class="quiet danger" @click="stopAll">{{t('停止全部','Stop all')}}</button></div><div v-if="!tasks.length" class="task-empty">{{t('本次会话的任务将在这里显示。','Tasks from this session will appear here.')}}</div><input v-model="historyFilter" :placeholder="t('筛选会话历史（最多 40 项）','Filter session history (up to 40 tasks)')"><div v-for="item in visibleTasks" :key="item.id" class="task-row"><span class="task-icon">{{tools.find(x=>x.id===item.tool)?.glyph}}</span><strong>{{item.tool}}</strong><code>{{item.target}}</code><span :class="['status',item.status]">{{item.tool==='wormhole'&&item.latest_stats?.decision_id&&item.status==='running'?t('需要确认','Needs confirmation'):statusText(item.status)}}</span><button @click="openTask(item)">{{t('打开','Open')}}</button><button v-if="['running','cancelling'].includes(item.status)" @click="stopItem(item.id)">{{t('停止','Stop')}}</button><button v-else @click="rerun(item)">{{t('重跑…','Rerun…')}}</button></div></section>
      </div>
     </div>
     <footer><span><i></i>{{t('所有工具在本机运行；未接入 AI 或云端遥测。','Tools run locally. No AI or cloud telemetry is connected.')}}</span><a class="project-link" :href="projectUrl" :title="t('在默认浏览器打开项目，分享与获取更新：','Open the project in your default browser to share and get updates: ')+projectUrl" target="_blank" rel="noopener noreferrer" @click.prevent="openProject">GitHub · {{t('分享与更新','Share & updates')}} ↗</a><span>{{t('候选发布版','Release candidate')}} <b>RC.1</b></span></footer>

@@ -1,3 +1,4 @@
+mod wormhole_cli;
 use clap::{Args, Parser, Subcommand};
 use hopkit_core::*;
 use serde_json::{Value, json};
@@ -48,6 +49,8 @@ struct Probe {
 }
 #[derive(Subcommand)]
 enum Command {
+    #[command(subcommand, about = "Encrypted file transfer / 端到端文件传输")]
+    Wormhole(wormhole_cli::Command),
     #[command(about = "Continuous multi-target monitoring / 多目标持续监测")]
     Monitor {
         /// Repeat up to 3 times: ping,HOST or tcping,HOST,PORT
@@ -765,6 +768,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
             r.writable = write;
             r.duration_secs = duration;
         }
+        Command::Wormhole(_) => unreachable!("handled before request conversion"),
         Command::Doctor => r.tool = "doctor".into(),
     }
     Ok(r)
@@ -772,7 +776,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
 fn exit_code(e: &str) -> i32 {
     match e {
         "CANCELLED" => 130,
-        "INVALID_ARGUMENT" => 2,
+        "INVALID_ARGUMENT" | "INVALID_CODE" => 2,
         "PERMISSION_DENIED" | "ADDRESS_IN_USE" | "DIRECTORY_IN_USE" | "UNSUPPORTED_CAPABILITY" => 3,
         "IO_ERROR" | "STORAGE_FULL" | "INTERNAL_ERROR" | "ALREADY_EXISTS" | "NOT_FOUND" => 4,
         _ => 1,
@@ -794,9 +798,16 @@ fn main() {
                 let value = envelope(
                     "",
                     "parse",
-                    Err(ToolError::new("INVALID_ARGUMENT", e.to_string())),
+                    Err(ToolError::new(
+                        "INVALID_ARGUMENT",
+                        "Invalid command arguments; run --help",
+                    )),
                 );
                 let _ = writeln!(io::stdout(), "{value}");
+                std::process::exit(2);
+            }
+            if e.use_stderr() && args.iter().any(|a| a == "wormhole") {
+                eprintln!("Invalid Wormhole arguments; run wormhole --help");
                 std::process::exit(2);
             }
             e.exit();
@@ -807,6 +818,10 @@ fn main() {
         let _ = Cli::command().print_help();
         let _ = writeln!(io::stdout());
         return;
+    };
+    let command = match command {
+        Command::Wormhole(c) => std::process::exit(wormhole_cli::execute(c, &cli.format)),
+        c => c,
     };
     let r = match request(command) {
         Ok(r) => r,

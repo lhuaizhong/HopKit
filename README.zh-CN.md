@@ -13,7 +13,7 @@ HopKit 集成终端排障、网络测量、文件传输与日志采集，提供�
 | 工具 | 主要能力 |
 | --- | --- |
 | 网络排障 | 本机网络概览；分阶段关联 DNS、路由、ICMP、TCP、HTTP/TLS 证据，给出可能原因与下一步建议 |
-| 多目标监测 | 网关/外部/业务目标共用时间轴，ICMP/TCP 失败区段、暂停恢复、网络事件、范围前后对比与有界聚合；见 [监测说明](MONITORING.md) |
+| 多目标监测 | 网关/外部/业务目标共用时间轴，ICMP/TCP 失败区段、暂停恢复、网络事件、范围前后对比与有界聚合 |
 | 网络概览 / 目标预览 | 查看接口、地址、网关、DNS 和默认路由；规范化目标，不发送探测 |
 | Ping | IPv4/IPv6、定次或持续探测、可配置包大小/超时/间隔、延迟与丢包统计 |
 | Traceroute | ICMP 逐跳追踪、每跳三次探测、最大跳数、响应地址与目标到达状态 |
@@ -37,7 +37,7 @@ HopKit 集成终端排障、网络测量、文件传输与日志采集，提供�
 | macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-arm64.dmg) · [含 CLI 的应用 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-arm64.zip) |
 | macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-x86_64.dmg) · [含 CLI 的应用 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-x86_64.zip) |
 
-Release 另提供 macOS 独立 CLI ZIP、依赖许可、构建信息及校验值。从 netbox 升级请参阅 [迁移说明](MIGRATION.md)。
+Release 另提供 macOS 独立 CLI ZIP、依赖许可、构建信息及校验值。CLI 快捷入口为 hk。
 
 - **Windows：** 安装程序，或将 ZIP 解压至本地可写目录，运行 `HopKit.exe`。GUI 依赖 [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)，安装版会在缺失时联网下载。安装版与便携 ZIP 包含 CLI，便携单 EXE 仅包含 GUI。
 - **macOS：** 按 CPU 架构选择安装包，打开 DMG 并将 `HopKit.app` 拖入 Applications，或解压应用 ZIP。GUI 使用系统 WKWebView。ZIP 提供 CLI，发布 DMG 中的 CLI 位于 `HopKit.app/Contents/Resources/`。详见 [macOS 指南](README-macOS.md)。
@@ -79,7 +79,7 @@ hk http serve --root ./shared --listen :: --port 8080 --allow ::1/128 --duration
 
 ## CLI 使用
 
-多目标监测示例：`hk monitor --target ping,192.168.1.1 --target ping,example.com --target tcping,business.example,443 --format jsonl`。在 GUI 侧栏选择 Monitor。采用系统路由，最多三个目标、依次探测，共用现有四任务上限；休眠或采样中断不补造失败。详见 [参数、预算和验证边界](MONITORING.md)。发布验收在三个原生架构上运行协议回归及 35 秒监测故障/恢复检查；两小时以上监测与物理休眠/网卡切换尚待实测。
+多目标监测示例：`hk monitor --target ping,192.168.1.1 --target ping,example.com --target tcping,business.example,443 --format jsonl`。在 GUI 侧栏选择 Monitor。采用系统路由，最多三个目标、依次探测，共用现有四任务上限；休眠或采样中断不补造失败。发布验收在三个原生架构上运行协议回归及 35 秒监测故障/恢复检查；两小时以上监测与物理休眠/网卡切换尚待实测。
 
 在解压后的目录中运行：
 
@@ -227,3 +227,32 @@ macOS 打包与分架构检查见 [macOS 指南](README-macOS.md)，安装包组
 请通过 [GitHub Issues](https://github.com/lhuaizhong/HopKit/issues) 提交问题与功能建议，并附应用版本、操作系统/架构、参数、期望与实际结果及导出 JSON。分享前移除敏感地址、配置与日志内容。
 
 版权所有 © 2026 Huaizhong Liu。项目源码采用 [MIT 许可证](LICENSE)；第三方依赖保留各自许可证，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 及发布包内声明。
+
+
+## Wormhole / 端到端文件传输
+
+Wormhole appears directly below HTTP and above Syslog. Send one regular file or
+receive using a one-time code; choose a destination and explicitly accept.
+Existing files are never replaced. Archives from Python directory offers are
+saved as ZIP files without extraction. Both peers must remain online. Relay data
+is end-to-end encrypted; signaling/relay/STUN services still observe connection
+metadata and direct peers learn each other's addresses. No resume or offline delivery.
+
+```sh
+hk wormhole send ./report.zip
+hk wormhole receive --dir ./received
+hk wormhole receive --code-stdin --dir ./received --yes --format jsonl
+hk wormhole send ./report.zip --connection relay --format jsonl --emit-code
+```
+
+默认使用公共 WSS Mailbox 和 Transit Relay，只有点击开始才联网。支持自动、仅直连、仅中继及自定义服务；仅直连仍需信令服务。仅中继不使用 STUN 或直连监听。接收配对码不保存到历史或导出；重跑需重新配对。JSON/JSONL 接收必须显式 `--yes`，`--verify` 仅用于交互文本终端。默认机器输出不含配对码；发送码写 stderr，仅发送端 JSONL `--emit-code` 可主动输出一次敏感码。
+
+Wormhole uses the system native TLS trust store; HTTP diagnostics use their
+existing rustls roots. There is no Wormhole TLS-verification bypass. On interruption,
+HopKit cleans uncommitted `.hopkit-*.part` files. Forced termination/power loss may
+leave these temporary files next to the chosen destination; remove them manually
+once the transfer has stopped. Saved files are retained if receipt delivery fails.
+
+自有源码仍采用 MIT；包含 Wormhole 的组合分发还需遵守 EUPL-1.2，详见
+[DISTRIBUTION_LICENSES.md](DISTRIBUTION_LICENSES.md)。本地验收和未完成的平台项目见
+[WORMHOLE_IMPLEMENTATION.md](WORMHOLE_IMPLEMENTATION.md)。

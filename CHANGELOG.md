@@ -56,3 +56,8 @@ changes, or every native GUI workflow. See [monitoring boundaries](MONITORING.md
 
 Historical netbox preview. Asset names retain `netbox`; later HopKit capabilities
 and the `hk` entry are available in `0.1.0-beta.1`.
+
+## Unreleased — Wormhole
+
+- Added shared Rust File Transfer v1 core, GUI send/receive and CLI commands with one-time codes, confirmation, streaming SHA-256, cancellation and no-overwrite publication.
+- Added bounded protocol/DNS patches to vendored magic-wormhole 0.8.1; sensitive code isolation and EUPL corresponding-source packaging.
