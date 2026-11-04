@@ -37,7 +37,11 @@ def check(name,body):
  started=time.monotonic();body();reports.append({'case':name,'status':'passed','seconds':round(time.monotonic()-started,3)});print(name,'passed',flush=True)
 with tempfile.TemporaryDirectory(prefix='hopkit-wormhole-') as temp:
  t=Path(temp);m,r=port(),port();mailbox=f'ws://127.0.0.1:{m}/v1';relay=f'tcp://127.0.0.1:{r}'
- services=[start([peer('twistd'),'--nodaemon','--pidfile',t/'mail.pid','wormhole-mailbox','--port',f'tcp:{m}:interface=127.0.0.1','--channel-db',t/'channel.sqlite']),start([peer('twistd'),'--nodaemon','--pidfile',t/'relay.pid','transitrelay','--port',f'tcp:{r}:interface=127.0.0.1'])]
+ service_logs=[]
+ def service_start(args):
+  log=(t/f'service-{len(service_logs)}.log').open('w+',encoding='utf-8');service_logs.append(log)
+  proc=subprocess.Popen([str(x) for x in args],stdout=log,stderr=subprocess.STDOUT);processes.append(proc);return proc
+ services=[service_start([peer('twistd'),'--nodaemon','--pidfile',t/'mail.pid','wormhole-mailbox','--port',f'tcp:{m}:interface=127.0.0.1','--channel-db',t/'channel.sqlite']),service_start([peer('twistd'),'--nodaemon','--pidfile',t/'relay.pid','transitrelay','--port',f'tcp:{r}:interface=127.0.0.1'])]
  options=['--mailbox-url',mailbox,'--transit-relay',relay,'--connection','relay']
  python=[peer('wormhole'),'--relay-url',mailbox,'--transit-helper',f'tcp:127.0.0.1:{r}']
  try:
@@ -45,12 +49,15 @@ with tempfile.TemporaryDirectory(prefix='hopkit-wormhole-') as temp:
   for service,service_port in zip(services,[m,r]):
    deadline=time.monotonic()+30
    while True:
-    assert service.poll() is None,service.stderr.read()
+    assert service.poll() is None, 'Local service exited; see service logs'
     try:
      with socket.create_connection(('127.0.0.1',service_port),timeout=.2):pass
      break
     except OSError:
-     assert time.monotonic()<deadline, f'Local service not ready on {service_port}'
+     if time.monotonic()>=deadline:
+      for log in service_logs:
+       log.flush();log.seek(0);print(log.read(),flush=True)
+      raise AssertionError(f'Local service not ready on {service_port}')
      time.sleep(.1)
   def hop_pair(size,name):
    source=t/name
@@ -133,4 +140,6 @@ with tempfile.TemporaryDirectory(prefix='hopkit-wormhole-') as temp:
   for proc in processes:
    try:proc.wait(timeout=3)
    except subprocess.TimeoutExpired:proc.kill()
+  for i,log in enumerate(service_logs):
+   log.flush();log.seek(0);(out/f'service-{i}.log').write_text(log.read(),encoding='utf-8');log.close()
   (out/('large-protocol.json' if a.large else 'local-protocol.json')).write_text(json.dumps({'mailbox':'magic-wormhole-mailbox-server 0.8.0','relay':'magic-wormhole-transit-relay 0.5.0','python':'magic-wormhole 0.23.0','platform':platform.platform(),'machine':platform.machine(),'binary_sha256':digest(cli),'results':reports},indent=2))
