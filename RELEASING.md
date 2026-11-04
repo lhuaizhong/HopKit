@@ -1,6 +1,6 @@
 # Release builds / 发布构建
 
-Version `0.1.0-rc.1` is the current release candidate. Keep the version in `package.json`,
+Version `0.1.0-rc.2` is the current release candidate. Keep the version in `package.json`,
 `package-lock.json`, the workspace `Cargo.toml`/`Cargo.lock`, and
 `src-tauri/tauri.conf.json` consistent. Do not replace historical release tags.
 

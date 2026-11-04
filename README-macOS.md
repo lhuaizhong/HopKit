@@ -1,15 +1,15 @@
 # HopKit for macOS / macOS 使用指南
 
-**版本：`0.1.0-rc.1` — HopKit RC.1。** GUI 和独立 CLI 共享 Rust 协议核心，包含网络排障、多目标监测和完整基础工具，用于测试与评估。
+**版本：`0.1.0-rc.2` — HopKit RC.2。** GUI 和独立 CLI 共享 Rust 协议核心，包含网络排障、多目标监测和完整基础工具，用于测试与评估。
 
 ## 下载
 
 | CPU | DMG | 应用与 CLI ZIP |
 | --- | --- | --- |
-| Apple Silicon（M 系列） | [arm64 DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-arm64.dmg) | [arm64 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-arm64.zip) |
-| Intel | [x86_64 DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-x86_64.dmg) | [x86_64 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/hopkit-0.1.0-rc.1-macos-x86_64.zip) |
+| Apple Silicon（M 系列） | [arm64 DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-arm64.dmg) | [arm64 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-arm64.zip) |
+| Intel | [x86_64 DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-x86_64.dmg) | [x86_64 ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-x86_64.zip) |
 
-[全部安装包、CLI ZIP 和 SHA-256](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-rc.1) · [版本记录](CHANGELOG.md)
+[全部安装包、CLI ZIP 和 SHA-256](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-rc.2) · [版本记录](CHANGELOG.md)
 
 DMG 打开后将 `HopKit.app` 拖入 Applications；两种架构均以 macOS 11.0 为最低构建目标，最低系统仍需实机验证。DMG 的完整 CLI 与 `shortcuts/hk` 位于 `HopKit.app/Contents/Resources/`，ZIP 则位于解压目录。应用资源中还附带文档、依赖许可、SBOM 及构建信息。
 

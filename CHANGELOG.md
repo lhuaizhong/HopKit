@@ -1,6 +1,6 @@
 # Changelog / 版本记录
 
-## Unreleased / 未发布
+## 0.1.0-rc.2 — 2026-11-04
 
 - Separate Auto / IPv4 / IPv6 in GUI clients and add exclusive CLI `-4` / `-6` flags. Explicit IPv4 filters dual-stack results without IPv6 fallback.
 - GUI 客户端区分自动 / IPv4 / IPv6；CLI 增加互斥的 `-4` / `-6` 参数，双栈目标可明确使用 IPv4，不回退到 IPv6。
@@ -65,7 +65,7 @@ changes, or every native GUI workflow. See [monitoring boundaries](MONITORING.md
 Historical netbox preview. Asset names retain `netbox`; later HopKit capabilities
 and the `hk` entry are available in `0.1.0-beta.1`.
 
-## Unreleased — Wormhole
+## 0.1.0-rc.2 — Wormhole
 
 - Added shared Rust File Transfer v1 core, GUI send/receive and CLI commands with one-time codes, confirmation, streaming SHA-256, cancellation and no-overwrite publication.
 - Added bounded protocol/DNS patches to vendored magic-wormhole 0.8.1; sensitive code isolation and EUPL corresponding-source packaging.

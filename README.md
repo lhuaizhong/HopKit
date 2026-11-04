@@ -6,7 +6,7 @@
 
 HopKit brings network troubleshooting, continuous monitoring, throughput tests, file sharing, and log collection into one desktop app. An independent CLI shares the same Rust core for scripts and terminal use.
 
-**Status:** release candidate `0.1.0-rc.1`. This README describes the current source tree; published packages may differ. Wormhole is implemented in source and is awaiting release acceptance. See the [implementation and validation record](WORMHOLE_IMPLEMENTATION.md).
+**Status:** release candidate `0.1.0-rc.2`. Includes Wormhole encrypted file transfer, explicit IPv4/IPv6 selection, and concise CLI output. See the [implementation and validation record](WORMHOLE_IMPLEMENTATION.md).
 
 ## Interface preview
 
@@ -14,13 +14,13 @@ HopKit brings network troubleshooting, continuous monitoring, throughput tests, 
 
 ## Quick start
 
-Download a package from [GitHub Releases](https://github.com/lhuaizhong/HopKit/releases). For the existing RC.1 packages, see [the release page](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-rc.1) and [SHA-256 checksums](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/SHA256SUMS.txt).
+Download a package from [GitHub Releases](https://github.com/lhuaizhong/HopKit/releases). For RC.2 packages, see [the release page](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-rc.2) and [SHA-256 checksums](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/SHA256SUMS.txt).
 
 | Platform | Package | Start |
 | --- | --- | --- |
-| Windows x64 | Installer, portable ZIP, or standalone GUI EXE | Install or extract, then run `HopKit.exe` |
-| macOS Apple Silicon | `macos-arm64` DMG or ZIP | Drag `HopKit.app` to Applications, or extract the ZIP |
-| macOS Intel | `macos-x86_64` DMG or ZIP | Drag `HopKit.app` to Applications, or extract the ZIP |
+| Windows x64 | [Installer](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-windows-x64-setup.exe) · [ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-windows-x64-portable.zip) · [EXE](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-windows-x64-portable.exe) | Install or extract, then run `HopKit.exe` |
+| macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-arm64.dmg) · [ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-arm64.zip) · [CLI ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-arm64-cli.zip) | Drag `HopKit.app` to Applications, or extract the ZIP |
+| macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-x86_64.dmg) · [ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-x86_64.zip) · [CLI ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-x86_64-cli.zip) | Drag `HopKit.app` to Applications, or extract the ZIP |
 
 Windows installers and portable ZIPs include the CLI; the standalone EXE contains only the GUI. macOS app ZIPs include the CLI, and DMGs place it in `HopKit.app/Contents/Resources/`. Separate macOS CLI ZIPs are also available.
 
@@ -40,7 +40,7 @@ Windows binaries are unsigned; macOS apps use ad-hoc signing without Apple notar
 | iperf3 | Built-in TCP/UDP client and server, reverse download, TCP parallel streams, and live throughput |
 | FTP / TFTP | File upload/download and temporary servers; FTP also supports directory listings |
 | HTTP file sharing | Browse and download shared files in a browser; optional uploads |
-| Wormhole | Transfer a file using a one-time pairing code and end-to-end encryption; source feature pending release |
+| Wormhole | Transfer a file using a one-time pairing code and end-to-end encryption |
 | Syslog | UDP send/receive, live preview, and rotating JSONL logs |
 
 The GUI supports English and Simplified Chinese, Fresh and Easy to read appearances, and JSON/PNG result export. Protocol parameters and limits are in the [user guide](docs/usage.md).

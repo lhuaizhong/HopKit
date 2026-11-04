@@ -6,7 +6,7 @@
 
 HopKit 将网络排障、持续监测、吞吐量测试、文件共享和日志采集集成在一个桌面应用中，同时提供独立 CLI。图形界面与命令行共享 Rust 核心，适用于日常运维和脚本自动化。
 
-**项目状态：** 当前为候选发布版 `0.1.0-rc.1`。本文介绍当前源码，已发布安装包的功能可能不同。Wormhole 已在源码中实现，仍待完成发布验收，详见[实现与验收记录](WORMHOLE_IMPLEMENTATION.md)。
+**项目状态：** 当前为候选发布版 `0.1.0-rc.2`。包含 Wormhole 加密文件传输、显式 IPv4/IPv6 选择和简洁 CLI 输出，详见[实现与验收记录](WORMHOLE_IMPLEMENTATION.md)。
 
 ## 软件界面示例
 
@@ -14,13 +14,13 @@ HopKit 将网络排障、持续监测、吞吐量测试、文件共享和日志�
 
 ## 快速开始
 
-前往 [GitHub Releases](https://github.com/lhuaizhong/HopKit/releases) 下载。现有 RC.1 安装包见[发布页面](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-rc.1)，文件校验见 [SHA-256 清单](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.1/SHA256SUMS.txt)。
+前往 [GitHub Releases](https://github.com/lhuaizhong/HopKit/releases) 下载。RC.2 安装包见[发布页面](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-rc.2)，文件校验见 [SHA-256 清单](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/SHA256SUMS.txt)。
 
 | 平台 | 安装包 | 启动方式 |
 | --- | --- | --- |
-| Windows x64 | 安装版、免安装 ZIP 或独立 GUI EXE | 安装或解压后运行 `HopKit.exe` |
-| macOS Apple Silicon | `macos-arm64` DMG 或 ZIP | 将 `HopKit.app` 拖入 Applications，或解压 ZIP |
-| macOS Intel | `macos-x86_64` DMG 或 ZIP | 将 `HopKit.app` 拖入 Applications，或解压 ZIP |
+| Windows x64 | [安装版](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-windows-x64-setup.exe) · [ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-windows-x64-portable.zip) · [EXE](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-windows-x64-portable.exe) | 安装或解压后运行 `HopKit.exe` |
+| macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-arm64.dmg) · [ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-arm64.zip) · [CLI ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-arm64-cli.zip) | 将 `HopKit.app` 拖入 Applications，或解压 ZIP |
+| macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-x86_64.dmg) · [ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-x86_64.zip) · [CLI ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-x86_64-cli.zip) | 将 `HopKit.app` 拖入 Applications，或解压 ZIP |
 
 Windows 安装版和免安装 ZIP 包含 CLI，独立 EXE 仅包含 GUI。macOS 应用 ZIP 包含 CLI，DMG 内的 CLI 位于 `HopKit.app/Contents/Resources/`；另有独立 CLI ZIP。
 
@@ -40,7 +40,7 @@ Windows 程序尚未签名；macOS 使用 ad-hoc 签名，未经 Apple 公证。
 | iperf3 | 内置 TCP/UDP 测速客户端与服务端，支持反向下载、TCP 并行流和实时速率 |
 | FTP / TFTP | 文件上传、下载及临时服务；FTP 支持目录列表 |
 | HTTP 文件服务 | 浏览器直接浏览、下载共享文件，可选开启上传 |
-| Wormhole | 通过一次性配对码进行端到端加密文件传输；源码已实现，尚待发布 |
+| Wormhole | 通过一次性配对码进行端到端加密文件传输 |
 | Syslog | UDP 发送与接收、实时预览、JSONL 日志轮转 |
 
 图形界面支持简体中文和英文、“清新”和“视力友好”两种风格，以及 JSON/PNG 结果导出。详细参数和协议限制见[使用指南](docs/usage.zh-CN.md)。
