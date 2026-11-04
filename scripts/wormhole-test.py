@@ -141,5 +141,5 @@ with tempfile.TemporaryDirectory(prefix='hopkit-wormhole-') as temp:
    try:proc.wait(timeout=3)
    except subprocess.TimeoutExpired:proc.kill()
   for i,log in enumerate(service_logs):
-   log.flush();log.seek(0);(out/f'service-{i}.log').write_text(log.read(),encoding='utf-8');log.close()
+   log.flush();log.seek(0);content=log.read();print(content,flush=True);(out/f'service-{i}.log').write_text(content,encoding='utf-8');log.close()
   (out/('large-protocol.json' if a.large else 'local-protocol.json')).write_text(json.dumps({'mailbox':'magic-wormhole-mailbox-server 0.8.0','relay':'magic-wormhole-transit-relay 0.5.0','python':'magic-wormhole 0.23.0','platform':platform.platform(),'machine':platform.machine(),'binary_sha256':digest(cli),'results':reports},indent=2))
