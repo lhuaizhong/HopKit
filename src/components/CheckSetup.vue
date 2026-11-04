@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed,onMounted,onUnmounted,ref,watch} from 'vue'
 import {invoke} from '@tauri-apps/api/core'
+import AddressFamilySelect from './AddressFamilySelect.vue'
 type Row=Record<string,any>
 const props=defineProps<{en:boolean;config:Row;disabled:boolean}>()
 const emit=defineEmits<{run:[request:Row]}>()
@@ -36,7 +37,7 @@ onUnmounted(()=>{disposed=true;generation++;clearTimeout(parseTimer);clearInterv
     <small class="field-help">{{t('指定地址会实际绑定 TCP/HTTP。系统 DNS 与路由查询使用系统策略；ICMP 和路由追踪不支持源绑定，选定源时跳过。','TCP/HTTP bind the selected source. System DNS and route queries follow OS policy. ICMP/trace source binding is unavailable and those checks are skipped when a source is selected.')}}</small>
     <label for="check-timeout">{{t('单次连接或每跳 HTTP 总超时 / ms','TCP attempt / total HTTP hop timeout / ms')}}</label><input id="check-timeout" v-model.number="config.timeout_ms" type="number" min="100" max="10000" step="100" required>
     <label for="check-dns">{{t('对比指定 DNS（可选 IP 或 IP:端口）','Compare DNS (optional IP or IP:port)')}}</label><input id="check-dns" v-model="config.dns_server"><small class="field-help">{{t('指定 DNS 仅作对比，使用系统路由，不绑定所选源地址。','Direct DNS is for comparison only; it uses system routing and is not source-bound.')}}</small>
-    <label class="check"><input v-model="config.ipv6" type="checkbox">{{t('仅使用 IPv6 解析地址','Use only IPv6 resolver addresses')}}</label>
+    <AddressFamilySelect id="check-family" :en="en" :config="config"/>
     <label class="check"><input v-model="config.include_trace" type="checkbox">{{t('补充路由追踪（可能较慢）','Include traceroute (may take longer)')}}</label>
     <label for="check-ca">{{t('附加 CA 文件（可选 PEM）','Additional CA file (optional PEM)')}}</label><input id="check-ca" v-model="config.tls_ca_file" :placeholder="t('本机 CA 文件路径','Local CA file path')"><small class="field-help">{{t('默认使用随程序内置的 Mozilla 根证书，不读取系统证书或环境变量；企业内网可显式添加 CA，不会关闭证书校验。','Uses bundled Mozilla roots, without system certificates or environment overrides. Explicitly add an enterprise CA while retaining certificate validation.')}}</small>
     <label class="check"><input v-model="config.insecure_tls" type="checkbox">{{t('跳过 TLS 证书校验（无法证明证书正常）','Skip TLS validation (cannot establish certificate validity)')}}</label>

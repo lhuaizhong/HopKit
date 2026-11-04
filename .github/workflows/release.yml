@@ -67,6 +67,7 @@ jobs:
           suffix=""
           if [[ "$RUNNER_OS" == Windows ]]; then suffix=".exe"; fi
           python scripts/integration_test.py --exe "target/release/hopkit-cli$suffix" --output test-output/integration-release.json
+          python scripts/cli-text-test.py --exe "target/release/hopkit-cli$suffix"
           python scripts/monitor-soak.py --exe "target/release/hopkit-cli$suffix" --duration 35 --output test-output/monitor-release
       - name: Generate build metadata and dependency licenses
         run: |

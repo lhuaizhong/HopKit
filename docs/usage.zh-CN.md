@@ -37,6 +37,15 @@ hk monitor --target ping,192.168.1.1 --target ping,example.com --target tcping,b
 
 下文统一使用 `hk`，执行时请替换为上表入口；也可先检查命令冲突，再手动将 `shortcuts` 加入 PATH。短入口是完整 CLI 的同一二进制副本，参数、输出与退出码一致。示例中的局域网地址与文件路径请按实际环境替换。
 
+GUI 地址类型统一提供“自动 / IPv4 / IPv6”。CLI 客户端支持 `-4`（`--ipv4`）和 `-6`（`--ipv6`），两者互斥；不指定时采用系统解析顺序。显式选择仅使用对应类型，无匹配地址即报错，不回退到另一类型。Monitor 的选择适用于全部监测目标。DNS 系统解析按地址类型过滤；指定 DNS 时，地址类型限制 DNS 服务器的连接地址，查询记录仍由 A / AAAA 等记录类型决定。
+
+```sh
+hk ping example.com -4
+hk tcping example.com 443 -4
+hk check https://example.com/ -4
+hk dns example.com --system -4
+```
+
 ### 网络诊断
 
 ```sh
@@ -90,6 +99,21 @@ hk syslog send 127.0.0.1 'HopKit test' --port 1514
 FTP 账号登录前先设置 `HOPKIT_FTP_PASSWORD`，再使用 `--user`：PowerShell 为 `$env:HOPKIT_FTP_PASSWORD='你的密码'`，macOS 为 `export HOPKIT_FTP_PASSWORD='你的密码'`。仅新变量不存在时回退到 `NETBOX_FTP_PASSWORD`；新变量为空仍优先。可用 `--password-env` 指定其他变量。密码不进入缓存、快照或导出，重跑时需重新填写。目标使用主机名或 IP，不含 URL 凭据。
 
 ### 输出与退出码
+
+默认 `--format text` 面向人工检查：Ping/TCPing 每次探测一行，末尾汇总丢包与延迟；Trace 每跳一行；DNS 列出解析答案；NTP 显示偏差与延迟；iperf3 显示速率及可用的 UDP 丢包、抖动。服务类命令显示监听地址、传输或请求事件及结束统计，不显示内部快照、请求参数、标识符或 JSON 包装。失败探测不显示虚构延迟，Ctrl+C 后保留已有的部分统计。
+
+例如，运行 `hk ping 127.0.0.1 -c 2 --lang zh-CN`：
+
+```text
+Ping 127.0.0.1 [127.0.0.1], 32 字节
+#1  127.0.0.1  成功  时间=0 ms
+#2  127.0.0.1  成功  时间=0 ms
+
+统计: 发送 2, 成功 2, 丢失 0 (0.00%)
+延迟 最小/平均/最大 = 0.00/0.00/0.00 ms
+```
+
+脚本若依赖结构化字段，请使用 JSON/JSONL；简洁文本排版可能随版本调整。`--lang zh-CN` 切换文本标签，机器字段和退出码保持不变。
 
 `--format json` 为有限任务输出一个最终对象，也适用于限时服务；`--format jsonl` 逐行输出事件，适用于持续探测与服务。服务默认 `--duration 0`，运行至 Ctrl+C。Trace 使用 `schema_version: 2`，其他命令使用版本 1。
 
@@ -192,5 +216,7 @@ python scripts/integration_test.py --exe target/release/hopkit-cli.exe
 ```
 
 macOS 将程序路径替换为 `target/release/hopkit-cli`。专项检查包括 `scripts/diagnostic-trust-test.py`、`scripts/iperf3-test.py`、`scripts/check-test.py`，运行前需核对平台与开发依赖。Wormhole 测试前提与发布验收要求见[发布说明](../RELEASING.md)。
+
+运行 `python scripts/cli-text-test.py --exe target/release/hopkit-cli.exe` 可检查本地 CLI 输出（macOS 去掉 `.exe`），覆盖简洁文本、中英文及 JSON/JSONL 兼容性，不访问公网。
 
 UI 测试使用浏览器 fixture 或测试专用调试，正式启动不开放调试端口。本地证据写入 `test-output/`，包内证据如有提供则位于 `validation/`，路径均相对于项目或安装包根目录。结论仅适用于记录的平台与产物；其他架构、最低系统版本、真实设备及多网卡/VPN 动态环境需单独验证。

@@ -53,6 +53,7 @@ try {
       }
       if (command === 'start_task') {
         const r = args.request
+        window.__lastFamilyRequest = r
         const events = [
           { cursor: 1, seq: 1, event_type: 'sample', ok: true, status: 'reply', hop: 1, address: '127.0.0.1', rtt_ms: 0.25 },
           { cursor: 2, seq: 2, event_type: 'sample', ok: false, status: 'timeout', hop: 1, address: '::1', rtt_ms: null },
@@ -244,6 +245,39 @@ try {
     })
     await page.reload(); await assertTheme('fresh')
     await page.click('.appearance-switch button:last-child'); await assertTheme('readable')
+  })
+  await check('Address family has Auto/IPv4/IPv6 across all client forms and survives navigation/rerun', async () => {
+    for (const name of ['Ping', 'Traceroute', 'TCPing', 'DNS', 'NTP', 'iperf3', 'FTP', 'TFTP', 'Syslog', 'HopKit', 'Monitor']) {
+      await pick(name)
+      if (name === 'Syslog') await page.click('.segmented button:last-child')
+      const selector = name === 'HopKit' ? '#check-family' : name === 'Monitor' ? '#monitor-family' : '#family'
+      if (name === 'HopKit') await page.$eval('.check-setup form details', e => { e.open = true })
+      assert.deepEqual(await page.$$eval(`${selector} option`, options => options.map(e => e.value)), ['auto', 'ipv4', 'ipv6'])
+      await page.select(selector, 'ipv4')
+      if (name !== 'Ping') continue
+      for (const [value, ipv4, ipv6] of [['ipv4', true, false], ['ipv6', false, true], ['auto', false, false]]) {
+        await page.select(selector, value)
+        await page.waitForFunction(() => !document.querySelector('form .primary')?.disabled)
+        await page.click('form .primary')
+        await page.waitForFunction(([ipv4, ipv6]) => {
+          const task = document.querySelector('.task-row')
+          return !!task && window.__lastFamilyRequest?.ipv4 === ipv4 && window.__lastFamilyRequest?.ipv6 === ipv6
+        }, {timeout:5000}, [ipv4, ipv6]).catch(async error => {
+          console.log(await page.evaluate(() => ({request:window.__lastFamilyRequest, family:document.querySelector('#family')?.value, errors:[...document.querySelectorAll('[role="alert"]')].map(e=>e.textContent), valid:document.querySelector('form')?.checkValidity()})))
+          throw error
+        })
+      }
+      await page.select(selector, 'ipv4')
+      await page.waitForFunction(() => !document.querySelector('form .primary')?.disabled)
+      await page.click('form .primary')
+      await page.waitForFunction(() => !document.querySelector('form .primary')?.disabled)
+      await pick('DNS'); await pick('Ping')
+      assert.equal(await page.$eval(selector, e => e.value), 'ipv4')
+      await page.select(selector, 'ipv6')
+      await page.evaluate(() => [...document.querySelectorAll('.task-row button')].find(e => /Rerun|重跑/.test(e.textContent)).click())
+      await page.waitForFunction(() => document.querySelector('#family')?.value === 'ipv4')
+    }
+    await pick('Ping'); await page.select('#family', 'auto')
   })
   await check('No uncaught frontend errors', async () => assert.deepEqual(errors, []))
 } finally {

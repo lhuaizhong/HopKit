@@ -84,12 +84,7 @@ fn tcp(addr: SocketAddr, source: &str, c: &Cancel, timeout: u64) -> ToolResult {
 
 fn addresses(t: &Target, r: &Request, c: &Cancel) -> Result<Vec<SocketAddr>, ToolError> {
     if let Some(addr) = target::literal_socket(&t.host, t.port.unwrap_or(0)) {
-        if r.ipv6 && addr.is_ipv4() {
-            return Err(ToolError::new(
-                "INVALID_ARGUMENT",
-                "IPv6 selected with IPv4 target / 已选 IPv6，但目标为 IPv4",
-            ));
-        }
+        r.address_family()?.validate(addr.ip())?;
         return Ok(vec![addr]);
     }
     if t.scope.is_some() {
@@ -98,7 +93,7 @@ fn addresses(t: &Target, r: &Request, c: &Cancel) -> Result<Vec<SocketAddr>, Too
             "Use numeric IPv6 scope (see interface index) / IPv6 scope 请使用接口数字索引",
         ));
     }
-    resolve_all(&t.host, t.port.unwrap_or(0), r.ipv6, c)
+    resolve_all(&t.host, t.port.unwrap_or(0), r.address_family()?, c)
 }
 
 pub fn run(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
@@ -133,6 +128,9 @@ pub fn run(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
             q.target = target.host.clone();
             q.port = 0;
             q.record_type = if r.ipv6 { "AAAA" } else { "A" }.into();
+            // Compare target records independently of the DNS server's IP family.
+            q.ipv4 = false;
+            q.ipv6 = false;
             record(
                 &mut items,
                 emit,
@@ -790,6 +788,18 @@ mod tests {
                 .unwrap()
                 .contains("test-secret")
         );
+    }
+    #[test]
+    fn literal_and_scoped_targets_obey_selected_family() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        for input in ["::1", "[fe80::1%1]:443", "http://[::1]/"] {
+            let target = target::parse(input).unwrap();
+            let r = Request { ipv4: true, ..Request::default() };
+            assert_eq!(addresses(&target, &r, &cancel).unwrap_err().code, "INVALID_ARGUMENT");
+        }
+        let target = target::parse("localhost:443").unwrap();
+        let r = Request { ipv4: true, ..Request::default() };
+        assert!(addresses(&target, &r, &cancel).unwrap().iter().all(SocketAddr::is_ipv4));
     }
     #[test]
     fn immutable_request_redacts_even_on_invalid_urls() {

@@ -900,7 +900,7 @@ fn client(r: &Request, ctx: &Context<'_>, emit: &Sink<'_>) -> ToolResult {
     let addrs = resolve_all(
         &r.target,
         if r.port == 0 { 5201 } else { r.port },
-        r.ipv6,
+        r.address_family()?,
         ctx.cancel,
     )?;
     let mut last_error = None;

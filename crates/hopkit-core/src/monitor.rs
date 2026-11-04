@@ -325,6 +325,7 @@ fn discontinuity(before: u64, after: u64, elapsed: Duration, expected_ms: u64) -
         || after.saturating_sub(before) > expected_ms + 2000
 }
 pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>, control: &Control) -> ToolResult {
+    let family = req.address_family()?;
     let config = req
         .monitor
         .clone()
@@ -450,11 +451,13 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>, control: &Control) -> Too
                         port: t.port,
                         timeout_ms: config.timeout_ms,
                         count: 1,
+                        ipv4: req.ipv4,
+                        ipv6: req.ipv6,
                         ..Request::default()
                     };
                     let before = wall_ms();
                     let instant = Instant::now();
-                    let resolved = resolve(&r.target, r.port, false, c);
+                    let resolved = resolve(&r.target, r.port, family, c);
                     let probe_at = wall_ms();
                     let probe_instant = Instant::now();
                     let measured = resolved

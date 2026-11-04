@@ -1,3 +1,4 @@
+mod text;
 mod wormhole_cli;
 use clap::{Args, Parser, Subcommand};
 use hopkit_core::*;
@@ -19,6 +20,7 @@ use std::{
     long_about = "HopKit Network Toolkit / 开源网络排障工具箱\nWindows / macOS preview: Ping / Trace / TCPing / DNS / NTP / iperf3 / FTP / HTTP files / TFTP / Syslog UDP.\nGUI is never launched by CLI. Ctrl+C cancels the current operation.\n命令行独立运行；Ctrl+C 取消。Run help <command> for arguments."
 )]
 struct Cli {
+    /// Output: concise text (default), full JSON, or JSONL events / 默认简洁文本
     #[arg(long,global=true,default_value="text",value_parser=["text","json","jsonl"])]
     format: String,
     #[arg(long,global=true,default_value="en-US",value_parser=["zh-CN","en-US"])]
@@ -29,6 +31,21 @@ struct Cli {
     strict: bool,
     #[command(subcommand)]
     command: Option<Command>,
+}
+#[derive(Args)]
+struct FamilyOptions {
+    /// Use IPv4 only / 仅使用 IPv4
+    #[arg(short = '4', long, conflicts_with = "ipv6")]
+    ipv4: bool,
+    /// Use IPv6 only / 仅使用 IPv6
+    #[arg(short = '6', long, conflicts_with = "ipv4")]
+    ipv6: bool,
+}
+impl FamilyOptions {
+    fn apply(self, request: &mut Request) {
+        request.ipv4 = self.ipv4;
+        request.ipv6 = self.ipv6;
+    }
 }
 #[derive(Args)]
 struct Probe {
@@ -44,8 +61,8 @@ struct Probe {
     timeout_ms: u64,
     #[arg(long, default_value_t = 1000)]
     interval_ms: u64,
-    #[arg(short = '6', long)]
-    ipv6: bool,
+    #[command(flatten)]
+    family: FamilyOptions,
 }
 #[derive(Subcommand)]
 enum Command {
@@ -53,6 +70,8 @@ enum Command {
     Wormhole(wormhole_cli::Command),
     #[command(about = "Continuous multi-target monitoring / 多目标持续监测")]
     Monitor {
+        #[command(flatten)]
+        family: FamilyOptions,
         /// Repeat up to 3 times: ping,HOST or tcping,HOST,PORT
         #[arg(long = "target", required = true)]
         targets: Vec<String>,
@@ -84,8 +103,8 @@ enum Command {
         ca_file: String,
         #[arg(long)]
         trace: bool,
-        #[arg(short = '6', long)]
-        ipv6: bool,
+        #[command(flatten)]
+        family: FamilyOptions,
     },
     #[command(about = "Local interfaces, routes and DNS; no probes / 本机网络概览，不发送探测")]
     Network,
@@ -104,8 +123,8 @@ enum Command {
         max_hops: u8,
         #[arg(long, default_value_t = 1000)]
         timeout_ms: u64,
-        #[arg(short = '6', long)]
-        ipv6: bool,
+        #[command(flatten)]
+        family: FamilyOptions,
     },
     #[command(about = "TCP connect test / TCP 端口测试")]
     Tcping {
@@ -119,8 +138,8 @@ enum Command {
         timeout_ms: u64,
         #[arg(long, default_value_t = 1000)]
         interval_ms: u64,
-        #[arg(short = '6', long)]
-        ipv6: bool,
+        #[command(flatten)]
+        family: FamilyOptions,
     },
     #[command(about = "System or direct DNS / 域名解析")]
     Dns {
@@ -132,8 +151,8 @@ enum Command {
         system: bool,
         #[arg(long, default_value_t = 2000)]
         timeout_ms: u64,
-        #[arg(short = '6', long)]
-        ipv6: bool,
+        #[command(flatten)]
+        family: FamilyOptions,
     },
     #[command(
         about = "NTP measurement or temporary server / 时间偏差测量或临时时间服务",
@@ -151,8 +170,8 @@ enum Command {
         timeout_ms: u64,
         #[arg(long, default_value_t = 2000)]
         interval_ms: u64,
-        #[arg(short = '6', long)]
-        ipv6: bool,
+        #[command(flatten)]
+        family: FamilyOptions,
         #[command(subcommand)]
         command: Option<Ntp>,
     },
@@ -237,8 +256,8 @@ enum Iperf3 {
         bitrate_mbps: u32,
         #[arg(long, default_value_t = 5000)]
         timeout_ms: u64,
-        #[arg(short = '6', long)]
-        ipv6: bool,
+        #[command(flatten)]
+        family: FamilyOptions,
     },
     #[command(about = "Serve iperf3 tests; one test at a time / 提供测速服务，每次一个测试")]
     Serve {
@@ -265,8 +284,8 @@ struct FtpConnection {
     password_env: String,
     #[arg(long, default_value_t = 5000)]
     timeout_ms: u64,
-    #[arg(short = '6', long)]
-    ipv6: bool,
+    #[command(flatten)]
+    family: FamilyOptions,
 }
 #[derive(Subcommand)]
 enum Ftp {
@@ -337,12 +356,14 @@ fn ftp_connection(r: &mut Request, connection: FtpConnection) -> Result<(), Tool
     r.ftp_username = connection.user;
     r.ftp_password = ftp_password(&connection.password_env)?;
     r.timeout_ms = connection.timeout_ms;
-    r.ipv6 = connection.ipv6;
+    connection.family.apply(r);
     Ok(())
 }
 #[derive(Subcommand)]
 enum Tftp {
     Get {
+        #[command(flatten)]
+        family: FamilyOptions,
         target: String,
         remote_name: String,
         #[arg(short = 'o', long)]
@@ -353,6 +374,8 @@ enum Tftp {
         overwrite: bool,
     },
     Put {
+        #[command(flatten)]
+        family: FamilyOptions,
         target: String,
         path: String,
         #[arg(long)]
@@ -390,6 +413,8 @@ enum Syslog {
         duration: u64,
     },
     Send {
+        #[command(flatten)]
+        family: FamilyOptions,
         target: String,
         message: String,
         #[arg(long, default_value_t = 514)]
@@ -400,12 +425,14 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
     let mut r = Request::default();
     match cmd {
         Command::Monitor {
+            family,
             targets,
             interval_ms,
             timeout_ms,
             duration,
             log_directory,
         } => {
+            family.apply(&mut r);
             let targets = targets
                 .iter()
                 .enumerate()
@@ -451,7 +478,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
             insecure_tls,
             ca_file,
             trace,
-            ipv6,
+            family,
         } => {
             r.port = hopkit_core::target::parse(&target)?.port.unwrap_or(0);
             r.tool = "check".into();
@@ -462,7 +489,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
             r.insecure_tls = insecure_tls;
             r.tls_ca_file = ca_file;
             r.include_trace = trace;
-            r.ipv6 = ipv6;
+            family.apply(&mut r);
         }
         Command::Network => r.tool = "network".into(),
         Command::Target { input } => {
@@ -475,19 +502,19 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
             r.count = if p.continuous { 0 } else { p.count };
             r.timeout_ms = p.timeout_ms;
             r.interval_ms = p.interval_ms;
-            r.ipv6 = p.ipv6;
+            p.family.apply(&mut r);
         }
         Command::Trace {
             target,
             max_hops,
             timeout_ms,
-            ipv6,
+            family,
         } => {
             r.tool = "trace".into();
             r.target = target;
             r.max_hops = max_hops;
             r.timeout_ms = timeout_ms;
-            r.ipv6 = ipv6;
+            family.apply(&mut r);
         }
         Command::Tcping {
             target,
@@ -496,7 +523,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
             continuous,
             timeout_ms,
             interval_ms,
-            ipv6,
+            family,
         } => {
             r.tool = "tcping".into();
             r.target = target;
@@ -504,7 +531,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
             r.count = if continuous { 0 } else { count };
             r.timeout_ms = timeout_ms;
             r.interval_ms = interval_ms;
-            r.ipv6 = ipv6;
+            family.apply(&mut r);
         }
         Command::Dns {
             target,
@@ -512,7 +539,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
             server,
             system,
             timeout_ms,
-            ipv6,
+            family,
         } => {
             if system && (record_type.is_some() || server.is_some())
                 || record_type.is_some() && server.is_none()
@@ -527,7 +554,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
             r.record_type = record_type.unwrap_or("A".into());
             r.dns_server = server.unwrap_or_default();
             r.timeout_ms = timeout_ms;
-            r.ipv6 = ipv6;
+            family.apply(&mut r);
         }
         Command::Ntp {
             target,
@@ -535,7 +562,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
             port,
             timeout_ms,
             interval_ms,
-            ipv6,
+            family,
             command,
         } => {
             r.tool = "ntp".into();
@@ -571,7 +598,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
                 r.port = port;
                 r.timeout_ms = timeout_ms;
                 r.interval_ms = interval_ms;
-                r.ipv6 = ipv6;
+                family.apply(&mut r);
             }
         }
         Command::Ftp(ftp) => {
@@ -635,12 +662,14 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
             r.tool = "tftp".into();
             match t {
                 Tftp::Get {
+                    family,
                     target,
                     remote_name,
                     output,
                     port,
                     overwrite,
                 } => {
+                    family.apply(&mut r);
                     r.action = "get".into();
                     r.target = target;
                     r.remote_name = remote_name;
@@ -649,11 +678,13 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
                     r.overwrite = overwrite;
                 }
                 Tftp::Put {
+                    family,
                     target,
                     path,
                     remote_name,
                     port,
                 } => {
+                    family.apply(&mut r);
                     r.action = "put".into();
                     r.target = target;
                     r.path = path;
@@ -696,10 +727,12 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
                     r.duration_secs = duration;
                 }
                 Syslog::Send {
+                    family,
                     target,
                     message,
                     port,
                 } => {
+                    family.apply(&mut r);
                     r.action = "send".into();
                     r.target = target;
                     r.message = message;
@@ -720,7 +753,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
                     udp,
                     bitrate_mbps,
                     timeout_ms,
-                    ipv6,
+                    family,
                 } => {
                     r.action = "client".into();
                     r.target = target;
@@ -735,7 +768,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
                         bitrate_mbps
                     };
                     r.timeout_ms = timeout_ms;
-                    r.ipv6 = ipv6;
+                    family.apply(&mut r);
                 }
                 Iperf3::Serve {
                     listen,
@@ -820,7 +853,9 @@ fn main() {
         return;
     };
     let command = match command {
-        Command::Wormhole(c) => std::process::exit(wormhole_cli::execute(c, &cli.format)),
+        Command::Wormhole(c) => {
+            std::process::exit(wormhole_cli::execute(c, &cli.format, cli.lang == "en-US"))
+        }
         c => c,
     };
     let r = match request(command) {
@@ -864,8 +899,17 @@ fn main() {
     let format = cli.format.clone();
     let output_cancel = cancel.clone();
     let broken = failed_output.clone();
-    let english = cli.lang == "en-US";
+    let human = std::sync::Mutex::new(text::TextOutput::new(&r, cli.lang == "en-US"));
     let emit = |mut v: Value| {
+        if format == "text" {
+            if let Some(out) = human.lock().unwrap().event(&v)
+                && writeln!(io::stdout(), "{out}").is_err()
+            {
+                broken.store(true, Ordering::Relaxed);
+                output_cancel.store(true, Ordering::Relaxed);
+            }
+            return;
+        }
         if v["event_type"] == "monitor_snapshot" {
             // Stream only counters; retained timelines are delivered in the final result.
             v = json!({"event_type":"monitor_stats","timestamp_ms":v["ended_at_ms"],"totals":v["totals"],"paused":v["paused"]});
@@ -876,18 +920,6 @@ fn main() {
         v["schema_version"] = json!(if r.tool == "trace" { 2 } else { 1 });
         let output = if format == "jsonl" {
             Some(v.to_string())
-        } else if format == "text" {
-            Some(if v["event_type"] == "sample" {
-                format!(
-                    "#{}  {}  {}  {} ms",
-                    v["seq"],
-                    v["address"].as_str().unwrap_or(""),
-                    v["status"].as_str().unwrap_or(""),
-                    v["rtt_ms"]
-                )
-            } else {
-                v.to_string()
-            })
         } else {
             None
         };
@@ -919,11 +951,7 @@ fn main() {
     let mut final_value = envelope(&id, &r.tool, result);
     final_value["request"] = serde_json::to_value(&r).expect("Serializable request snapshot");
     let out = if cli.format == "text" {
-        format!(
-            "{}\n{}",
-            if english { "Result" } else { "结果" },
-            serde_json::to_string_pretty(&final_value).unwrap()
-        )
+        human.lock().unwrap().finish(&final_value)
     } else if cli.format == "jsonl" {
         let mut v = final_value.clone();
         v["event_type"] = json!("finished");
@@ -958,6 +986,46 @@ mod tests {
         request(Cli::try_parse_from(args).unwrap().command.unwrap()).unwrap()
     }
 
+    #[test]
+    fn every_client_supports_exclusive_ipv4_and_ipv6_flags() {
+        let commands = [
+            vec!["ping", "localhost"],
+            vec!["trace", "localhost"],
+            vec!["tcping", "localhost", "80"],
+            vec!["dns", "localhost"],
+            vec!["ntp", "localhost"],
+            vec!["check", "localhost"],
+            vec!["iperf3", "client", "localhost"],
+            vec!["ftp", "list", "localhost"],
+            vec!["ftp", "get", "localhost", "file", "-o", "out"],
+            vec!["ftp", "put", "localhost", "file"],
+            vec!["tftp", "get", "localhost", "file", "-o", "out"],
+            vec!["tftp", "put", "localhost", "file"],
+            vec!["syslog", "send", "localhost", "test"],
+            vec!["monitor", "--target", "ping,localhost"],
+        ];
+        for command in commands {
+            let mut args = vec!["hopkit-cli"];
+            args.extend(command);
+            assert_eq!(parse(&args).address_family().unwrap(), AddressFamily::Auto);
+            for (flag, expected) in [
+                ("-4", AddressFamily::Ipv4),
+                ("--ipv4", AddressFamily::Ipv4),
+                ("-6", AddressFamily::Ipv6),
+                ("--ipv6", AddressFamily::Ipv6),
+            ] {
+                let mut with_flag = args.clone();
+                with_flag.push(flag);
+                assert_eq!(
+                    parse(&with_flag).address_family().unwrap(),
+                    expected,
+                    "{with_flag:?}"
+                );
+            }
+            args.extend(["-4", "-6"]);
+            assert!(Cli::try_parse_from(&args).is_err(), "{args:?}");
+        }
+    }
     #[test]
     fn http_server_defaults_and_upload_opt_in() {
         let r = parse(&["hopkit-cli", "http", "serve", "--root", "."]);

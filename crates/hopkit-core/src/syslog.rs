@@ -106,7 +106,7 @@ pub fn run(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
                 "Syslog message too large",
             ));
         }
-        let dest = resolve(&r.target, if r.port == 0 { 514 } else { r.port }, r.ipv6, c)?;
+        let dest = resolve(&r.target, if r.port == 0 { 514 } else { r.port }, r.address_family()?, c)?;
         let socket = bind_udp(any_addr(dest.is_ipv6()))?;
         let text = format!(
             "<13>{} hopkit hopkit: {}",

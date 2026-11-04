@@ -69,18 +69,20 @@ Windows 程序尚未签名；macOS 使用 ad-hoc 签名，未经 Apple 公证。
 
 下文使用 `hk`，执行时请替换为上表入口，或自行将 `shortcuts` 加入 PATH。示例地址和路径需按实际环境修改。
 
+GUI 地址类型可选“自动 / IPv4 / IPv6”；CLI 使用 `-4`（`--ipv4`）仅测试 IPv4，`-6`（`--ipv6`）仅测试 IPv6，例如 `hk ping example.com -4`。未指定时按系统解析顺序选择。
+
 ```sh
 hk check example.com --format json
 hk ping 192.168.1.1 -c 10
 hk trace example.com
 hk tcping example.com 443 -c 10
-hk dns example.com AAAA
+hk dns example.com --system -4
 hk monitor --target ping,192.168.1.1 --target tcping,example.com,443 --format jsonl
 hk http serve --root ./shared --port 8080
 hk --help
 ```
 
-`--format json` 输出最终结果，`--format jsonl` 逐行输出事件，`--lang zh-CN` 使用中文结果标题。持续任务可按 Ctrl+C 停止。参数帮助使用 `hk <命令> --help`；测速、文件传输、临时服务和自动化示例见[使用指南](docs/usage.zh-CN.md)。
+默认 `text` 格式参照系统 `ping`，仅显示简洁结果和汇总。`--format json` 输出完整最终数据，`--format jsonl` 逐行输出事件，`--lang zh-CN` 使用中文输出。持续任务可按 Ctrl+C 停止。参数帮助使用 `hk <命令> --help`，更多示例和输出说明见[使用指南](docs/usage.zh-CN.md)。
 
 ## 使用须知
 

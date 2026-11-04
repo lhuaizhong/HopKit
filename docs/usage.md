@@ -37,6 +37,15 @@ Run from the extracted package directory:
 
 Examples use `hk`; replace it with the appropriate entry above, or manually add `shortcuts` to PATH after checking for an existing command. The short entry is an identical binary copy with the same arguments, output, and exit codes. Replace example LAN addresses and file paths with your own.
 
+GUI clients offer **Auto / IPv4 / IPv6**. CLI clients accept mutually exclusive `-4` (`--ipv4`) and `-6` (`--ipv6`). With neither flag, selection follows system resolver order. An explicit family uses matching addresses only and reports an error if none exist; it never falls back to the other family. Monitor applies the selection to all targets. System DNS results are filtered by family. For direct DNS, the family restricts the DNS server connection; A / AAAA and other record types still control the requested records.
+
+```sh
+hk ping example.com -4
+hk tcping example.com 443 -4
+hk check https://example.com/ -4
+hk dns example.com --system -4
+```
+
 ### Diagnostics
 
 ```sh
@@ -90,6 +99,21 @@ hk syslog send 127.0.0.1 'HopKit test' --port 1514
 For named FTP login, set `HOPKIT_FTP_PASSWORD` before using `--user`: PowerShell uses `$env:HOPKIT_FTP_PASSWORD='your-password'`; macOS uses `export HOPKIT_FTP_PASSWORD='your-password'`. Only an absent variable falls back to `NETBOX_FTP_PASSWORD`; an empty new value still takes precedence. Use `--password-env` for another variable. Passwords are excluded from caches, snapshots, and exports, and must be re-entered for reruns. Supply a host/IP without URL credentials.
 
 ### Output and exit codes
+
+The default `--format text` is for interactive inspection. Ping/TCPing show one line per probe and loss/latency totals; Trace shows one line per hop. DNS lists answers, NTP shows clock offset/delay, and iperf3 shows throughput with UDP loss/jitter when available. Services show their listening address, transfer/request events, and final counters. Internal snapshots, request parameters, IDs, and JSON envelopes are omitted. Failed probes never display a fabricated latency. Ctrl+C preserves available partial statistics.
+
+For example, `hk ping 127.0.0.1 -c 2`:
+
+```text
+Ping 127.0.0.1 [127.0.0.1], 32 bytes
+#1  127.0.0.1  OK  time=0 ms
+#2  127.0.0.1  OK  time=0 ms
+
+Statistics: Sent 2, Received 2, Lost 0 (0.00%)
+RTT min/avg/max = 0.00/0.00/0.00 ms
+```
+
+Use JSON/JSONL for scripts that depend on structured fields; the concise text layout may evolve. `--lang zh-CN` changes the text labels. Machine-readable fields and exit codes are unchanged.
 
 `--format json` emits one final object for finite tasks, including duration-limited services. Use `--format jsonl` for event streams and continuous operations. Services default to `--duration 0` and run until Ctrl+C. Trace uses `schema_version: 2`; other commands use version 1.
 
@@ -192,5 +216,7 @@ python scripts/integration_test.py --exe target/release/hopkit-cli.exe
 ```
 
 On macOS, use `target/release/hopkit-cli`. Additional checks include `scripts/diagnostic-trust-test.py`, `scripts/iperf3-test.py`, and `scripts/check-test.py`; inspect their platform/development prerequisites before running. Wormhole test prerequisites and release gates are in the [release instructions](../RELEASING.md).
+
+Run `python scripts/cli-text-test.py --exe target/release/hopkit-cli.exe` for local CLI output checks (on macOS, omit `.exe`). It checks concise text, both languages, and JSON/JSONL compatibility without public network access.
 
 UI tests use browser fixtures or test-only debugging; normal releases do not enable a debugging port. Local evidence goes to `test-output/`; packaged evidence, when included, is under `validation/`. Paths are relative to the project or package root. Results apply to the recorded platform/artifact; other architectures, minimum OS versions, real devices, and changing VPN/multi-interface environments require their own checks.

@@ -245,7 +245,7 @@ pub fn run(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
         &r.remote_name
     };
     safe_name(remote)?;
-    let mut peer = resolve(&r.target, if r.port == 0 { 69 } else { r.port }, r.ipv6, c)?;
+    let mut peer = resolve(&r.target, if r.port == 0 { 69 } else { r.port }, r.address_family()?, c)?;
     let socket = bind_udp(any_addr(peer.is_ipv6()))?;
     let file = if r.action == "put" {
         no_link(path)?;

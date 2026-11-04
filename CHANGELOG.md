@@ -1,5 +1,13 @@
 # Changelog / 版本记录
 
+## Unreleased / 未发布
+
+- Separate Auto / IPv4 / IPv6 in GUI clients and add exclusive CLI `-4` / `-6` flags. Explicit IPv4 filters dual-stack results without IPv6 fallback.
+- GUI 客户端区分自动 / IPv4 / IPv6；CLI 增加互斥的 `-4` / `-6` 参数，双栈目标可明确使用 IPv4，不回退到 IPv6。
+
+- Make the default CLI text output concise: per-probe or per-hop results, essential protocol data, and final summaries. Keep full JSON/JSONL output available explicitly.
+- 简化 CLI 默认文本输出：按次或按跳显示结果，仅保留必要协议数据和最终汇总；显式选择 JSON/JSONL 时继续输出完整数据。
+
 ## 0.1.0-rc.1 — 2026-11-02
 
 - Add HTTP file sharing directly below FTP in the desktop sidebar, with default

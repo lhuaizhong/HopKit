@@ -69,18 +69,20 @@ Run the CLI from the extracted package directory:
 
 Examples below use `hk`; replace it with the entry above, or add `shortcuts` to PATH yourself. Replace addresses and paths with your own.
 
+Choose **Auto / IPv4 / IPv6** in the GUI. In the CLI, `-4` (`--ipv4`) forces IPv4 and `-6` (`--ipv6`) forces IPv6, e.g. `hk ping example.com -4`. Without either flag, address selection follows the system resolver order.
+
 ```sh
 hk check example.com --format json
 hk ping 192.168.1.1 -c 10
 hk trace example.com
 hk tcping example.com 443 -c 10
-hk dns example.com AAAA
+hk dns example.com --system -4
 hk monitor --target ping,192.168.1.1 --target tcping,example.com,443 --format jsonl
 hk http serve --root ./shared --port 8080
 hk --help
 ```
 
-Use `--format json` for a final result, `--format jsonl` for event streams, and `--lang zh-CN` for Chinese result headings. Stop continuous tasks with Ctrl+C. Run `hk <command> --help` for parameters; see the [user guide](docs/usage.md) for throughput, transfer, service, and automation examples.
+The default `text` format shows concise results and a summary, similar to system `ping`. Use `--format json` for complete final data, `--format jsonl` for event streams, and `--lang zh-CN` for Chinese output. Stop continuous tasks with Ctrl+C. Run `hk <command> --help` for parameters; see the [user guide](docs/usage.md) for examples and output details.
 
 ## Usage notes
 

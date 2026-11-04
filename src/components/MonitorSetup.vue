@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import {ref} from 'vue'
 import {invoke} from '@tauri-apps/api/core'
-const props=defineProps<{en:boolean;config:{targets:{label:string;protocol:string;target:string;port:number}[];interval_ms:number;timeout_ms:number;duration_secs:number;log_directory:string};disabled:boolean}>()
+import AddressFamilySelect from './AddressFamilySelect.vue'
+const props=defineProps<{en:boolean;config:{targets:{label:string;protocol:string;target:string;port:number}[];interval_ms:number;timeout_ms:number;duration_secs:number;log_directory:string};family:{ipv4:boolean;ipv6:boolean};disabled:boolean}>()
 defineEmits<{run:[]}>()
 const t=(zh:string,en:string)=>props.en?en:zh
 const error=ref(''),busy=ref(false)
@@ -20,6 +21,7 @@ async function directory(){try{const path=await invoke<string|null>('choose_path
    <label :for="'monitor-protocol-'+i">{{t('探测协议','Probe protocol')}}</label><select :id="'monitor-protocol-'+i" v-model="target.protocol"><option value="ping">ICMP Echo</option><option value="tcping">TCP</option></select>
    <template v-if="target.protocol==='tcping'"><label :for="'monitor-port-'+i">{{t('TCP 端口','TCP port')}}</label><input :id="'monitor-port-'+i" v-model.number="target.port" type="number" min="1" max="65535" required></template>
   </fieldset>
+  <AddressFamilySelect id="monitor-family" :en="en" :config="family"/>
   <label for="monitor-interval">{{t('轮次间等待 / ms','Wait between rounds / ms')}}</label><input id="monitor-interval" v-model.number="config.interval_ms" type="number" min="1000" max="60000" required>
   <label for="monitor-timeout">{{t('单目标超时 / ms','Per-target timeout / ms')}}</label><input id="monitor-timeout" v-model.number="config.timeout_ms" type="number" min="100" max="3000" required>
   <label for="monitor-duration">{{t('运行秒数（0 为手动停止）','Duration in seconds (0 until stopped)')}}</label><input id="monitor-duration" v-model.number="config.duration_secs" type="number" min="0" max="604800" required>

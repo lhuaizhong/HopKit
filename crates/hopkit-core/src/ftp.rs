@@ -311,7 +311,7 @@ fn client(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
     };
     argument(&remote)?;
     let timeout = Duration::from_millis(r.timeout_ms);
-    let peer = resolve(&r.target, if r.port == 0 { 21 } else { r.port }, r.ipv6, c)?;
+    let peer = resolve(&r.target, if r.port == 0 { 21 } else { r.port }, r.address_family()?, c)?;
     let mut control = Control::new(TcpStream::connect_timeout(&peer, timeout)?, timeout)?;
     expect(control.response(c)?, &[220])?;
     let user = control.command(&format!("USER {}", r.ftp_username), c)?;

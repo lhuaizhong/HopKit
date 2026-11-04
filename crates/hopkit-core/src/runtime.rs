@@ -70,6 +70,7 @@ pub struct Request {
     pub interval_ms: u64,
     /// ICMP echo data bytes, excluding IP and the 8-byte ICMP header.
     pub payload_size_bytes: u32,
+    pub ipv4: bool,
     pub ipv6: bool,
     pub max_hops: u8,
     pub record_type: String,
@@ -110,6 +111,7 @@ impl Default for Request {
             timeout_ms: 1000,
             interval_ms: 1000,
             payload_size_bytes: 32,
+            ipv4: false,
             ipv6: false,
             max_hops: 30,
             record_type: "A".into(),
@@ -140,6 +142,51 @@ impl std::fmt::Debug for Request {
             .finish()
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AddressFamily {
+    Auto,
+    Ipv4,
+    Ipv6,
+}
+impl AddressFamily {
+    pub fn accepts(self, ip: IpAddr) -> bool {
+        match self {
+            Self::Auto => true,
+            Self::Ipv4 => ip.is_ipv4(),
+            Self::Ipv6 => ip.is_ipv6(),
+        }
+    }
+    pub fn validate(self, ip: IpAddr) -> Result<(), ToolError> {
+        if self.accepts(ip) {
+            Ok(())
+        } else {
+            Err(ToolError::new(
+                "INVALID_ARGUMENT",
+                "Target IP does not match the selected IPv4/IPv6 family / 目标 IP 与所选 IPv4/IPv6 类型不匹配",
+            ))
+        }
+    }
+}
+// Preserve the existing core resolver API: false means auto, true means IPv6.
+impl From<bool> for AddressFamily {
+    fn from(ipv6: bool) -> Self {
+        if ipv6 { Self::Ipv6 } else { Self::Auto }
+    }
+}
+impl Request {
+    pub fn address_family(&self) -> Result<AddressFamily, ToolError> {
+        match (self.ipv4, self.ipv6) {
+            (false, false) => Ok(AddressFamily::Auto),
+            (true, false) => Ok(AddressFamily::Ipv4),
+            (false, true) => Ok(AddressFamily::Ipv6),
+            (true, true) => Err(ToolError::new(
+                "INVALID_ARGUMENT",
+                "IPv4 and IPv6 options are mutually exclusive / IPv4 与 IPv6 选项不能同时使用",
+            )),
+        }
+    }
+}
 pub fn cancelled(c: &Cancel) -> Result<(), ToolError> {
     if c.load(Ordering::Relaxed) {
         Err(ToolError::new(
@@ -162,8 +209,13 @@ pub fn wait(c: &Cancel, duration: Duration) -> Result<(), ToolError> {
     }
     cancelled(c)
 }
-pub fn resolve(target: &str, port: u16, ipv6: bool, c: &Cancel) -> Result<SocketAddr, ToolError> {
-    resolve_all(target, port, ipv6, c)?
+pub fn resolve(
+    target: &str,
+    port: u16,
+    family: impl Into<AddressFamily>,
+    c: &Cancel,
+) -> Result<SocketAddr, ToolError> {
+    resolve_all(target, port, family, c)?
         .into_iter()
         .next()
         .ok_or_else(|| ToolError::new("DNS_ERROR", "No matching address / 无匹配地址"))
@@ -171,9 +223,10 @@ pub fn resolve(target: &str, port: u16, ipv6: bool, c: &Cancel) -> Result<Socket
 pub fn resolve_all(
     target: &str,
     port: u16,
-    ipv6: bool,
+    family: impl Into<AddressFamily>,
     c: &Cancel,
 ) -> Result<Vec<SocketAddr>, ToolError> {
+    let family = family.into();
     if target.is_empty() || target.len() > 253 || target.chars().any(|x| x.is_control()) {
         return Err(ToolError::new(
             "INVALID_ARGUMENT",
@@ -181,12 +234,7 @@ pub fn resolve_all(
         ));
     }
     if let Ok(ip) = target.parse::<IpAddr>() {
-        if ipv6 && ip.is_ipv4() {
-            return Err(ToolError::new(
-                "INVALID_ARGUMENT",
-                "IPv6 requested with IPv4 target",
-            ));
-        }
+        family.validate(ip)?;
         return Ok(vec![SocketAddr::new(ip, port)]);
     }
     static RESOLVERS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
@@ -213,7 +261,7 @@ pub fn resolve_all(
         let _slot = ResolverSlot;
         let r = (host.as_str(), port)
             .to_socket_addrs()
-            .map(|x| x.filter(|a| !ipv6 || a.is_ipv6()).collect::<Vec<_>>());
+            .map(|x| x.filter(|a| family.accepts(a.ip())).collect::<Vec<_>>());
         let _ = tx.send(r);
     });
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -222,7 +270,10 @@ pub fn resolve_all(
         match rx.recv_timeout(Duration::from_millis(50)) {
             Ok(Ok(addrs)) => {
                 if addrs.is_empty() {
-                    return Err(ToolError::new("DNS_ERROR", "No matching address"));
+                    return Err(ToolError::new(
+                        "DNS_ERROR",
+                        format!("No address matching {family:?} / 没有所选类型的地址"),
+                    ));
                 }
                 return Ok(addrs);
             }
@@ -272,6 +323,7 @@ pub fn is_timeout(e: &std::io::Error) -> bool {
 }
 
 pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
+    req.address_family()?;
     if req.tool == "wormhole" {
         return crate::wormhole::run(req, c, emit, &Arc::new(Default::default()));
     }
@@ -361,6 +413,49 @@ mod tests {
         // Older saved requests keep the default when this new field is absent.
         let old: Request = serde_json::from_str(r#"{"tool":"ping"}"#).unwrap();
         assert_eq!(old.payload_size_bytes, 32);
+    }
+    #[test]
+    fn explicit_families_filter_mixed_results_without_reordering_auto() {
+        let mixed: Vec<IpAddr> = vec!["::1".parse().unwrap(), "127.0.0.1".parse().unwrap()];
+        let filter = |family: AddressFamily| {
+            mixed
+                .iter()
+                .copied()
+                .filter(|ip| family.accepts(*ip))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(filter(AddressFamily::Auto), mixed);
+        assert_eq!(filter(AddressFamily::Ipv4), vec![mixed[1]]);
+        assert_eq!(filter(AddressFamily::Ipv6), vec![mixed[0]]);
+        let cancel = Arc::new(AtomicBool::new(false));
+        for (family, wrong) in [
+            (AddressFamily::Ipv4, "::1"),
+            (AddressFamily::Ipv6, "127.0.0.1"),
+        ] {
+            assert_eq!(
+                resolve(wrong, 80, family, &cancel).unwrap_err().code,
+                "INVALID_ARGUMENT"
+            );
+        }
+        let v4 = resolve_all("localhost", 80, AddressFamily::Ipv4, &cancel).unwrap();
+        assert!(!v4.is_empty());
+        assert!(v4.iter().all(SocketAddr::is_ipv4));
+    }
+    #[test]
+    fn family_flags_are_exclusive_and_old_requests_remain_auto() {
+        let old: Request = serde_json::from_str(r#"{"tool":"ping"}"#).unwrap();
+        assert_eq!(old.address_family().unwrap(), AddressFamily::Auto);
+        let both = Request {
+            ipv4: true,
+            ipv6: true,
+            ..Request::default()
+        };
+        assert_eq!(
+            run(&both, &Arc::new(AtomicBool::new(false)), &|_| {})
+                .unwrap_err()
+                .code,
+            "INVALID_ARGUMENT"
+        );
     }
     #[test]
     fn cancellation_prevents_execution() {

@@ -190,7 +190,7 @@ pub fn query(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
                 "RR queries require an explicit DNS server",
             ));
         }
-        let addrs = resolve_all(&r.target, 0, r.ipv6, c)?;
+        let addrs = resolve_all(&r.target, 0, r.address_family()?, c)?;
         let mut ips = Vec::new();
         for addr in addrs {
             let ip = addr.ip().to_string();
@@ -212,6 +212,7 @@ pub fn query(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
                 .map(|ip| SocketAddr::new(ip, if r.port == 0 { 53 } else { r.port }))
         })
         .map_err(|_| ToolError::new("INVALID_ARGUMENT", "DNS server must be IP or IP:port"))?;
+    r.address_family()?.validate(server.ip())?;
     let typ = type_id(&r.record_type)?;
     let id = (uuid::Uuid::new_v4().as_u128() & 65535) as u16;
     let mut packet = vec![0; 12];

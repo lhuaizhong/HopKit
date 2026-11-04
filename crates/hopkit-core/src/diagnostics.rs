@@ -140,7 +140,7 @@ fn probe_with(
     let mut stats = ProbeStats::new(&r.target, &r.tool);
     let execution = (|| -> Result<(), ToolError> {
         cancelled(c)?;
-        let addr = resolve(&r.target, r.port, r.ipv6, c)?;
+        let addr = resolve(&r.target, r.port, r.address_family()?, c)?;
         stats.target = addr.ip().to_string();
         emit(
             json!({"event_type":"target","address":addr.ip().to_string(),"port":r.port,"payload_size_bytes":r.payload_size_bytes}),
@@ -454,7 +454,7 @@ pub fn ntp(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
             "NTP supports 1..20 samples per task",
         ));
     }
-    let addr = resolve(&r.target, if r.port == 0 { 123 } else { r.port }, r.ipv6, c)?;
+    let addr = resolve(&r.target, if r.port == 0 { 123 } else { r.port }, r.address_family()?, c)?;
     let socket = bind_udp(any_addr(addr.is_ipv6()))?;
     socket.connect(addr)?;
     let mut samples = Vec::new();

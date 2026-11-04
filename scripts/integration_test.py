@@ -97,6 +97,78 @@ def tcp():
     value=cli('tcping','127.0.0.1',p,'-c',1,'--timeout-ms',5000,code=1)
     assert value['data']['samples'][0]['status']=='refused'
 
+
+def address_families():
+    for flag, family in [('-4', socket.AF_INET), ('-6', socket.AF_INET6)]:
+        addresses = cli('dns', 'localhost', '--system', flag)['data']['addresses']
+        assert addresses
+        for address in addresses:
+            socket.inet_pton(family, address)
+        assert cli('ping', 'localhost', flag, '-c', 1)['data']['received'] == 1
+    # Every client must reject a numeric target in the other family before I/O.
+    for flag, wrong in [('-4', '::1'), ('-6', '127.0.0.1')]:
+        for command in [('ping', wrong), ('trace', wrong), ('tcping', wrong, 80),
+                        ('dns', wrong), ('ntp', wrong), ('iperf3', 'client', wrong),
+                        ('ftp', 'list', wrong), ('syslog', 'send', wrong, 'test'),
+                        ('tftp', 'get', wrong, 'file', '-o', work/'family-download')]:
+            assert cli(*command, flag, code=2)['error']['code'] == 'INVALID_ARGUMENT'
+    assert cli('ping', 'localhost', '-4', '-6', code=2)['error']['code'] == 'INVALID_ARGUMENT'
+    assert cli('dns', 'example.test', 'AAAA', '-s', '::1', '-4', code=2)['error']['code'] == 'INVALID_ARGUMENT'
+
+    with socket.socket() as v4, socket.socket(socket.AF_INET6) as v6:
+        v6.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+        v4.bind(('127.0.0.1', 0)); p = v4.getsockname()[1]
+        v6.bind(('::1', p))
+        stop = threading.Event()
+        connections = {4: 0, 6: 0}
+
+        def serve(listener, family):
+            listener.listen(); listener.settimeout(.1)
+            while not stop.is_set():
+                try:
+                    conn, _ = listener.accept()
+                except socket.timeout:
+                    continue
+                connections[family] += 1
+                with conn:
+                    conn.settimeout(1)
+                    try:
+                        request = conn.recv(4096)
+                    except socket.timeout:
+                        continue
+                    if request.startswith(b'HEAD '):
+                        response = (f'HTTP/1.1 302 Found\r\nLocation: http://[::1]:{p}/\r\n'
+                                    if b' /redirect ' in request else 'HTTP/1.1 200 OK\r\n')
+                        conn.sendall((response + 'Content-Length: 0\r\nConnection: close\r\n\r\n').encode())
+
+        threads = [thread(lambda: serve(v4, 4)), thread(lambda: serve(v6, 6))]
+        try:
+            for flag, address, family in [('-4', '127.0.0.1', 4), ('-6', '::1', 6)]:
+                before = connections[family]
+                data = cli('tcping', 'localhost', p, flag, '-c', 1)['data']
+                assert data['received'] == 1 and data['samples'][0]['address'] == address, data
+                assert connections[family] > before
+            evidence = cli('check', f'http://localhost:{p}/', '-4', '--source', '127.0.0.1')['data']['evidence']
+            assert next(e for e in evidence if e['id'] == 'dns')['data']['addresses'] == ['127.0.0.1']
+            assert any(e['stage'] == 'http' and e['status'] == 'observed' for e in evidence), evidence
+            before = connections[6]
+            evidence = cli('check', f'http://localhost:{p}/redirect', '-4', '--source', '127.0.0.1')['data']['evidence']
+            assert any(e['id'] == 'http_1' and e['error']['code'] == 'INVALID_ARGUMENT' for e in evidence), evidence
+            assert connections[6] == before, 'Redirect escaped IPv4 restriction'
+            # Leave room for the bounded initial OS network-overview query.
+            data = cli('monitor', '--target', f'tcping,localhost,{p}', '-4', '--duration', 10)['data']
+            assert data['totals'][0]['succeeded'] > 0, data
+        finally:
+            stop.set()
+            for worker, errors in threads:
+                worker.join(2)
+                assert not errors, errors
+
+    with socket.socket(type=socket.SOCK_DGRAM) as udp:
+        udp.bind(('127.0.0.1', 0)); udp.settimeout(2)
+        cli('syslog', 'send', 'localhost', 'ipv4-only', '-4', '--port', udp.getsockname()[1])
+        assert b'ipv4-only' in udp.recv(4096)
+
 def validation():
     assert cli('ping','127.0.0.1','--timeout-ms',0,code=2)['error']['code']=='INVALID_ARGUMENT'
     assert cli('dns','localhost','AAAA',code=2)['error']['code']=='INVALID_ARGUMENT'
@@ -252,6 +324,7 @@ def syslog():
 
 check('Local doctor, IPv4/IPv6 ICMP, trace and system DNS',simple)
 check('TCP connection and refused result/exit code',tcp)
+check('Explicit IPv4/IPv6 clients, dual-stack peers and redirect restrictions',address_families)
 check('Input validation and machine-readable CLI failures',validation)
 check('DNS UDP record parsing with independent server',lambda:dns())
 check('DNS TC flag -> TCP fallback',lambda:dns(tcp_fallback=True))

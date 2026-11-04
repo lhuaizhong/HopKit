@@ -56,7 +56,7 @@ fn prompt(text: &str) -> Result<String, ToolError> {
     io::stdin().read_line(&mut s)?;
     Ok(s.trim().into())
 }
-pub fn execute(command: Command, format: &str) -> i32 {
+pub fn execute(command: Command, format: &str, english: bool) -> i32 {
     let result = (|| -> Result<i32, ToolError> {
         let terminal = io::stdin().is_terminal() && io::stderr().is_terminal() && format == "text";
         let (mut config, dir, name, yes, emit_code) = match command {
@@ -245,8 +245,18 @@ pub fn execute(command: Command, format: &str) -> i32 {
                 std::thread::sleep(Duration::from_millis(50));
             }
         });
+        let human = std::sync::Mutex::new(super::text::TextOutput::new(&r, english));
+        let failed_output = AtomicBool::new(false);
         let emit = |v: serde_json::Value| {
-            if format != "json" && writeln!(io::stdout(), "{v}").is_err() {
+            let out = match format {
+                "text" => human.lock().unwrap().event(&v),
+                "jsonl" => Some(v.to_string()),
+                _ => None,
+            };
+            if let Some(out) = out
+                && writeln!(io::stdout(), "{out}").is_err()
+            {
+                failed_output.store(true, Ordering::Relaxed);
                 cancel.store(true, Ordering::Relaxed);
             }
         };
@@ -273,7 +283,12 @@ pub fn execute(command: Command, format: &str) -> i32 {
         if format == "jsonl" {
             value["event_type"] = json!("finished");
         }
-        if writeln!(io::stdout(), "{value}").is_err() {
+        let out = if format == "text" {
+            human.lock().unwrap().finish(&value)
+        } else {
+            value.to_string()
+        };
+        if writeln!(io::stdout(), "{out}").is_err() || failed_output.load(Ordering::Relaxed) {
             return Ok(4);
         }
         Ok(exit)
