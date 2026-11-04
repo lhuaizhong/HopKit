@@ -41,8 +41,17 @@ with tempfile.TemporaryDirectory(prefix='hopkit-wormhole-') as temp:
  options=['--mailbox-url',mailbox,'--transit-relay',relay,'--connection','relay']
  python=[peer('wormhole'),'--relay-url',mailbox,'--transit-helper',f'tcp:127.0.0.1:{r}']
  try:
-  time.sleep(2)
-  for service in services:assert service.poll() is None,service.stderr.read()
+  # Python/Twisted cold startup can exceed two seconds on Windows runners.
+  for service,service_port in zip(services,[m,r]):
+   deadline=time.monotonic()+30
+   while True:
+    assert service.poll() is None,service.stderr.read()
+    try:
+     with socket.create_connection(('127.0.0.1',service_port),timeout=.2):pass
+     break
+    except OSError:
+     assert time.monotonic()<deadline, f'Local service not ready on {service_port}'
+     time.sleep(.1)
   def hop_pair(size,name):
    source=t/name
    with source.open('wb') as f:
