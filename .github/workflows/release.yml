@@ -4,6 +4,8 @@ on:
 env:
   PYTHONUTF8: '1'
   MACOSX_DEPLOYMENT_TARGET: '11.0'
+  # Network timing tests run alone to avoid competing throughput workers.
+  RUST_TEST_THREADS: '1'
 permissions:
   contents: read
 jobs:
