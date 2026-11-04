@@ -124,12 +124,18 @@ with tempfile.TemporaryDirectory(prefix='hopkit-wormhole-') as temp:
    sender=start([cli,'wormhole','send',source,*options,'--format','jsonl','--emit-code']);pair=code(sender)
    receiver=start([cli,'wormhole','receive',pair,'--dir',dest,'--yes',*options,'--format','json'])
    until=time.monotonic()+15
-   while not list(dest.glob('*.part')):
-    assert time.monotonic()<until,'No part file';time.sleep(.002)
+   while True:
+    partials=list(dest.glob('*.part'))
+    # Creating the destination precedes the data handshake. Interrupt only
+    # after actual bytes arrive, so this exercises a mid-transfer disconnect.
+    if partials and partials[0].stat().st_size>0:break
+    assert receiver.poll() is None,'Transfer finished before fault injection'
+    assert time.monotonic()<until,'No partial data';time.sleep(.002)
    if cancelled:
     interrupt(receiver)
    else:target.write_bytes(b'race-original')
    rc,stdout,stderr=finish(receiver);assert rc!=0,(stdout,stderr)
+   if cancelled:assert rc==130,(rc,stdout,stderr)
    assert sender.wait(timeout=10)!=0,'Sender incorrectly succeeded after failed commit/cancel'
    assert not list(dest.glob('*.part')),'Partial file was left behind'
    if cancelled:assert not target.exists()
