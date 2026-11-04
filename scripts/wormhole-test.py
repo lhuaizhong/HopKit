@@ -40,8 +40,10 @@ with tempfile.TemporaryDirectory(prefix='hopkit-wormhole-') as temp:
  service_logs=[]
  def service_start(args):
   log=(t/f'service-{len(service_logs)}.log').open('w+',encoding='utf-8');service_logs.append(log)
-  proc=subprocess.Popen([str(x) for x in args],stdout=log,stderr=subprocess.STDOUT);processes.append(proc);return proc
- services=[service_start([peer('twistd'),'--nodaemon','--pidfile',t/'mail.pid','wormhole-mailbox','--port',f'tcp:{m}:interface=127.0.0.1','--channel-db',t/'channel.sqlite']),service_start([peer('twistd'),'--nodaemon','--pidfile',t/'relay.pid','transitrelay','--port',f'tcp:{r}:interface=127.0.0.1'])]
+  proc=subprocess.Popen([str(x) for x in args],cwd=t,stdout=log,stderr=subprocess.STDOUT);processes.append(proc);return proc
+ def service_command(name):
+  return [peer('twistd'),'--nodaemon',*(['--pidfile',t/f'{name}.pid'] if os.name!='nt' else [])]
+ services=[service_start([*service_command('mail'),'wormhole-mailbox','--port',f'tcp:{m}:interface=127.0.0.1','--channel-db',t/'channel.sqlite']),service_start([*service_command('relay'),'transitrelay','--port',f'tcp:{r}:interface=127.0.0.1'])]
  options=['--mailbox-url',mailbox,'--transit-relay',relay,'--connection','relay']
  python=[peer('wormhole'),'--relay-url',mailbox,'--transit-helper',f'tcp:127.0.0.1:{r}']
  try:
