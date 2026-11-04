@@ -14,6 +14,7 @@ Copy-Item -LiteralPath (Join-Path $projectRoot 'target/release/HopKit.exe') -Des
 Copy-Item -LiteralPath (Join-Path $projectRoot 'target/release/hopkit-cli.exe') -Destination (Join-Path $packagePath 'hopkit-cli.exe')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'target/release/hopkit-cli.exe') -Destination (Join-Path $packagePath 'shortcuts/hk.exe')
 foreach($file in @('LICENSE','README.md','README.zh-CN.md','README-macOS.md','DISTRIBUTION_LICENSES.md','WORMHOLE_IMPLEMENTATION.md','CHANGELOG.md','RELEASING.md')){Copy-Item -LiteralPath (Join-Path $projectRoot $file) -Destination $packagePath}
+Copy-Item -LiteralPath (Join-Path $projectRoot 'docs') -Destination (Join-Path $packagePath 'docs') -Recurse
 Copy-Item -LiteralPath (Join-Path $projectRoot 'README.zh-CN.md') -Destination (Join-Path $packagePath '使用说明.md')
 & python (Join-Path $PSScriptRoot 'build-info.py') --target x86_64-pc-windows-msvc --build-dir (Join-Path $projectRoot 'target/release') --output-dir $packagePath
 if($LASTEXITCODE -ne 0){throw 'Metadata generation failed'}

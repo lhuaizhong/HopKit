@@ -24,6 +24,7 @@ package = ROOT / 'release' / name
 shutil.copytree(ROOT / 'release/metadata', package)
 for doc in ['LICENSE', 'README.md', 'README.zh-CN.md', 'README-macOS.md', 'DISTRIBUTION_LICENSES.md', 'CHANGELOG.md', 'RELEASING.md', 'WORMHOLE_IMPLEMENTATION.md']:
     shutil.copy2(ROOT / doc, package / doc)
+shutil.copytree(ROOT / 'docs', package / 'docs')
 validation = package / 'validation'
 validation.mkdir()
 evidence = ROOT / 'test-output/integration-release.json'
