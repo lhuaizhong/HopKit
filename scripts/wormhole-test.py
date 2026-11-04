@@ -21,16 +21,16 @@ def digest(path):
   for b in iter(lambda:f.read(1024*1024),b''):h.update(b)
  return h.hexdigest()
 def code(proc):
- deadline=time.monotonic()+20;q=queue.Queue()
+ deadline=time.monotonic()+20;q=queue.Queue();seen=[]
  def read():
   for line in proc.stdout:q.put(line)
  threading.Thread(target=read,daemon=True).start()
  while time.monotonic()<deadline:
   try:line=q.get(timeout=.2)
   except queue.Empty:
-   if proc.poll() is not None:raise AssertionError(proc.stderr.read())
+   if proc.poll() is not None:raise AssertionError((proc.returncode,seen,proc.stderr.read()))
    continue
-  value=json.loads(line)
+  seen.append(line);value=json.loads(line)
   if value.get('event_type')=='wormhole_code':return value['code']
  raise AssertionError('code not generated')
 def check(name,body):
