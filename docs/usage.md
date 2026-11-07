@@ -68,6 +68,8 @@ hk --help
 
 Ping payload size is **0–65,500 bytes**, default **32**, excluding IP/ICMP headers; JSON records it as `payload_size_bytes`. Large packets depend on path MTU, fragmentation, and device policy.
 
+The CLI built from source on Linux supports IPv4/IPv6 `ping` and `trace` using kernel ICMP datagram sockets, with no external ping/traceroute program. Unprivileged use requires `net.ipv4.ping_group_range` to include one of the process's groups, including supplementary groups; denied access returns `PERMISSION_DENIED`. `doctor` reports the `linux-datagram` adapter. Linux network overview and route queries are not yet implemented.
+
 ### iperf3 network speed test
 
 Start a server on one computer and a client on another. Both ends may use HopKit, or a supported standard iperf3 peer. The Rust implementation needs no external iperf3 executable, libiperf, or runtime download.

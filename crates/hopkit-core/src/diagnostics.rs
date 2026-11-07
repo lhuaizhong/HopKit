@@ -1,7 +1,9 @@
+#[cfg(target_os = "linux")]
+use crate::linux_icmp::icmp;
 #[cfg(target_os = "macos")]
 use crate::macos_icmp::icmp;
 use crate::runtime::*;
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 use serde_json::Value;
 use serde_json::json;
 #[cfg(windows)]
@@ -112,11 +114,11 @@ fn icmpv6_reply_preserves_network_byte_order() {
     let words = std::array::from_fn(|i| u16::from_ne_bytes([bytes[i * 2], bytes[i * 2 + 1]]));
     assert_eq!(icmpv6_reply_address(words), address);
 }
-#[cfg(not(any(windows, target_os = "macos")))]
+#[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
 fn icmp(_: std::net::SocketAddr, _: u8, _: u32, _: usize, _: &Cancel) -> Result<Value, ToolError> {
     Err(ToolError::new(
         "UNSUPPORTED_CAPABILITY",
-        "ICMP is available on Windows and macOS",
+        "ICMP is available on Windows, macOS and Linux",
     ))
 }
 

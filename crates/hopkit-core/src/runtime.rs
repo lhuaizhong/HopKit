@@ -376,7 +376,7 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
         "syslog" => crate::syslog::run(req, c, emit),
         "tftp" => crate::tftp::run(req, c, emit),
         "doctor" => Ok(
-            json!({"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"version":env!("CARGO_PKG_VERSION"),"gui_required":false,"icmp_adapter":if cfg!(windows){"windows-iphelper"}else if cfg!(target_os="macos"){"darwin-datagram"}else{"unavailable"},"tools":["check","monitor","network","target","ping","trace","tcping","dns","ntp","iperf3","ftp","http","wormhole","tftp","syslog"],"preview":true}),
+            json!({"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"version":env!("CARGO_PKG_VERSION"),"gui_required":false,"icmp_adapter":if cfg!(windows){"windows-iphelper"}else if cfg!(target_os="macos"){"darwin-datagram"}else if cfg!(target_os="linux"){"linux-datagram"}else{"unavailable"},"tools":["check","monitor","network","target","ping","trace","tcping","dns","ntp","iperf3","ftp","http","wormhole","tftp","syslog"],"preview":true}),
         ),
         _ => Err(ToolError::new("INVALID_ARGUMENT", "Unknown tool")),
     }

@@ -4,6 +4,8 @@ pub mod file_io;
 pub mod ftp;
 pub mod http_files;
 pub mod iperf3;
+#[cfg(target_os = "linux")]
+mod linux_icmp;
 #[cfg(target_os = "macos")]
 mod macos_icmp;
 pub mod monitor;

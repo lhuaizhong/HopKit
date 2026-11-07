@@ -68,6 +68,8 @@ hk --help
 
 Ping 包大小支持 **0～65,500 字节**，默认 **32 字节**，仅指 ICMP 数据，不含 IP/ICMP 头；JSON 使用 `payload_size_bytes` 记录。大包能否到达取决于路径 MTU、分片与设备策略。
 
+Linux 源码构建的 CLI 支持 IPv4/IPv6 `ping` 和 `trace`，使用内核 ICMP 数据报套接字，无需外部 ping/traceroute 程序。普通用户运行需要系统 `net.ipv4.ping_group_range` 包含进程所属的一个用户组（包括附加组）；权限不足会返回 `PERMISSION_DENIED`。`doctor` 显示 `linux-datagram` 适配器。Linux 的本机网络概览与路由查询尚未实现。
+
 ### iperf3 网络测速
 
 在一台电脑启动服务端，另一台运行客户端；两端均可使用 HopKit，也可与受支持的标准 iperf3 对端互通。测速由 Rust 内置实现，无需外部 iperf3 程序、libiperf 或运行时下载。
