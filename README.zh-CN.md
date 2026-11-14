@@ -6,7 +6,7 @@
 
 HopKit 将网络排障、持续监测、吞吐量测试、文件共享和日志采集集成在一个桌面应用中，同时提供独立 CLI。图形界面与命令行共享 Rust 核心，适用于日常运维和脚本自动化。
 
-**项目状态：** 当前为候选发布版 `0.1.0-rc.2`。包含 Wormhole 加密文件传输、显式 IPv4/IPv6 选择和简洁 CLI 输出，详见[实现与验收记录](WORMHOLE_IMPLEMENTATION.md)。
+**项目状态：** 当前源码进入 `0.2.0-dev.1` 开发阶段，新增工具、导航分类和验收顺序见 [0.2.0 技术开发计划书](docs/HopKit-0.2.0-技术开发计划书.md)；计划中的新功能尚待逐项实现。下方下载仍指向已发布候选版 `0.1.0-rc.2`，其 Wormhole、IPv4/IPv6 选择和 CLI 输出记录见[实现与验收记录](WORMHOLE_IMPLEMENTATION.md)。
 
 ## 软件界面示例
 
@@ -118,6 +118,7 @@ npx tauri build --no-bundle -- --locked
 
 ## 相关文档
 
+- [0.2.0 技术开发计划书](docs/HopKit-0.2.0-技术开发计划书.md)：功能规格、导航分类、版本策略、实施顺序与验收门槛。
 - [使用指南](docs/usage.zh-CN.md)：详细示例、输出格式、服务配置与限制。
 - [macOS 指南](README-macOS.md)：安装及平台专用说明。
 - [版本记录](CHANGELOG.md)与[发布说明](RELEASING.md)。

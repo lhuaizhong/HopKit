@@ -1,5 +1,12 @@
 # Changelog / 版本记录
 
+## 0.2.0-dev.1 — In development / 开发中
+
+- Start the 0.2.0 development line and synchronize workspace, npm and desktop versions.
+- Add the [technical development plan](docs/HopKit-0.2.0-技术开发计划书.md), covering new tools, Common/Expert/Utilities navigation, shared architecture, delivery order and acceptance criteria. Planned features remain pending implementation.
+- 开启 0.2.0 功能集开发，统一 Rust、npm 与桌面端版本号。
+- 新增技术开发计划书，明确常用工具/专家工具/小工具分类，以及新工具、现有功能扩展、数据契约、平台限制和逐项验收。计划中的功能和导航调整尚待实现。
+
 ## 0.1.0-rc.2 — 2026-11-04
 
 - Separate Auto / IPv4 / IPv6 in GUI clients and add exclusive CLI `-4` / `-6` flags. Explicit IPv4 filters dual-stack results without IPv6 fallback.

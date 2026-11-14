@@ -1,6 +1,8 @@
 # Release builds / 发布构建
 
-Version `0.1.0-rc.2` is the current release candidate. Keep the version in `package.json`,
+Source development is now `0.2.0-dev.1`; the published candidate remains `0.1.0-rc.2`.
+Planned features and release gates are defined in the [0.2.0 technical development plan](docs/HopKit-0.2.0-技术开发计划书.md).
+Keep the version in `package.json`,
 `package-lock.json`, the workspace `Cargo.toml`/`Cargo.lock`, and
 `src-tauri/tauri.conf.json` consistent. Do not replace historical release tags.
 
