@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import {computed} from 'vue'
+import type {ToolId} from '../tools/registry'
 type Row=Record<string,any>
 const props=defineProps<{data?:Row;events:Row[];en:boolean}>()
-const emit=defineEmits<{use:[tool:string,target:Row]}>()
+const emit=defineEmits<{use:[tool:ToolId,target:Row]}>()
 const t=(zh:string,en:string)=>props.en?en:zh
 const evidence=computed<Row[]>(()=>props.data?.evidence??props.events.filter(e=>e.event_type==='stage').map(e=>e.evidence))
 const stage=(s:string)=>({network:t('本机网络','Local network'),dns:t('系统解析','System DNS'),dns_compare:t('指定 DNS 对比','Direct DNS comparison'),route:t('目标路由','Target route'),icmp:'ICMP',tcp:'TCP',connect:t('连接','Connection'),tls:'TLS',http:'HTTP',trace:t('路由追踪','Traceroute')} as Row)[s]??s
 </script>
 <template>
  <div class="check-results">
-  <div v-if="data" class="check-context"><b>{{data.target.normalized}}</b><p>{{data.started_at}} · {{data.platform}} · v{{data.version}}</p><p>{{t('源地址','Source')}}: {{data.source_address||t('系统默认','System default')}} · {{data.proxy_mode}}</p><small>{{data.tls_trust}}</small><p>{{t('TLS 校验','TLS verification')}}: <strong :class="{unsafe:data.tls_verification?.startsWith('SKIPPED')}">{{data.tls_verification}}</strong></p><small>{{data.scope}}</small><p class="check-handoff"><button v-for="tool in ['ping','tcping','dns','trace']" :key="tool" type="button" :disabled="tool==='tcping'&&!data.target.port" @click="emit('use',tool,data.target)">{{t('沿用目标到 ','Use target in ')}}{{tool}}</button></p></div>
+  <div v-if="data" class="check-context"><b>{{data.target.normalized}}</b><p>{{data.started_at}} · {{data.platform}} · v{{data.version}}</p><p>{{t('源地址','Source')}}: {{data.source_address||t('系统默认','System default')}} · {{data.proxy_mode}}</p><small>{{data.tls_trust}}</small><p>{{t('TLS 校验','TLS verification')}}: <strong :class="{unsafe:data.tls_verification?.startsWith('SKIPPED')}">{{data.tls_verification}}</strong></p><small>{{data.scope}}</small><p class="check-handoff"><button v-for="tool in (['ping','tcping','dns','trace'] as const)" :key="tool" type="button" :disabled="tool==='tcping'&&!data.target.port" @click="emit('use',tool,data.target)">{{t('沿用目标到 ','Use target in ')}}{{tool}}</button></p></div>
   <small v-if="evidence.length">{{t('阶段总耗时包含适配器开销；协议计时另列于证据中。','Stage elapsed includes adapter overhead; protocol timings are listed separately.')}}</small>
   <article v-for="e in evidence" :key="e.id" :id="'evidence-'+e.id" class="evidence-card">
    <div><b>{{stage(e.stage)}}</b> <code>{{e.id}}</code> · <span :class="{unsafe:e.status==='failed'}">{{e.status==='observed'?t('已观测','Observed'):e.status==='skipped'?t('已跳过','Skipped'):t('未通过','Failed')}}</span> · {{e.duration_ms.toFixed(2)}} ms</div>

@@ -1,6 +1,6 @@
 {
   "name": "hopkit-network-toolkit",
-  "version": "0.2.0-dev.1",
+  "version": "0.2.0-dev.2",
   "private": true,
   "engines": {
     "node": ">=24 <25"
@@ -15,13 +15,16 @@
     "test:monitor-range": "node scripts/monitor-range-test.mjs",
     "test:monitor-ui": "node scripts/monitor-ui-test.mjs",
     "test:ui": "node scripts/gui-test.mjs",
-    "test:wormhole-ui": "node scripts/wormhole-ui-test.mjs"
+    "test:wormhole-ui": "node scripts/wormhole-ui-test.mjs",
+    "test:navigation": "node scripts/navigation-test.mjs",
+    "test:m1-ui": "node scripts/m1-ui-test.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
     "vue": "^3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@tauri-apps/cli": "^2",
     "@vitejs/plugin-vue": "^6",
     "typescript": "~5.9",

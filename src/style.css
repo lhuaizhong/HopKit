@@ -8,3 +8,6 @@
 
 .wormhole-setup details input,.wormhole-setup details select{width:100%;margin:6px 0 12px}.wormhole-setup details summary{cursor:pointer;padding:12px 0}.wormhole-results{overflow-wrap:anywhere;padding:20px}.wormhole-results progress{width:100%;height:12px;accent-color:var(--accent,#0d9488)}.wormhole-secret{display:flex;flex-direction:column;gap:12px;padding:20px;background:var(--surface,#f0fdfa);border-radius:12px;margin:14px 0}.wormhole-secret code{font-size:20px;user-select:all}.wormhole-controls{padding:16px 0}.wormhole-controls button,.wormhole-results button{margin:6px 8px 6px 0}.wormhole-verifier,.wormhole-hash{word-break:break-all}.wormhole-verifier{display:block;padding:12px}.wormhole-filename{font-weight:600}.wormhole-results details{margin-top:18px}.wormhole-results details p{white-space:pre-wrap}
 .sidebar nav{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}.sidebar .brand,.sidebar .nav-label,.sidebar-bottom{flex-shrink:0}
+
+/* M1: all navigation controls remain reachable within the fixed sidebar. */
+.sidebar .brand{padding-bottom:18px}.sidebar-bottom{padding-top:12px}.category-placeholder p{margin:18px 0;max-width:600px}.category-placeholder .browse{padding:10px 16px}

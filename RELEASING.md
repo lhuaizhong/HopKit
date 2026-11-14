@@ -1,7 +1,8 @@
 # Release builds / 发布构建
 
-Source development is now `0.2.0-dev.1`; the published candidate remains `0.1.0-rc.2`.
-Planned features and release gates are defined in the [0.2.0 technical development plan](docs/HopKit-0.2.0-技术开发计划书.md).
+Source development is now `0.2.0-dev.2`; the published candidate remains `0.1.0-rc.2`.
+M1 navigation/configuration foundations are implemented; see the [M1 record](docs/M1-开发与验收记录.md).
+Later features and release gates are defined in the [0.2.0 technical development plan](docs/HopKit-0.2.0-技术开发计划书.md).
 Keep the version in `package.json`,
 `package-lock.json`, the workspace `Cargo.toml`/`Cargo.lock`, and
 `src-tauri/tauri.conf.json` consistent. Do not replace historical release tags.

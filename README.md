@@ -6,7 +6,7 @@
 
 HopKit brings network troubleshooting, continuous monitoring, throughput tests, file sharing, and log collection into one desktop app. An independent CLI shares the same Rust core for scripts and terminal use.
 
-**Status:** source development has moved to `0.2.0-dev.1`. The [0.2.0 technical development plan (Chinese)](docs/HopKit-0.2.0-技术开发计划书.md) defines new tools, navigation groups and acceptance criteria; those planned features remain pending implementation. Downloads below still target the published `0.1.0-rc.2` candidate. See its [implementation and validation record](WORMHOLE_IMPLEMENTATION.md) for Wormhole, explicit IPv4/IPv6 selection and concise CLI output.
+**Status:** current source is `0.2.0-dev.2`. M1 adds Common/Expert/Utilities navigation, global search and favorites, saved targets/site profiles, and shared capability/budget interfaces. See the [M1 implementation and validation record (Chinese)](docs/M1-开发与验收记录.md) and [0.2.0 technical development plan (Chinese)](docs/HopKit-0.2.0-技术开发计划书.md) for completed work and later milestones. Downloads below still target the published `0.1.0-rc.2` candidate. See its [implementation and validation record](WORMHOLE_IMPLEMENTATION.md) for Wormhole, explicit IPv4/IPv6 selection and concise CLI output.
 
 ## Interface preview
 

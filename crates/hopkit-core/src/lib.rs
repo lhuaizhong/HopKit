@@ -1,3 +1,5 @@
+pub mod budget;
+pub mod catalog;
 pub mod diagnostics;
 pub mod dns;
 pub mod file_io;

@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>HopKit M1 navigation fixture</title></head><body><div id="app"></div><aside id="fixture-controls"><button id="seed-tasks">Seed four tasks</button><button id="audit-settings">Audit saved settings</button><button id="reset-settings">Reset fixture settings</button><pre id="fixture-audit"></pre><pre id="fixture-requests">0</pre><pre id="fixture-export"></pre></aside><script type="module">
+import {mockIPC} from '@tauri-apps/api/mocks'
+import {createApp} from 'vue'
+import App from '../src/App.vue'
+import '../src/style.css'
+import '../src/appearance.css'
+const tasks=[];let requests=0
+const audit=()=>{document.querySelector('#fixture-audit').textContent=JSON.stringify({navigation:JSON.parse(localStorage.getItem('hopkit-navigation')??'null'),library:JSON.parse(localStorage.getItem('hopkit-library')??'null')})}
+document.querySelector('#audit-settings').onclick=audit
+document.querySelector('#reset-settings').onclick=()=>{for(const k of ['hopkit-navigation','hopkit-library'])localStorage.removeItem(k);location.reload()}
+document.querySelector('#seed-tasks').onclick=()=>{tasks.splice(0,tasks.length,...['ping','tcping','http','ntp'].map((tool,i)=>({id:'seed-'+i,tool,action:tool==='http'||tool==='ntp'?'serve':'',port:tool==='http'?8080:443,target:'127.0.0.1',status:'running',started_at:new Date(Date.now()+i).toISOString(),seq:0,events:[],result:null,request:null})))}
+mockIPC((command,args)=>{
+ if(command==='app_info')return {version:'0.2.0-dev.2 M1 fixture',platform:'macOS fixture',os:'macOS'}
+ if(command==='network_overview')return {interfaces:[],default_routes:[],dns:[],captured_at:'fixture'}
+ if(command==='parse_target'){const input=args.input;let normalized=input;let host=input;let port=null;if(input.includes('://')){const u=new URL(input);if(u.username||u.password)throw Error('Credentials rejected');host=u.hostname;port=Number(u.port||443);u.search='';u.hash='';normalized=u.toString()}return {normalized,host,port}}
+ if(command==='list_tasks')return structuredClone(tasks)
+ if(command==='task_poll')return structuredClone(tasks.find(t=>t.id===args.id))
+ if(command==='cancel_task'||command==='stop_all'){for(const t of tasks)if(command==='stop_all'||t.id===args.id){t.status='cancelled';t.seq++}return}
+ if(command==='start_task'){requests++;document.querySelector('#fixture-requests').textContent=String(requests);const r=args.request;const id='task-'+requests;tasks.push({id,tool:r.tool,action:r.action,target:r.target,status:'succeeded',started_at:new Date().toISOString(),seq:1,events:[],result:{status:'succeeded',data:{has_samples:false}},request:{...r,ftp_password:undefined}});return id}
+ if(command==='export_result'){document.querySelector('#fixture-export').textContent=args.content;return true}
+ throw Error('Unhandled '+command)
+})
+createApp(App).mount('#app')
+</script><style>#fixture-controls{margin-left:230px;padding:20px;max-width:700px}#fixture-controls pre{white-space:pre-wrap;max-height:200px}</style></body></html>

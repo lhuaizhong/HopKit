@@ -63,7 +63,7 @@ impl Task {
             cursor: self.seq,
             body,
         });
-        while self.events.len() > 150 {
+        while self.events.len() > hopkit_core::budget::MAX_PREVIEW_EVENTS {
             self.events.pop_front();
         }
     }
@@ -122,6 +122,7 @@ fn snap(t: &Task, after: u64) -> Snapshot {
 
 #[tauri::command]
 fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String, String> {
+    request.tool_id().map_err(|e| e.to_string())?;
     if request.tool == "wormhole" {
         let config = request
             .wormhole
@@ -157,11 +158,11 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
             .values()
             .filter(|t| t.status == "running" || t.status == "cancelling")
             .count()
-            >= 4
+            >= hopkit_core::budget::MAX_ACTIVE_TASKS
         {
             return Err("At most 4 concurrent tasks / 最多同时运行 4 个任务".into());
         }
-        if map.len() >= 40 {
+        if map.len() >= hopkit_core::budget::MAX_SESSION_TASKS {
             let oldest = map
                 .values()
                 .filter(|t| !matches!(t.status.as_str(), "running" | "cancelling"))
@@ -204,7 +205,7 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
                 seq: 0,
                 events: VecDeque::new(),
                 result: None,
-                request: serde_json::to_value(&request).map_err(|e| e.to_string())?,
+                request: request.snapshot().map_err(|e| e.to_string())?,
                 latest_stats: None,
                 monitor_control: monitor_control.clone(),
                 wormhole_control: wormhole_control.clone(),
@@ -568,7 +569,7 @@ fn app_info() -> Value {
         "x86_64" => "x64",
         other => other,
     };
-    json!({"version":env!("CARGO_PKG_VERSION"),"platform":format!("{os} {arch}"),"os":os,"architecture":std::env::consts::ARCH,"portable":true,"tools":8})
+    json!({"version":env!("CARGO_PKG_VERSION"),"platform":format!("{os} {arch}"),"os":os,"architecture":std::env::consts::ARCH,"portable":true,"tools":hopkit_core::catalog::IMPLEMENTED_TOOLS.len(),"capabilities":hopkit_core::catalog::capabilities()})
 }
 fn chrono_now() -> String {
     format!(
@@ -608,8 +609,12 @@ fn shutdown(handle: tauri::AppHandle, state: Tasks) {
 #[cfg(feature = "native-test")]
 #[tauri::command]
 fn native_test_report(value: Value, app: tauri::AppHandle) -> Result<(), String> {
-    let output = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../test-output/wormhole/native.json");
+    let relative = if value["scenario"] == "m1" {
+        "../test-output/m1/native.json"
+    } else {
+        "../test-output/wormhole/native.json"
+    };
+    let output = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(relative);
     std::fs::write(output, serde_json::to_vec_pretty(&value).unwrap())
         .map_err(|e| e.to_string())?;
     app.exit(0);
@@ -624,11 +629,12 @@ fn main() {
                     if let Ok(value) = std::fs::read_to_string(config).and_then(|s| {
                         serde_json::from_str::<Value>(&s).map_err(std::io::Error::other)
                     }) {
-                        let script = format!(
-                            "window.__HOPKIT_TEST_CONFIG__={};{}",
-                            value,
+                        let driver = if value["scenario"] == "m1" {
+                            include_str!("../../scripts/m1-native-driver.js")
+                        } else {
                             include_str!("../../scripts/wormhole-native-driver.js")
-                        );
+                        };
+                        let script = format!("window.__HOPKIT_TEST_CONFIG__={};{}", value, driver);
                         let _ = webview.eval(&script);
                     }
                 }

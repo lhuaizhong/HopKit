@@ -1,5 +1,14 @@
 # Changelog / 版本记录
 
+## 0.2.0-dev.2 — M1 / 2026-11-14
+
+- Add Common/Expert/Utilities navigation, bilingual global search with exact-name priority, favorites, remembered navigation/parameters and a global active-task entry. All 13 existing GUI tools remain in Common; future categories explain their current empty state.
+- Save named targets and site profiles locally. Versioned JSON import/export validates fields, counts and total size; passwords, pairing codes, message bodies and URL queries/fragments are excluded. Loading settings does not start tasks.
+- Introduce stable Rust/Vue tool IDs, capability queries and shared probe-budget interfaces. Keep the four-task admission limit, task/event bounds and runtime credential isolation.
+- 三分类导航、双语跨分类搜索、工具收藏、导航和参数恢复，以及全局任务入口；已有 13 个工具归常用工具，后续工具验收后再加入其他分类。
+- 支持目标收藏、命名现场配置及有校验的 JSON 导入导出；密码、配对码、报文正文和 URL 查询/片段不进入配置库，载入配置不执行任务。
+- 增加稳定工具 ID、能力查询和共用预算接口，保留四任务上限与旧工具行为。详情见 [M1 开发与验收记录](docs/M1-开发与验收记录.md)。
+
 ## 0.2.0-dev.1 — In development / 开发中
 
 - Start the 0.2.0 development line and synchronize workspace, npm and desktop versions.

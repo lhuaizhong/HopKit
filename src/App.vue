@@ -13,10 +13,17 @@ import WormholeSetup from './components/WormholeSetup.vue'
 import WormholeResults from './components/WormholeResults.vue'
 import {wormholeDefaults} from './wormhole'
 import FileServerResults from './components/FileServerResults.vue'
+import ToolNavigation from './components/navigation/ToolNavigation.vue'
+import SavedConfigurations from './components/navigation/SavedConfigurations.vue'
+import {tools, categoryOf, displayName, type ToolId} from './tools/registry'
+import {defaults, type ToolSnapshot} from './tools/config'
+import {loadLibrary, saveLibrary, mergeLibraries, safeTarget, sanitizeSnapshot, defaultMode, type Library} from './tools/library'
+import {readNavigation, writeNavigation} from './tools/navigation'
+
 
 type Row = Record<string, any>
 type TraceHop = {hop:number;probes:(Row|null)[];addresses:string[]}
-type Task = {id:string;tool:string;action:string;target:string;port?:number;status:string;started_at:string;seq:number;events:Row[];result:Row|null;request?:Row|null;latest_stats?:Row|null}
+type Task = {id:string;tool:ToolId;action:string;target:string;port?:number;status:string;started_at:string;seq:number;events:Row[];result:Row|null;request?:Row|null;latest_stats?:Row|null}
 const appInfo=ref({version:'',platform:'',os:''})
 const savedLanguage=preference('language')
 const lang=ref(['zh-CN','en-US'].includes(savedLanguage??'')?savedLanguage!:(navigator.language.toLowerCase().startsWith('zh')?'zh-CN':'en-US'))
@@ -25,24 +32,14 @@ const t=(zh:string,english:string)=>en.value?english:zh
 const projectUrl='https://github.com/lhuaizhong/HopKit'
 const projectLinkError=ref('')
 async function openProject(){try{projectLinkError.value='';await invoke('open_project')}catch(e){projectLinkError.value=t('无法打开浏览器，请复制链接访问：','Could not open the browser. Copy this link: ')+projectUrl}}
-const tools=[
- {id:'ping',name:'Ping',glyph:'↗',sub:['连通性测试','ICMP echo'],desc:['检测目标可达性、延迟与丢包。','Measure reachability, latency and packet loss.']},
- {id:'trace',name:'Traceroute',glyph:'⌁',sub:['路由追踪','Route tracing'],desc:['逐跳查看 ICMP 路径，识别响应与超时。','Inspect ICMP responses along the route.']},
- {id:'tcping',name:'TCPing',glyph:'⇄',sub:['TCP 端口测试','TCP connection'],desc:['测量 TCP 延迟，区分拒绝与超时。','Measure TCP latency, refusals and timeouts.']},
- {id:'dns',name:'DNS',glyph:'◎',sub:['域名解析','Name resolution'],desc:['使用系统解析器，或查询指定 DNS 服务器。','Resolve with the system or query a specific DNS server.']},
- {id:'ntp',name:'NTP',glyph:'◷',sub:['时间服务','Time tools'],desc:['测量时间偏差，或使用本机时钟提供临时 NTP 服务。','Measure clock offset or serve the local clock as a temporary NTP server.']},
- {id:'iperf3',name:'iperf3',glyph:'↔',sub:['网络测速','Network speed test'],desc:['内置 TCP/UDP 测速客户端与服务端，无需安装 iperf3。','Built-in TCP/UDP throughput client and server. No iperf3 installation required.']},
- {id:'tftp',name:'TFTP',glyph:'⇅',sub:['文件传输','File transfer'],desc:['标准 octet 文件传输与临时只读服务。','Standard octet transfers and a temporary file server.']},
- {id:'ftp',name:'FTP',glyph:'⇆',sub:['文件传输与服务','File client / server'],desc:['浏览远端目录、上传下载文件，或启动临时 FTP 服务。','List remote files, upload and download, or start a temporary FTP server.']},
- {id:'http',name:'HTTP',glyph:'▤',sub:['文件服务','Browser file sharing'],desc:['使用浏览器下载、上传文件，无需安装其他软件。','Download and upload files in a browser. No extra software required.']},
- {id:'wormhole',name:'Wormhole',glyph:'⇌',sub:['端到端文件传输','Encrypted file transfer'],desc:['通过一次性配对码安全收发单个文件。','Send and receive a file securely using a one-time pairing code.']},
- {id:'syslog',name:'Syslog',glyph:'≡',sub:['临时日志','Temporary logs'],desc:['接收、保存并预览 UDP 设备日志。','Receive, save and preview device logs over UDP.']},
- {id:'check',name:'HopKit',glyph:'◈',sub:['网络排障','Troubleshooting'],desc:['确认本机网络与目标，逐项检查并关联证据和下一步。','Confirm the local network and target, then review staged evidence and next steps.']},
- {id:'monitor',name:'Monitor',glyph:'◴',sub:['多目标持续监测','Multi-target monitoring'],desc:['同时观察网关、外部目标和业务服务器，记录失败与恢复时间。','Observe gateway, external and business targets together, with failure and recovery times.']}
-]
+
 const wormholeConfig=reactive(wormholeDefaults())
 const monitorConfig=reactive({targets:[{label:'Gateway',protocol:'ping',target:'',port:0},{label:'External',protocol:'ping',target:'',port:0},{label:'Business',protocol:'tcping',target:'',port:443}],interval_ms:1000,timeout_ms:1000,duration_secs:0,log_directory:''})
-const selected=ref('check'),active=ref(''),tasks=ref<Task[]>([]),rows=ref<Row[]>([]),error=ref(''),loading=ref(false),filter=ref(''),expanded=ref(false),copied=ref(false)
+const initialLibrary=loadLibrary()
+const library=reactive(initialLibrary.library),storageError=ref(initialLibrary.error)
+const navigation=reactive(readNavigation())
+let initialized=false
+const selected=ref<ToolId>(navigation.tool),active=ref(''),tasks=ref<Task[]>([]),rows=ref<Row[]>([]),error=ref(''),loading=ref(false),filter=ref(''),expanded=ref(false),copied=ref(false)
 // List responses contain summaries only. Keep the selected snapshot separately
 // so refreshing the task center cannot remove its result or reset its scroll.
 const activeDetail=ref<Task|null>(null)
@@ -50,18 +47,25 @@ const exportingImage=ref(false),imageSaved=ref(false),imageCopied=ref(false)
 const imageError=ref('')
 watch(active,()=>{imageSaved.value=false;imageCopied.value=false;imageError.value=''})
 const reusableTarget=ref('')
-const defaults=()=>({source_address:'',tls_ca_file:'',insecure_tls:false,include_trace:false,target:'127.0.0.1',port:443,count:4,timeout_ms:1000,interval_ms:1000,payload_size_bytes:32,ipv4:false,ipv6:false,max_hops:30,record_type:'A',dns_server:'',dns_mode:'system',path:'',remote_name:'config.cfg',action:'',listen:'0.0.0.0',allow:'',writable:false,overwrite:false,message:'HopKit test',continuous:false,ntp_stratum:10,duration_secs:0,ftp_username:'anonymous',ftp_password:'',ftp_remote_path:'',iperf_protocol:'tcp',iperf_parallel:1,iperf_reverse:false,iperf_bitrate_mbps:0})
+
 const form=reactive({...defaults(),target:''})
 const configurations=new Map<string,ReturnType<typeof defaults>>()
+const monitorConfigurations=new Map<string,ToolSnapshot['monitor']>()
+const wormholeConfigurations=new Map<string,ToolSnapshot['wormhole']>()
 const modes=new Map<string,string>()
-const configKey=()=>`${selected.value}:${selected.value==='dns'?form.dns_mode:form.action}`
-function saveConfig(){configurations.set(configKey(),{...form,ftp_password:''})}
+const configKey=()=>`${selected.value}:${selected.value==='dns'?form.dns_mode:selected.value==='wormhole'?wormholeConfig.operation:form.action}`
+for(const saved of library.configurations){configurationsMapEntry(saved);modes.set(saved.tool,saved.mode)}
+function saveConfig(){if(!initialized)return;const key=configKey();configurations.set(key,{...form,ftp_password:''});if(selected.value==='monitor')monitorConfigurations.set(key,JSON.parse(JSON.stringify(monitorConfig)));if(selected.value==='wormhole'){const {code,...savedWormhole}=wormholeConfig;wormholeConfigurations.set(key,savedWormhole)}rememberConfiguration()}
 function loadConfig(id:string,mode:string){
  const key=`${id}:${mode}`
  const saved=configurations.get(key)
  Object.assign(form,saved??{...defaults(),target:id==='check'?'':'127.0.0.1',action:mode,dns_mode:id==='dns'?mode:'system',port:({ntp:123,ftp:21,http:80,iperf3:5201,tftp:69,syslog:514} as Row)[id]??443,timeout_ms:['ftp','iperf3'].includes(id)?5000:id==='ntp'?2000:1000,interval_ms:id==='ntp'?2000:1000,duration_secs:id==='iperf3'&&mode!=='serve'?10:0})
  form.ftp_password=''
+ const monitor=monitorConfigurations.get(key),wormhole=wormholeConfigurations.get(key)
+ if(monitor)Object.assign(monitorConfig,JSON.parse(JSON.stringify(monitor)))
+ if(id==='wormhole')Object.assign(wormholeConfig,wormholeDefaults(),wormhole??{},{operation:mode,code:''})
 }
+
 function setMode(mode:string){if(mode===(selected.value==='dns'?form.dns_mode:form.action))return;saveConfig();modes.set(selected.value,mode);loadConfig(selected.value,mode)}
 
 const current=computed(()=>tools.find(x=>x.id===selected.value)!)
@@ -123,23 +127,43 @@ const number=(n:any,suffix='')=>n==null?'—':`${Number(n).toFixed(2)}${suffix}`
 // Retain newly accepted tasks until a poll observes them, including when an
 // older poll was already in flight while start_task was being submitted.
 const pendingTasks=new Map<string,Task>()
-function pickTool(id:string){wormholeConfig.code='';saveConfig();modes.set(selected.value,selected.value==='dns'?form.dns_mode:form.action);selected.value=id;loadConfig(id,modes.get(id)??({ftp:'list',http:'serve',tftp:'get',ntp:'query',iperf3:'client',syslog:'listen',dns:'system'} as Row)[id]??'');active.value='';activeDetail.value=null;rows.value=[];error.value='';expanded.value=false}
-function useCheckTarget(tool:string,target:Row){pickTool(tool);form.target=target.host;if(tool==='tcping'&&target.port)form.port=target.port}
+function pickTool(id:ToolId){wormholeConfig.code='';saveConfig();modes.set(selected.value,selected.value==='wormhole'?wormholeConfig.operation:selected.value==='dns'?form.dns_mode:form.action);selected.value=id;navigation.tool=id;navigation.category=categoryOf(id);persistNavigation();loadConfig(id,modes.get(id)??defaultMode(id));active.value='';activeDetail.value=null;rows.value=[];error.value='';expanded.value=false}
+function useCheckTarget(tool:ToolId,target:Row){pickTool(tool);form.target=target.host;if(tool==='tcping'&&target.port)form.port=target.port}
 function reuseTarget(){if(reusableTarget.value)form.target=reusableTarget.value}
 async function rerun(item:Task){try{
  const detail=await invoke<Task>('task_poll',{id:item.id,after:0})
  if(!detail.request)return
+ pickTool(detail.tool);setMode(detail.tool==='dns'?(detail.request.dns_server?'direct':'system'):detail.action)
  if(detail.tool==='wormhole'&&detail.request.wormhole)Object.assign(wormholeConfig,detail.request.wormhole,{code:''})
  if(detail.tool==='monitor'&&detail.request.monitor)Object.assign(monitorConfig,JSON.parse(JSON.stringify(detail.request.monitor)))
- pickTool(detail.tool);setMode(detail.tool==='dns'?(detail.request.dns_server?'direct':'system'):detail.action)
  Object.assign(form,{ipv4:false},detail.request,{continuous:detail.request.count===0,dns_mode:detail.request.dns_server?'direct':'system',ftp_remote_path:detail.action==='list'?detail.request.remote_name:'',ftp_password:''})
+ if(detail.tool==='syslog'&&detail.action==='send')form.message=''
  if(detail.tool==='check'&&detail.request.target.includes('?[redacted]')){form.target='';error.value=t('URL 参数已脱敏，请重新输入原 URL。','URL parameters were redacted. Re-enter the original URL.');return}
  active.value='';activeDetail.value=null
- error.value=detail.tool==='ftp'?t('已载入请求快照，请重新填写 FTP 凭据后启动。','Request loaded. Re-enter FTP credentials and run.'):''
+ error.value=detail.tool==='ftp'?t('已载入请求快照，请重新填写 FTP 凭据后启动。','Request loaded. Re-enter FTP credentials and run.'):detail.tool==='syslog'&&detail.action==='send'?t('消息正文未保存，请重新填写后发送。','Message bodies are not saved. Enter the message before sending.'):''
  }catch(e){error.value=String(e)}
 }
 async function stopItem(id:string){try{await invoke('cancel_task',{id});await poll()}catch(e){error.value=String(e)}}
 
+function persistNavigation(){writeNavigation(navigation)}
+function persistLibrary(){storageError.value=saveLibrary(library)?'':t('配置无法写入本机；本次会话仍可使用。','Settings could not be saved; this session remains usable.')}
+function currentSnapshot():ToolSnapshot{return sanitizeSnapshot({schema_version:1,tool:selected.value,mode:selected.value==='wormhole'?wormholeConfig.operation:selected.value==='dns'?form.dns_mode:form.action,values:{...form},monitor:selected.value==='monitor'?JSON.parse(JSON.stringify(monitorConfig)):undefined,wormhole:selected.value==='wormhole'?{...wormholeConfig}:undefined})}
+function rememberConfiguration(){try{const snapshot=currentSnapshot();library.configurations=library.configurations.filter(c=>c.tool!==snapshot.tool||c.mode!==snapshot.mode);library.configurations.push(snapshot);persistLibrary()}catch{/* Partially typed invalid input is not persisted. */}}
+function restoreSnapshot(input:ToolSnapshot){try{const snapshot=sanitizeSnapshot(input);pickTool(snapshot.tool);setMode(snapshot.mode);Object.assign(form,defaults(),snapshot.values,{action:snapshot.mode,dns_mode:snapshot.tool==='dns'?snapshot.mode:'system',ftp_password:''});if(snapshot.monitor)Object.assign(monitorConfig,snapshot.monitor);if(snapshot.wormhole)Object.assign(wormholeConfig,wormholeDefaults(),snapshot.wormhole,{code:''});error.value='';rememberConfiguration()}catch(e){error.value=String(e)}}
+function saveProfile(name:string){try{if(library.profiles.length>=100)throw Error(t('最多保存 100 项配置','At most 100 profiles'));library.profiles.push({id:crypto.randomUUID(),name,snapshot:currentSnapshot()});persistLibrary()}catch(e){error.value=String(e)}}
+function saveBookmark(name:string){try{if(service.value||['monitor','wormhole'].includes(selected.value)||!form.target.trim())throw Error(t('请在客户端工具中填写单个目标','Enter a single target in a client tool'));if(library.bookmarks.length>=100)throw Error(t('最多收藏 100 个目标','At most 100 targets'));library.bookmarks.push({id:crypto.randomUUID(),name,target:safeTarget(form.target)});persistLibrary()}catch(e){error.value=String(e)}}
+function loadBookmark(target:string){pickTool('check');form.target=target}
+function removeSaved(kind:'profiles'|'bookmarks',id:string){if(kind==='profiles')library.profiles=library.profiles.filter(p=>p.id!==id);else library.bookmarks=library.bookmarks.filter(b=>b.id!==id);persistLibrary()}
+function importLibrary(incoming:Library,complete:(error?:string)=>void){try{const merged=mergeLibraries(library,incoming);Object.assign(library,merged);for(const c of merged.configurations)configurationsMapEntry(c);const current=incoming.configurations.find(c=>c.tool===selected.value&&`${c.tool}:${c.mode}`===configKey());if(current)restoreSnapshot(current);persistLibrary();complete()}catch(e){complete(String(e))}}
+function configurationsMapEntry(snapshot:ToolSnapshot){const key=`${snapshot.tool}:${snapshot.mode}`;configurations.set(key,{...defaults(),...snapshot.values,action:snapshot.mode,dns_mode:snapshot.tool==='dns'?snapshot.mode:'system'});if(snapshot.monitor)monitorConfigurations.set(key,JSON.parse(JSON.stringify(snapshot.monitor)));if(snapshot.wormhole)wormholeConfigurations.set(key,{...snapshot.wormhole})}
+async function showTasks(){navigation.category=categoryOf(selected.value);persistNavigation();await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));document.querySelector('.task-panel')?.scrollIntoView({behavior:'smooth',block:'start'})}
+loadConfig(selected.value,modes.get(selected.value)??defaultMode(selected.value))
+initialized=true
+let settingsTimer:ReturnType<typeof setTimeout>
+watch([form,monitorConfig,wormholeConfig],()=>{clearTimeout(settingsTimer);settingsTimer=setTimeout(()=>{saveConfig()},250)},{deep:true})
+function flushSettings(){clearTimeout(settingsTimer);saveConfig();persistNavigation()}
+onMounted(()=>window.addEventListener('pagehide',flushSettings))
+onUnmounted(()=>{flushSettings();window.removeEventListener('pagehide',flushSettings)})
 function language(){lang.value=en.value?'zh-CN':'en-US';savePreference('language',lang.value)}
 async function choose(){try{const kind=service.value?'directory':form.action==='get'?'save':'file';const path=await invoke<string|null>('choose_path',{kind});if(path)form.path=path}catch(e){error.value=String(e)}}
 async function browseLogs(){try{await invoke('browse_syslog_logs')}catch(e){error.value=String(e)}}
@@ -157,8 +181,9 @@ async function start(){
   if(normalized)request.port=normalized.port??0
   const id=await invoke<string>('start_task',{request})
   const safeRequest={...request,target:normalized?.normalized??request.target}
-  if(selected.value==='wormhole'){wormholeConfig.code='';delete (safeRequest as Row).wormhole.code}
+  if(selected.value==='wormhole'){wormholeConfig.code='';(safeRequest as Row).wormhole={...(safeRequest as Row).wormhole};delete (safeRequest as Row).wormhole.code}
   form.ftp_password=''
+  delete (safeRequest as Row).message
   const started:Task={id,tool:request.tool,action:request.action,target:['serve','listen'].includes(request.action)?`${request.listen}:${request.port}`:safeRequest.target,port:request.port,status:'running',started_at:String(Date.now()).padStart(20,'0'),seq:0,events:[],result:null,request:{...safeRequest,ftp_password:undefined}}
   pendingTasks.set(id,started);tasks.value=[started,...tasks.value.filter(x=>x.id!==id)]
   if(selected.value===request.tool){active.value=id;activeDetail.value=started;rows.value=[];reusableTarget.value=normalized?.host??request.target}await poll()
@@ -220,13 +245,12 @@ onUnmounted(()=>clearInterval(timer))
  <div class="shell">
   <aside class="sidebar">
    <div class="brand"><div class="brand-icon"><span></span><span></span><span></span></div><div><b>HopKit<span class="brand-dot">.</span></b><small>NETWORK TOOLKIT</small></div></div>
-   <div class="nav-label">{{ t('网络工具','NETWORK TOOLS') }}</div>
-   <nav><button v-for="item in tools" :key="item.id" :class="['nav-item',{active:selected===item.id}]" @click="pickTool(item.id)"><span class="nav-glyph">{{item.glyph}}</span><span><b>{{item.name}}</b><small>{{en?item.sub[1]:item.sub[0]}}</small></span><i v-if="tasks.some(x=>x.tool===item.id&&['running','cancelling'].includes(x.status))" class="live-dot"></i></button></nav>
+   <ToolNavigation :en="en" :state="navigation" :active-tools="tasks.filter(x=>['running','cancelling'].includes(x.status)).map(x=>x.tool)" @select="pickTool" @change="persistNavigation" @tasks="showTasks"/>
    <div class="sidebar-bottom"><div class="preview-badge">{{appInfo.os.toUpperCase()}} PREVIEW</div><p>v{{appInfo.version}}</p><small>{{t('本地优先 · 基础工具离线可用','Local first · Core tools work offline')}}</small></div>
   </aside>
   <div class="workspace">
    <header>
-    <div class="breadcrumb">{{t('工作台','Workspace')}} <span>/</span> <strong>{{current.name}}</strong></div>
+    <div class="breadcrumb">{{t('工作台','Workspace')}} <span>/</span> <strong>{{displayName(current,en)}}</strong></div>
     <div class="header-actions">
      <span class="platform"><i></i> {{appInfo.platform}}</span>
      <div class="appearance-switch" role="group" :aria-label="t('界面风格','Appearance')">
@@ -237,8 +261,9 @@ onUnmounted(()=>clearInterval(timer))
      <button class="quiet" @click="language">{{en?'中文':'English'}}</button>
     </div>
    </header>
-   <main>
-    <div class="page-heading"><div><div class="eyebrow">NETWORK DIAGNOSTICS</div><h1>{{current.name}}<span>{{en?current.sub[1]:current.sub[0]}}</span></h1><p>{{en?current.desc[1]:current.desc[0]}}</p></div><span class="local-pill"><span>◈</span>{{t('本机执行','LOCAL EXECUTION')}}</span></div>
+   <main v-if="tools.some(tool=>tool.category===navigation.category)">
+    <SavedConfigurations :en="en" :library="library" :storage-error="storageError" @save-profile="saveProfile" @save-bookmark="saveBookmark" @restore="restoreSnapshot" @target="loadBookmark" @remove="removeSaved" @import="importLibrary"/>
+    <div class="page-heading"><div><div class="eyebrow">NETWORK DIAGNOSTICS</div><h1 tabindex="-1">{{displayName(current,en)}}<span>{{en?current.sub[1]:current.sub[0]}}</span></h1><p>{{en?current.desc[1]:current.desc[0]}}</p></div><span class="local-pill"><span>◈</span>{{t('本机执行','LOCAL EXECUTION')}}</span></div>
     <div class="content-grid">
      <section class="panel config-panel" v-if="selected==='monitor'"><MonitorSetup :en="en" :config="monitorConfig" :family="form" :disabled="startDisabled" @run="start"/><p v-if="error" class="error" role="alert">{{error}}</p></section>
      <section class="panel config-panel" v-if="selected==='wormhole'"><WormholeSetup :en="en" :config="wormholeConfig" :disabled="startDisabled" @run="start"/><p v-if="error" class="error" role="alert">{{error}}</p></section>
@@ -339,9 +364,10 @@ onUnmounted(()=>clearInterval(timer))
       <section class="panel task-panel"><div class="panel-title"><h2>{{t('任务中心','Task center')}}<span class="task-count">{{countActive}} {{t('运行中','active')}}</span></h2><button :disabled="!countActive" class="quiet danger" @click="stopAll">{{t('停止全部','Stop all')}}</button></div><div v-if="!tasks.length" class="task-empty">{{t('本次会话的任务将在这里显示。','Tasks from this session will appear here.')}}</div><input v-model="historyFilter" :placeholder="t('筛选会话历史（最多 40 项）','Filter session history (up to 40 tasks)')"><div v-for="item in visibleTasks" :key="item.id" class="task-row"><span class="task-icon">{{tools.find(x=>x.id===item.tool)?.glyph}}</span><strong>{{item.tool}}</strong><code>{{item.target}}</code><span :class="['status',item.status]">{{item.tool==='wormhole'&&item.latest_stats?.decision_id&&item.status==='running'?t('需要确认','Needs confirmation'):statusText(item.status)}}</span><button @click="openTask(item)">{{t('打开','Open')}}</button><button v-if="['running','cancelling'].includes(item.status)" @click="stopItem(item.id)">{{t('停止','Stop')}}</button><button v-else @click="rerun(item)">{{t('重跑…','Rerun…')}}</button></div></section>
      </div>
     </div>
-    <footer><span><i></i>{{t('所有工具在本机运行；未接入 AI 或云端遥测。','Tools run locally. No AI or cloud telemetry is connected.')}}</span><a class="project-link" :href="projectUrl" :title="t('在默认浏览器打开项目，分享与获取更新：','Open the project in your default browser to share and get updates: ')+projectUrl" target="_blank" rel="noopener noreferrer" @click.prevent="openProject">GitHub · {{t('分享与更新','Share & updates')}} ↗</a><span>{{t('候选发布版','Release candidate')}} <b>RC.1</b></span></footer>
+    <footer><span><i></i>{{t('所有工具在本机运行；未接入 AI 或云端遥测。','Tools run locally. No AI or cloud telemetry is connected.')}}</span><a class="project-link" :href="projectUrl" :title="t('在默认浏览器打开项目，分享与获取更新：','Open the project in your default browser to share and get updates: ')+projectUrl" target="_blank" rel="noopener noreferrer" @click.prevent="openProject">GitHub · {{t('分享与更新','Share & updates')}} ↗</a><span>{{t('开发版','Development')}} <b>{{appInfo.version}}</b></span></footer>
     <p v-if="projectLinkError" class="project-link-error" role="alert">{{projectLinkError}}</p>
    </main>
+   <main v-else class="category-placeholder"><h1>{{navigation.category==='expert'?t('专家工具','Expert tools'):t('小工具','Utilities')}}</h1><p>{{t('此分类暂无已实现工具。可搜索全部工具，或返回常用工具。','Tools will appear here as they become available. Search all tools or return to Common.')}}</p><button type="button" class="browse" @click="navigation.category='common';persistNavigation()">{{t('返回常用工具','Back to Common')}}</button></main>
   </div>
  </div>
 </template>

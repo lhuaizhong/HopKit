@@ -30,7 +30,7 @@ try{
   }}
  })
  await page.goto('http://127.0.0.1:1420/');await page.locator('.nav-item').first().waitFor()
- const names=await page.locator('.nav-item b').allTextContents();assert.equal(names[names.indexOf('HTTP')+1],'Wormhole');assert.equal(names[names.indexOf('Wormhole')+1],'Syslog')
+ const names=await page.locator('.nav-item b').allTextContents();assert.equal(names[names.findIndex(name=>name==='HTTP File Sharing'||name==='HTTP 文件服务')+1],'Wormhole');assert.equal(names[names.indexOf('Wormhole')+1],'Syslog')
  await page.locator('.nav-item').filter({has:page.getByText('Wormhole',{exact:true})}).click();assert.equal(await page.evaluate(()=>window.fixture.requests.length),0)
  await page.locator('#wormhole-file').fill('/tmp/中文 file.bin');await page.locator('.wormhole-setup button[type=submit]').click();await page.locator('.wormhole-secret').waitFor();assert((await page.locator('.wormhole-secret').innerText()).includes('42-sensitive'))
  await page.getByRole('button',{name:'导出 JSON',exact:true}).click();const exported=await page.evaluate(()=>window.fixture.exports[0]);assert(!exported.includes('42-sensitive'));assert(!exported.includes('verifier'))
@@ -42,6 +42,6 @@ try{
  await page.getByRole('button',{name:'导出 JSON',exact:true}).click();assert(!(await page.evaluate(()=>window.fixture.exports.at(-1))).includes('7-receive-secret'))
  await page.getByRole('button',{name:'导出图片',exact:true}).click();await page.waitForFunction(()=>window.fixture.png.length>0);await fs.writeFile('test-output/wormhole/result-export.png',Buffer.from(await page.evaluate(()=>window.fixture.png[0])))
  for(const width of [960,1220]){await page.setViewportSize({width,height:680});for(const appearance of ['fresh','readable']){await page.evaluate(a=>localStorage.setItem('hopkit-appearance',a),appearance);await page.reload();await page.locator('.nav-item').first().waitFor();await page.locator('.nav-item').filter({has:page.getByText('Wormhole',{exact:true})}).click();assert(await page.locator('.wormhole-setup').isVisible());await page.locator('.nav-item').filter({has:page.getByText('Wormhole',{exact:true})}).scrollIntoViewIfNeeded();await page.screenshot({path:`test-output/wormhole/ui-${width}-${appearance}.png`,fullPage:true});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))}}
- await page.getByRole('button',{name:'English',exact:true}).click();assert((await page.locator('.wormhole-setup').innerText()).includes('Start sending'));assert.equal(errors.length,0,errors.join('\n'))
+ await page.getByRole('button',{name:'English',exact:true}).click();assert((await page.locator('.wormhole-setup').innerText()).includes('Connect to sender'));await page.getByRole('button',{name:'Send file',exact:true}).click();assert((await page.locator('.wormhole-setup').innerText()).includes('Start sending'));assert.equal(errors.length,0,errors.join('\n'))
  await fs.writeFile('test-output/wormhole/ui.json',JSON.stringify({status:'passed',cases:['navigation order','no startup networking','private code','JSON redaction','receive code cleared','escaped offer/notice','accept/save IPC','image export','960/1220 both appearances','English'],errors},null,2));console.log('Wormhole UI passed')
 }finally{await browser.close();await server.close()}
