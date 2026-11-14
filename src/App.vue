@@ -13,6 +13,10 @@ import WormholeSetup from './components/WormholeSetup.vue'
 import WormholeResults from './components/WormholeResults.vue'
 import {wormholeDefaults} from './wormhole'
 import FileServerResults from './components/FileServerResults.vue'
+import ScanSetup from './components/ScanSetup.vue'
+import ScanResults from './components/ScanResults.vue'
+import SubnetTool from './components/SubnetTool.vue'
+import {scanDefaults,subnetDefaults,type ScanRow,type ScanResult,type ScanEvent} from './tools/m2'
 import ToolNavigation from './components/navigation/ToolNavigation.vue'
 import SavedConfigurations from './components/navigation/SavedConfigurations.vue'
 import {tools, categoryOf, displayName, type ToolId} from './tools/registry'
@@ -33,11 +37,14 @@ const projectUrl='https://github.com/lhuaizhong/HopKit'
 const projectLinkError=ref('')
 async function openProject(){try{projectLinkError.value='';await invoke('open_project')}catch(e){projectLinkError.value=t('无法打开浏览器，请复制链接访问：','Could not open the browser. Copy this link: ')+projectUrl}}
 
+const scanConfig=reactive(scanDefaults()),subnetConfig=reactive(subnetDefaults())
+const m2Configurations=new Map<string,ToolSnapshot>()
 const wormholeConfig=reactive(wormholeDefaults())
 const monitorConfig=reactive({targets:[{label:'Gateway',protocol:'ping',target:'',port:0},{label:'External',protocol:'ping',target:'',port:0},{label:'Business',protocol:'tcping',target:'',port:443}],interval_ms:1000,timeout_ms:1000,duration_secs:0,log_directory:''})
 const initialLibrary=loadLibrary()
 const library=reactive(initialLibrary.library),storageError=ref(initialLibrary.error)
 const navigation=reactive(readNavigation())
+if(categoryOf(navigation.tool)!==navigation.category){const first=tools.find(t=>t.category===navigation.category);if(first)navigation.tool=first.id}
 let initialized=false
 const selected=ref<ToolId>(navigation.tool),active=ref(''),tasks=ref<Task[]>([]),rows=ref<Row[]>([]),error=ref(''),loading=ref(false),filter=ref(''),expanded=ref(false),copied=ref(false)
 // List responses contain summaries only. Keep the selected snapshot separately
@@ -54,13 +61,16 @@ const monitorConfigurations=new Map<string,ToolSnapshot['monitor']>()
 const wormholeConfigurations=new Map<string,ToolSnapshot['wormhole']>()
 const modes=new Map<string,string>()
 const configKey=()=>`${selected.value}:${selected.value==='dns'?form.dns_mode:selected.value==='wormhole'?wormholeConfig.operation:form.action}`
-for(const saved of library.configurations){configurationsMapEntry(saved);modes.set(saved.tool,saved.mode)}
-function saveConfig(){if(!initialized)return;const key=configKey();configurations.set(key,{...form,ftp_password:''});if(selected.value==='monitor')monitorConfigurations.set(key,JSON.parse(JSON.stringify(monitorConfig)));if(selected.value==='wormhole'){const {code,...savedWormhole}=wormholeConfig;wormholeConfigurations.set(key,savedWormhole)}rememberConfiguration()}
+// Source binding depends on the current network. On startup use OS routing;
+// explicit profile loads and manual edits can still opt into source binding.
+for(const saved of library.configurations){configurationsMapEntry(saved,false);modes.set(saved.tool,saved.mode)}
+function saveConfig(){if(!initialized)return;const key=configKey();configurations.set(key,{...form,ftp_password:''});if(selected.value==='monitor')monitorConfigurations.set(key,JSON.parse(JSON.stringify(monitorConfig)));if(selected.value==='wormhole'){const {code,...savedWormhole}=wormholeConfig;wormholeConfigurations.set(key,savedWormhole)}if(['scan','subnet'].includes(selected.value)){try{m2Configurations.set(key,currentSnapshot())}catch{}}rememberConfiguration()}
 function loadConfig(id:string,mode:string){
  const key=`${id}:${mode}`
  const saved=configurations.get(key)
  Object.assign(form,saved??{...defaults(),target:id==='check'?'':'127.0.0.1',action:mode,dns_mode:id==='dns'?mode:'system',port:({ntp:123,ftp:21,http:80,iperf3:5201,tftp:69,syslog:514} as Row)[id]??443,timeout_ms:['ftp','iperf3'].includes(id)?5000:id==='ntp'?2000:1000,interval_ms:id==='ntp'?2000:1000,duration_secs:id==='iperf3'&&mode!=='serve'?10:0})
  form.ftp_password=''
+ const m2=m2Configurations.get(key);if(id==='scan')Object.assign(scanConfig,scanDefaults(),m2?.scan);if(id==='subnet')Object.assign(subnetConfig,subnetDefaults(),m2?.subnet)
  const monitor=monitorConfigurations.get(key),wormhole=wormholeConfigurations.get(key)
  if(monitor)Object.assign(monitorConfig,JSON.parse(JSON.stringify(monitor)))
  if(id==='wormhole')Object.assign(wormholeConfig,wormholeDefaults(),wormhole??{},{operation:mode,code:''})
@@ -129,12 +139,14 @@ const number=(n:any,suffix='')=>n==null?'—':`${Number(n).toFixed(2)}${suffix}`
 const pendingTasks=new Map<string,Task>()
 function pickTool(id:ToolId){wormholeConfig.code='';saveConfig();modes.set(selected.value,selected.value==='wormhole'?wormholeConfig.operation:selected.value==='dns'?form.dns_mode:form.action);selected.value=id;navigation.tool=id;navigation.category=categoryOf(id);persistNavigation();loadConfig(id,modes.get(id)??defaultMode(id));active.value='';activeDetail.value=null;rows.value=[];error.value='';expanded.value=false}
 function useCheckTarget(tool:ToolId,target:Row){pickTool(tool);form.target=target.host;if(tool==='tcping'&&target.port)form.port=target.port}
+function useScanTarget(row:ScanRow){const source=task.value?.request?.scan?.source;pickTool('tcping');form.target=row.address;form.port=row.port;form.ipv4=!row.address.includes(':');form.ipv6=row.address.includes(':');if(source)error.value=t('源地址未传递：TCPing 暂不支持源绑定。','Source not carried: TCPing does not support source binding.')}
 function reuseTarget(){if(reusableTarget.value)form.target=reusableTarget.value}
 async function rerun(item:Task){try{
  const detail=await invoke<Task>('task_poll',{id:item.id,after:0})
  if(!detail.request)return
  pickTool(detail.tool);setMode(detail.tool==='dns'?(detail.request.dns_server?'direct':'system'):detail.action)
  if(detail.tool==='wormhole'&&detail.request.wormhole)Object.assign(wormholeConfig,detail.request.wormhole,{code:''})
+ if(detail.tool==='scan'&&detail.request.scan)Object.assign(scanConfig,detail.request.scan)
  if(detail.tool==='monitor'&&detail.request.monitor)Object.assign(monitorConfig,JSON.parse(JSON.stringify(detail.request.monitor)))
  Object.assign(form,{ipv4:false},detail.request,{continuous:detail.request.count===0,dns_mode:detail.request.dns_server?'direct':'system',ftp_remote_path:detail.action==='list'?detail.request.remote_name:'',ftp_password:''})
  if(detail.tool==='syslog'&&detail.action==='send')form.message=''
@@ -147,20 +159,20 @@ async function stopItem(id:string){try{await invoke('cancel_task',{id});await po
 
 function persistNavigation(){writeNavigation(navigation)}
 function persistLibrary(){storageError.value=saveLibrary(library)?'':t('配置无法写入本机；本次会话仍可使用。','Settings could not be saved; this session remains usable.')}
-function currentSnapshot():ToolSnapshot{return sanitizeSnapshot({schema_version:1,tool:selected.value,mode:selected.value==='wormhole'?wormholeConfig.operation:selected.value==='dns'?form.dns_mode:form.action,values:{...form},monitor:selected.value==='monitor'?JSON.parse(JSON.stringify(monitorConfig)):undefined,wormhole:selected.value==='wormhole'?{...wormholeConfig}:undefined})}
+function currentSnapshot():ToolSnapshot{return sanitizeSnapshot({schema_version:1,tool:selected.value,mode:selected.value==='wormhole'?wormholeConfig.operation:selected.value==='dns'?form.dns_mode:form.action,values:{...form},scan:selected.value==='scan'?JSON.parse(JSON.stringify(scanConfig)):undefined,subnet:selected.value==='subnet'?{...subnetConfig}:undefined,monitor:selected.value==='monitor'?JSON.parse(JSON.stringify(monitorConfig)):undefined,wormhole:selected.value==='wormhole'?{...wormholeConfig}:undefined})}
 function rememberConfiguration(){try{const snapshot=currentSnapshot();library.configurations=library.configurations.filter(c=>c.tool!==snapshot.tool||c.mode!==snapshot.mode);library.configurations.push(snapshot);persistLibrary()}catch{/* Partially typed invalid input is not persisted. */}}
-function restoreSnapshot(input:ToolSnapshot){try{const snapshot=sanitizeSnapshot(input);pickTool(snapshot.tool);setMode(snapshot.mode);Object.assign(form,defaults(),snapshot.values,{action:snapshot.mode,dns_mode:snapshot.tool==='dns'?snapshot.mode:'system',ftp_password:''});if(snapshot.monitor)Object.assign(monitorConfig,snapshot.monitor);if(snapshot.wormhole)Object.assign(wormholeConfig,wormholeDefaults(),snapshot.wormhole,{code:''});error.value='';rememberConfiguration()}catch(e){error.value=String(e)}}
+function restoreSnapshot(input:ToolSnapshot){try{const snapshot=sanitizeSnapshot(input);pickTool(snapshot.tool);setMode(snapshot.mode);Object.assign(form,defaults(),snapshot.values,{action:snapshot.mode,dns_mode:snapshot.tool==='dns'?snapshot.mode:'system',ftp_password:''});if(snapshot.scan)Object.assign(scanConfig,snapshot.scan);if(snapshot.subnet)Object.assign(subnetConfig,snapshot.subnet);if(snapshot.monitor)Object.assign(monitorConfig,snapshot.monitor);if(snapshot.wormhole)Object.assign(wormholeConfig,wormholeDefaults(),snapshot.wormhole,{code:''});error.value='';rememberConfiguration()}catch(e){error.value=String(e)}}
 function saveProfile(name:string){try{if(library.profiles.length>=100)throw Error(t('最多保存 100 项配置','At most 100 profiles'));library.profiles.push({id:crypto.randomUUID(),name,snapshot:currentSnapshot()});persistLibrary()}catch(e){error.value=String(e)}}
-function saveBookmark(name:string){try{if(service.value||['monitor','wormhole'].includes(selected.value)||!form.target.trim())throw Error(t('请在客户端工具中填写单个目标','Enter a single target in a client tool'));if(library.bookmarks.length>=100)throw Error(t('最多收藏 100 个目标','At most 100 targets'));library.bookmarks.push({id:crypto.randomUUID(),name,target:safeTarget(form.target)});persistLibrary()}catch(e){error.value=String(e)}}
+function saveBookmark(name:string){try{if(service.value||['monitor','wormhole','scan','subnet'].includes(selected.value)||!form.target.trim())throw Error(t('请在客户端工具中填写单个目标','Enter a single target in a client tool'));if(library.bookmarks.length>=100)throw Error(t('最多收藏 100 个目标','At most 100 targets'));library.bookmarks.push({id:crypto.randomUUID(),name,target:safeTarget(form.target)});persistLibrary()}catch(e){error.value=String(e)}}
 function loadBookmark(target:string){pickTool('check');form.target=target}
 function removeSaved(kind:'profiles'|'bookmarks',id:string){if(kind==='profiles')library.profiles=library.profiles.filter(p=>p.id!==id);else library.bookmarks=library.bookmarks.filter(b=>b.id!==id);persistLibrary()}
 function importLibrary(incoming:Library,complete:(error?:string)=>void){try{const merged=mergeLibraries(library,incoming);Object.assign(library,merged);for(const c of merged.configurations)configurationsMapEntry(c);const current=incoming.configurations.find(c=>c.tool===selected.value&&`${c.tool}:${c.mode}`===configKey());if(current)restoreSnapshot(current);persistLibrary();complete()}catch(e){complete(String(e))}}
-function configurationsMapEntry(snapshot:ToolSnapshot){const key=`${snapshot.tool}:${snapshot.mode}`;configurations.set(key,{...defaults(),...snapshot.values,action:snapshot.mode,dns_mode:snapshot.tool==='dns'?snapshot.mode:'system'});if(snapshot.monitor)monitorConfigurations.set(key,JSON.parse(JSON.stringify(snapshot.monitor)));if(snapshot.wormhole)wormholeConfigurations.set(key,{...snapshot.wormhole})}
-async function showTasks(){navigation.category=categoryOf(selected.value);persistNavigation();await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));document.querySelector('.task-panel')?.scrollIntoView({behavior:'smooth',block:'start'})}
+function configurationsMapEntry(snapshot:ToolSnapshot,restoreSource=true){const key=`${snapshot.tool}:${snapshot.mode}`;if(snapshot.scan||snapshot.subnet)m2Configurations.set(key,!restoreSource&&snapshot.scan?{...snapshot,scan:{...snapshot.scan,source:''}}:snapshot);configurations.set(key,{...defaults(),...snapshot.values,action:snapshot.mode,dns_mode:snapshot.tool==='dns'?snapshot.mode:'system'});if(snapshot.monitor)monitorConfigurations.set(key,JSON.parse(JSON.stringify(snapshot.monitor)));if(snapshot.wormhole)wormholeConfigurations.set(key,{...snapshot.wormhole})}
+async function showTasks(){if(selected.value==='subnet')pickTool('check');navigation.category=categoryOf(selected.value);persistNavigation();await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));document.querySelector('.task-panel')?.scrollIntoView({behavior:'smooth',block:'start'})}
 loadConfig(selected.value,modes.get(selected.value)??defaultMode(selected.value))
 initialized=true
 let settingsTimer:ReturnType<typeof setTimeout>
-watch([form,monitorConfig,wormholeConfig],()=>{clearTimeout(settingsTimer);settingsTimer=setTimeout(()=>{saveConfig()},250)},{deep:true})
+watch([form,monitorConfig,wormholeConfig,scanConfig,subnetConfig],()=>{clearTimeout(settingsTimer);settingsTimer=setTimeout(()=>{saveConfig()},250)},{deep:true})
 function flushSettings(){clearTimeout(settingsTimer);saveConfig();persistNavigation()}
 onMounted(()=>window.addEventListener('pagehide',flushSettings))
 onUnmounted(()=>{flushSettings();window.removeEventListener('pagehide',flushSettings)})
@@ -173,6 +185,7 @@ async function start(){
  try{
   const request={source_address:selected.value==='check'?form.source_address:'',tls_ca_file:selected.value==='check'?form.tls_ca_file:'',insecure_tls:form.insecure_tls,include_trace:form.include_trace,tool:selected.value,target:form.target.trim(),port:selected.value==='dns'?0:Number(form.port),count:form.continuous&&['ping','tcping'].includes(selected.value)?0:Number(form.count),timeout_ms:Number(form.timeout_ms),interval_ms:Number(form.interval_ms),payload_size_bytes:selected.value==='ping'?Number(form.payload_size_bytes):32,ipv4:form.ipv4,ipv6:form.ipv6,max_hops:Number(form.max_hops),record_type:form.dns_mode==='system'?'A':form.record_type,dns_server:selected.value==='check'||selected.value==='dns'&&form.dns_mode==='direct'?form.dns_server.trim():'',path:form.path,remote_name:selected.value==='ftp'&&form.action==='list'?form.ftp_remote_path:form.remote_name,action:form.action,listen:form.listen.trim(),allow:form.allow.trim(),writable:form.writable,overwrite:form.overwrite,message:form.message,ntp_stratum:Number(form.ntp_stratum),duration_secs:selected.value==='iperf3'||['ntp','ftp','http'].includes(selected.value)&&service.value?Number(form.duration_secs):0,iperf_protocol:form.iperf_protocol,iperf_parallel:selected.value==='iperf3'&&form.iperf_protocol==='udp'?1:Number(form.iperf_parallel),iperf_reverse:form.iperf_reverse,iperf_bitrate_mbps:Number(form.iperf_bitrate_mbps),ftp_username:selected.value==='ftp'?form.ftp_username:'anonymous',ftp_password:selected.value==='ftp'?form.ftp_password:''}
   if(selected.value==='dns'&&form.dns_mode==='direct'&&!request.dns_server)throw new Error(t('请输入 DNS 服务器 IP。','Enter a DNS server IP.'))
+  if(selected.value==='scan')Object.assign(request,{scan:JSON.parse(JSON.stringify(scanConfig)),target:scanConfig.targets.join(', '),action:'tcp'})
   if(selected.value==='monitor'){
    Object.assign(request,{monitor:JSON.parse(JSON.stringify(monitorConfig)),target:monitorConfig.targets.map(x=>x.target).join(' · ')})
   }
@@ -264,9 +277,11 @@ onUnmounted(()=>clearInterval(timer))
    <main v-if="tools.some(tool=>tool.category===navigation.category)">
     <SavedConfigurations :en="en" :library="library" :storage-error="storageError" @save-profile="saveProfile" @save-bookmark="saveBookmark" @restore="restoreSnapshot" @target="loadBookmark" @remove="removeSaved" @import="importLibrary"/>
     <div class="page-heading"><div><div class="eyebrow">NETWORK DIAGNOSTICS</div><h1 tabindex="-1">{{displayName(current,en)}}<span>{{en?current.sub[1]:current.sub[0]}}</span></h1><p>{{en?current.desc[1]:current.desc[0]}}</p></div><span class="local-pill"><span>◈</span>{{t('本机执行','LOCAL EXECUTION')}}</span></div>
-    <div class="content-grid">
+    <SubnetTool v-if="selected==='subnet'" :en="en" :config="subnetConfig"/>
+    <div v-else class="content-grid">
      <section class="panel config-panel" v-if="selected==='monitor'"><MonitorSetup :en="en" :config="monitorConfig" :family="form" :disabled="startDisabled" @run="start"/><p v-if="error" class="error" role="alert">{{error}}</p></section>
-     <section class="panel config-panel" v-if="selected==='wormhole'"><WormholeSetup :en="en" :config="wormholeConfig" :disabled="startDisabled" @run="start"/><p v-if="error" class="error" role="alert">{{error}}</p></section>
+     <section class="panel config-panel" v-if="selected==='scan'"><ScanSetup :en="en" :config="scanConfig" :disabled="startDisabled" :running="running" @run="start" @stop="stop"/><p v-if="error" class="error" role="alert">{{error}}</p></section>
+     <section class="panel config-panel" v-else-if="selected==='wormhole'"><WormholeSetup :en="en" :config="wormholeConfig" :disabled="startDisabled" @run="start"/><p v-if="error" class="error" role="alert">{{error}}</p></section>
      <section class="panel config-panel" v-else-if="selected==='check'"><CheckSetup :en="en" :config="form" :disabled="startDisabled" @run="start"/><div v-if="error" class="error" role="alert">{{error}}</div><button v-if="running" class="stop" @click="stop">■ {{t('停止排障','Stop troubleshooting')}}</button></section>
      <section class="panel config-panel" v-else-if="selected!=='monitor'">
       <div class="panel-title"><h2>{{t('任务配置','Configuration')}}</h2><span>01</span></div>
@@ -318,7 +333,8 @@ onUnmounted(()=>clearInterval(timer))
       <section class="result-panel panel">
        <div class="panel-title"><h2>{{t('实时结果','Live results')}}<span v-if="task" :class="['status',task.status]">{{statusText(task.status)}}</span></h2><div class="result-tools"><button :disabled="!task?.result||exportingImage" @click="exportImage('file')">{{exportingImage?t('正在导出…','Exporting…'):t('导出图片','Export image')}}</button><button :disabled="!task?.result||exportingImage" @click="exportImage('clipboard')">{{imageCopied?t('图片已复制','Image copied'):t('复制图片','Copy image')}}</button><span v-if="imageSaved" role="status">{{t('图片已保存','Image saved')}}</span><button :disabled="!task" @click="copy">{{copied?t('已复制','Copied'):t('复制','Copy')}}</button><button :disabled="!task" @click="exportData">{{t('导出 JSON','Export JSON')}}</button></div></div>
        <div v-if="imageError" class="result-error" role="alert">{{imageError}}</div>
-       <div v-if="resultTool==='check'"><CheckResults :data="data" :events="rows" :en="en" @use="useCheckTarget"/><p v-if="task?.result?.error" class="result-error">{{statusText(task.status)}} · {{task.result.error.code}}</p></div>
+       <div v-if="resultTool==='scan'"><ScanResults :en="en" :data="(data??null) as ScanResult|null" :events="rows as ScanEvent[]" @use="useScanTarget"/><p v-if="task?.result?.error" class="result-error">{{task.result.error.code}} · {{task.result.error.message}}</p></div>
+       <div v-else-if="resultTool==='check'"><CheckResults :data="data" :events="rows" :en="en" @use="useCheckTarget"/><p v-if="task?.result?.error" class="result-error">{{statusText(task.status)}} · {{task.result.error.code}}</p></div>
        <div v-else-if="resultTool==='monitor'"><MonitorResults :en="en" :data="data??latestStats" :task-id="task?.id??''" :running="running" @stop="stop"/><p v-if="task?.result?.error" :class="['result-error',{cancelled:task.status==='cancelled'}]">{{statusText(task.status)}} · {{task.result.error.code}} · {{task.result.error.message}}</p></div>
        <WormholeResults v-else-if="resultTool==='wormhole'" :en="en" :task="task" @stop="stop"/>
        <div v-else-if="!active" class="empty-state"><div class="radar"><span></span><i></i><b>⌁</b></div><h3>{{selected==='http'?t('选择共享目录，启动文件服务','Choose a directory and start sharing'):t('准备就绪，开始第一次测试','Ready for your first test')}}</h3><p>{{t('配置左侧参数，结果将实时显示在这里。','Configure a task on the left. Results will appear here.')}}</p><div class="example">{{t('快速开始','QUICK START')}}<code>hk {{resultTool==='ntp'&&resultService?'ntp serve --help':['ftp','http','tftp','iperf3'].includes(resultTool)?resultTool+' --help':resultTool==='syslog'?'syslog --help':resultTool+' 127.0.0.1'+(resultTool==='tcping'?' 443':'')}}</code></div></div>

@@ -6,7 +6,7 @@
 
 HopKit 将网络排障、持续监测、吞吐量测试、文件共享和日志采集集成在一个桌面应用中，同时提供独立 CLI。图形界面与命令行共享 Rust 核心，适用于日常运维和脚本自动化。
 
-**项目状态：** 当前源码为 `0.2.0-dev.2`，已实现 M1：三分类导航、全局搜索与工具收藏、目标收藏与现场配置，以及共用能力/预算接口。完成范围与验证见 [M1 开发与验收记录](docs/M1-开发与验收记录.md)，后续工具按 [0.2.0 技术开发计划书](docs/HopKit-0.2.0-技术开发计划书.md)逐项实现。下方下载仍指向已发布候选版 `0.1.0-rc.2`，其 Wormhole、IPv4/IPv6 选择和 CLI 输出记录见[实现与验收记录](WORMHOLE_IMPLEMENTATION.md)。
+**项目状态：** 当前源码为 `0.2.0-dev.3`，已完成 M2：小工具中的离线 IPv4/IPv6 子网计算器、专家工具中的 TCP connect 扫描，支持 CLI、取消和导出。导航分为常用工具、文件传输、专家工具和小工具；TFTP、FTP、HTTP 文件服务及 Wormhole 归文件传输。详见 [M2 开发与验收记录](docs/M2-开发与验收记录.md)、[M1 基础功能](docs/M1-开发与验收记录.md)和 [0.2.0 技术开发计划书](docs/HopKit-0.2.0-技术开发计划书.md)。下方下载仍指向已发布候选版 `0.1.0-rc.2`，见其[实现与验收记录](WORMHOLE_IMPLEMENTATION.md)。
 
 ## 软件界面示例
 
@@ -122,7 +122,6 @@ npx tauri build --no-bundle -- --locked
 - [使用指南](docs/usage.zh-CN.md)：详细示例、输出格式、服务配置与限制。
 - [macOS 指南](README-macOS.md)：安装及平台专用说明。
 - [版本记录](CHANGELOG.md)与[发布说明](RELEASING.md)。
-- [Wormhole 实现记录](WORMHOLE_IMPLEMENTATION.md)：已执行验证与待完成的发布验收。
 
 ## 反馈与许可
 

@@ -29,8 +29,8 @@ try{
    return null
   }}
  })
- await page.goto('http://127.0.0.1:1420/');await page.locator('.nav-item').first().waitFor()
- const names=await page.locator('.nav-item b').allTextContents();assert.equal(names[names.findIndex(name=>name==='HTTP File Sharing'||name==='HTTP 文件服务')+1],'Wormhole');assert.equal(names[names.indexOf('Wormhole')+1],'Syslog')
+ await page.goto('http://127.0.0.1:1420/');await page.getByRole('button',{name:'文件传输',exact:true}).click();await page.locator('.nav-item').first().waitFor()
+ const names=await page.locator('.nav-item b').allTextContents();assert.equal(names[names.findIndex(name=>name==='HTTP File Sharing'||name==='HTTP 文件服务')+1],'Wormhole');assert.deepEqual(names,['TFTP','FTP','HTTP 文件服务','Wormhole'])
  await page.locator('.nav-item').filter({has:page.getByText('Wormhole',{exact:true})}).click();assert.equal(await page.evaluate(()=>window.fixture.requests.length),0)
  await page.locator('#wormhole-file').fill('/tmp/中文 file.bin');await page.locator('.wormhole-setup button[type=submit]').click();await page.locator('.wormhole-secret').waitFor();assert((await page.locator('.wormhole-secret').innerText()).includes('42-sensitive'))
  await page.getByRole('button',{name:'导出 JSON',exact:true}).click();const exported=await page.evaluate(()=>window.fixture.exports[0]);assert(!exported.includes('42-sensitive'));assert(!exported.includes('verifier'))

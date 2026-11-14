@@ -12,7 +12,7 @@ The GUI selects English or Chinese from the system language and starts with the 
 
 The task center supports **4 concurrent tasks** and **40 session tasks**, with active tasks pinned above filterable history. Opening a task preserves the form; **Rerun** loads its saved request for review. Tool/mode parameters are retained separately during the session. Stop tasks individually or use **Stop all**; partial evidence is preserved. Closing the GUI stops its tasks while independent CLI processes continue. Task history does not persist and tasks never restart automatically. Valid non-secret tool/mode settings are saved locally and restored.
 
-The sidebar has **Common / Expert / Utilities** categories. All 13 existing tools are in Common; new tools join other categories after implementation and validation. Search across categories by Chinese/English names, protocol or alias; exact names rank first. Enter selects the first result and Esc clears the search. Stars add/remove global favorites. Recent category/tool and sidebar scroll position are saved locally. Navigation does not start or cancel tasks; the sidebar task-center button always reaches active tasks.
+The sidebar categories are **Common / File Transfer / Expert / Utilities**. Common retains 9 diagnostic/monitoring tools. File Transfer contains TFTP, FTP, HTTP File Sharing and Wormhole, keeping FTP and HTTP adjacent. TCP Scan is under Expert and Subnet under Utilities. Selecting a category selects a tool from that category. Search across categories by Chinese/English names, protocol or alias; exact names rank first. Enter selects the first result and Esc clears the search. Stars add/remove global favorites. Recent category/tool and sidebar scroll position are saved locally. Older navigation records follow the tool ID into its current category, preserving favorites and settings. Navigation does not start or cancel tasks; the sidebar task-center button always reaches active tasks.
 
 Expand **Saved targets and site profiles**, enter a name and save the current target or settings. A target opens Troubleshooting; a profile restores its tool and mode. Load settings manually or delete entries with ×. JSON import merges by entry ID and replaces matching tool/mode settings. Schema 1 limits each list to 100 entries and the complete library to 256 KiB, including the merged result. Invalid files preserve the current library; storage errors remain visible while the session stays usable.
 
@@ -75,6 +75,39 @@ hk --help
 Ping payload size is **0–65,500 bytes**, default **32**, excluding IP/ICMP headers; JSON records it as `payload_size_bytes`. Large packets depend on path MTU, fragmentation, and device policy.
 
 The CLI built from source on Linux supports IPv4/IPv6 `ping` and `trace` using kernel ICMP datagram sockets, with no external ping/traceroute program. Unprivileged use requires `net.ipv4.ping_group_range` to include one of the process's groups, including supplementary groups; denied access returns `PERMISSION_DENIED`. `doctor` reports the `linux-datagram` adapter. Linux network overview and route queries are not yet implemented.
+
+### TCP connect scanning (M2)
+
+```sh
+hk scan tcp 192.168.1.10 --ports 22,80,443,8000-8010 --concurrency 32 --rate 100
+hk scan tcp 192.168.1.0/28 192.168.2.10-192.168.2.12 --ports 22,443 -4 --format json
+hk scan tcp example.com --ports 443 --timeout-ms 2000 --source 192.168.1.10 --format jsonl
+hk scan tcp ::1 --ports 22,443 -6
+```
+
+Pass one or more positional targets: IPs, hostnames, IPv4 CIDRs or full IPv4 start-end ranges. IPv6 requires explicit addresses, with numeric scope IDs supported (e.g. `fe80::1%4`). Names resolve once; all fixed candidates appear in target events and results. Ordinary IPv4 CIDRs exclude network/broadcast; /31 and /32 retain all addresses. Addresses and ports are deduplicated.
+
+Limits: 4,096 candidate IPs and 65,536 IP×port pairs; 32 workers by default, at most 128; 1–100 probes/s per task (default 100). Scans in one GUI/process share 128 connections and 200 probes/s. Independent CLI processes have separate budgets. Connect timeout is 100–10,000 ms. The optional source IP starts blank and follows system routing. App startup does not automatically restore a previous source binding. Enter a numeric local IP or explicitly load a site profile to bind; it must match every candidate's family. **Use default source** clears the binding.
+
+Select **Expert → TCP Scan** in the GUI. Presets describe common uses, not detected service identities. Results retain endpoint/error evidence and distinguish `open/refused/timeout/unreachable/local_error/cancelled`. Timeout does not prove filtering. Zero open ports is still a valid completed scan. Results use 100-row pages; filtering/paging does not change totals and JSON export includes all results. **TCPing →** prefills an open endpoint without running it. A notice explains that TCPing cannot carry over scan source binding.
+
+Stop/Ctrl+C preserves completed rows and remaining counts with `partial=true` (exit 130). Cancellation during resolution reports unknown total/remaining as null before any probe starts. Live previews are bounded; full results are available on completion.
+
+### Offline IPv4/IPv6 subnet calculation (M2)
+
+```sh
+hk subnet inspect 192.168.10.25/24 --format json
+hk subnet inspect 192.168.10.25/255.255.255.0
+hk subnet inspect ::/0 --format json
+hk subnet contains 192.168.10.0/24 192.168.10.25
+hk subnet overlap 192.168.10.0/24 192.168.10.128/25
+hk subnet split 192.168.10.0/24 --prefix 26
+hk subnet aggregate 192.168.10.0/25 192.168.10.128/25 --format json
+```
+
+Select **Utilities → Subnet** to inspect networks, test address membership or overlap/containment, split, or aggregate exactly. Network inspection shows summary cards, address/host ranges, masks and broadcast semantics. Membership and overlap show plain-language conclusions. Split/aggregation lists show network counts and exact addresses per network, with 50 rows per page. Raw JSON is collapsed by default; expand it, copy inputs/results or export the full JSON. Calculation runs offline without a network task slot, even when four network tasks are active. `contains` exits 0 for true, 1 for false; invalid arguments exit 2.
+
+IPv4 accepts continuous dotted masks. Ordinary subnets show conventional host ranges; /31 counts two point-to-point addresses and /32 one address. Actual availability depends on configuration. IPv6 has no broadcast and does not exclude first/last addresses. Counts are exact decimal strings through IPv6 /0. Splits and aggregation inputs are limited to 1,024 networks; aggregation preserves gaps. Machine fields remain English and default text retains structured calculation results.
 
 ### iperf3 network speed test
 

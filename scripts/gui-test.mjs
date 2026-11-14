@@ -19,7 +19,7 @@ const report=[]
 const pause=ms=>new Promise(r=>setTimeout(r,ms))
 const check=async(name,fn)=>{try{await fn();report.push({name,status:'passed'})}catch(e){report.push({name,status:'failed',error:String(e)});throw e}}
 const invoke=(command,args={})=>page.evaluate((command,args)=>window.__TAURI_INTERNALS__.invoke(command,args),command,args)
-const clickText=(selector,text)=>page.evaluate((selector,text)=>{const b=[...document.querySelectorAll(selector)].find(b=>b.textContent.includes(text));if(!b)throw new Error('Missing '+text);b.click()},selector,text)
+const clickText=async(selector,text)=>{if(selector==='nav .nav-item'){await page.$eval('#tool-search',(el,value)=>{el.value=value;el.dispatchEvent(new Event('input',{bubbles:true}))},text);await page.waitForFunction(text=>[...document.querySelectorAll('nav .nav-item b')].some(el=>el.textContent===text||text==='HTTP'&&el.textContent.startsWith('HTTP')),{},text)}return page.evaluate((selector,text)=>{const b=[...document.querySelectorAll(selector)].find(b=>b.textContent.includes(text));if(!b)throw new Error('Missing '+text);b.click()},selector,text)}
 const openTaskRow=text=>page.evaluate(text=>{const row=[...document.querySelectorAll('.task-row')].find(row=>row.textContent.includes(text));if(!row)throw new Error('Missing task '+text);row.querySelector('button').click()},text)
 const field=async(selector,value)=>{await page.$eval(selector,(input,value)=>{input.value=String(value);input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}))},value)}
 const taskFinished=async id=>{for(let i=0;i<80;i++){const s=await invoke('task_poll',{id,after:0});if(!['running','cancelling'].includes(s.status))return s;await pause(150)}throw new Error('Task did not finish')}
@@ -28,7 +28,7 @@ try{
  await page.waitForSelector('nav .nav-item')
  await page.evaluate(()=>localStorage.setItem('hopkit-language','zh-CN'));await page.reload()
  await page.waitForSelector('nav .nav-item');await pause(500)
- await check('Native WebView loads bundled assets and the M1 Common tool order',async()=>{assert.deepEqual(await page.$$eval('nav .nav-item b',x=>x.map(e=>e.textContent.startsWith('HTTP')?'HTTP':e.textContent)),['HopKit','Monitor','Ping','Traceroute','TCPing','DNS','iperf3','NTP','TFTP','FTP','HTTP','Wormhole','Syslog']);assert((await page.content()).includes('NETWORK TOOLKIT'));assert(await page.evaluate(()=>!!window.__TAURI_INTERNALS__))})
+ await check('Native WebView loads bundled assets and four tool categories',async()=>{await clickText('.category-switch button','常用工具');assert.deepEqual(await page.$$eval('nav .tool-nav-row b',x=>x.map(e=>e.textContent)),['HopKit','Monitor','Ping','Traceroute','TCPing','DNS','iperf3','NTP','Syslog']);await clickText('.category-switch button','文件传输');assert.deepEqual(await page.$$eval('nav .tool-nav-row b',x=>x.map(e=>e.textContent.startsWith('HTTP')?'HTTP':e.textContent)),['TFTP','FTP','HTTP','Wormhole']);assert((await page.content()).includes('NETWORK TOOLKIT'));assert(await page.evaluate(()=>!!window.__TAURI_INTERNALS__));await clickText('nav .nav-item','Ping')})
  await check('Native appearance switch persists and keeps readable fields',async()=>{
   await page.click('.appearance-switch button:last-child')
   await page.waitForFunction(()=>document.documentElement.dataset.theme==='readable')

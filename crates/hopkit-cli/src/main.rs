@@ -1,3 +1,4 @@
+mod m2_cli;
 mod text;
 mod wormhole_cli;
 use clap::{Args, Parser, Subcommand};
@@ -66,6 +67,13 @@ struct Probe {
 }
 #[derive(Subcommand)]
 enum Command {
+    #[command(subcommand, about = "Bounded TCP connect scanning / 有界 TCP 端口扫描")]
+    Scan(m2_cli::Scan),
+    #[command(
+        subcommand,
+        about = "Offline IPv4/IPv6 subnet calculator / 离线子网计算器"
+    )]
+    Subnet(m2_cli::Subnet),
     #[command(subcommand, about = "Encrypted file transfer / 端到端文件传输")]
     Wormhole(wormhole_cli::Command),
     #[command(about = "Continuous multi-target monitoring / 多目标持续监测")]
@@ -424,6 +432,8 @@ enum Syslog {
 fn request(cmd: Command) -> Result<Request, ToolError> {
     let mut r = Request::default();
     match cmd {
+        Command::Scan(c) => return Ok(c.request()),
+        Command::Subnet(c) => return Ok(c.request()),
         Command::Monitor {
             family,
             targets,

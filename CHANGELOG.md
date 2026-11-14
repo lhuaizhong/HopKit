@@ -1,5 +1,18 @@
 # Changelog / 版本记录
 
+## 0.2.0-dev.3 — M2 / 2026-11-14
+
+- Add offline IPv4/IPv6 subnet inspection, containment/overlap, bounded splitting and exact aggregation. Preserve exact decimal counts through IPv6 /0. CLI and Utilities GUI share the same core; calculation takes no network task slot.
+- Add single/multi-host TCP connect scanning with fixed DNS candidates, source binding, bounded fair workers, shared connection/rate limits, cancellation and partial results. Include CLI text/JSON/JSONL, Expert GUI presets, pagination, full JSON export and manual TCPing handoff.
+- Extend saved profiles, search, favorites and capabilities for both tools; group navigation into Common / File Transfer / Expert / Utilities. TFTP, FTP, HTTP File Sharing and Wormhole move into File Transfer; old navigation follows stable tool IDs with settings and favorites preserved. Synchronize source versions to `0.2.0-dev.3`.
+- Arrange category buttons in a compact two-column grid to leave more sidebar height for the tool list, with complete bilingual labels and running-task badges.
+- 新增离线 IPv4/IPv6 子网计算、包含/重叠、有限拆分与无空洞聚合，精确保留大整数，计算不占网络任务名额；GUI 使用摘要、范围、直观结论和分页网段列表，原始 JSON 默认折叠。
+- 新增单主机/有限多主机 TCP connect 扫描、共享预算与公平限速、固定候选、源绑定、取消及部分结果；提供 CLI、专家工具入口、分页/完整导出与手动 TCPing 联动。
+- TCP Scan 启动时源 IP 留空，默认使用系统路由；固定源绑定须手动填写或主动载入现场配置。原生验收窗口使用隔离存储，避免测试参数污染用户配置。
+- 导航调整为常用工具 / 文件传输 / 专家工具 / 小工具；TFTP、FTP、HTTP 文件服务和 Wormhole 独立成组，旧导航按工具 ID 迁移，保留参数和收藏。
+- 分类按钮改为紧凑的两列两行布局，保留完整中英文名称和运行任务数，为实际工具列表腾出更多高度。
+- 两类新工具接入配置保存、查找收藏和能力接口，详情见 [M2 开发与验收记录](docs/M2-开发与验收记录.md)。
+
 ## 0.2.0-dev.2 — M1 / 2026-11-14
 
 - Add Common/Expert/Utilities navigation, bilingual global search with exact-name priority, favorites, remembered navigation/parameters and a global active-task entry. All 13 existing GUI tools remain in Common; future categories explain their current empty state.

@@ -6,7 +6,7 @@
 
 HopKit brings network troubleshooting, continuous monitoring, throughput tests, file sharing, and log collection into one desktop app. An independent CLI shares the same Rust core for scripts and terminal use.
 
-**Status:** current source is `0.2.0-dev.2`. M1 adds Common/Expert/Utilities navigation, global search and favorites, saved targets/site profiles, and shared capability/budget interfaces. See the [M1 implementation and validation record (Chinese)](docs/M1-开发与验收记录.md) and [0.2.0 technical development plan (Chinese)](docs/HopKit-0.2.0-技术开发计划书.md) for completed work and later milestones. Downloads below still target the published `0.1.0-rc.2` candidate. See its [implementation and validation record](WORMHOLE_IMPLEMENTATION.md) for Wormhole, explicit IPv4/IPv6 selection and concise CLI output.
+**Status:** current source is `0.2.0-dev.3`. M2 adds an offline IPv4/IPv6 subnet calculator under Utilities and bounded TCP connect scanning under Expert, including CLI, cancellation and exports. The sidebar is grouped as Common, File Transfer, Expert and Utilities; File Transfer contains TFTP, FTP, HTTP File Sharing and Wormhole. See the [M2 implementation and validation record (Chinese)](docs/M2-开发与验收记录.md), [M1 foundations](docs/M1-开发与验收记录.md), and [0.2.0 development plan (Chinese)](docs/HopKit-0.2.0-技术开发计划书.md). Downloads below still target the published `0.1.0-rc.2` candidate; see its [implementation and validation record](WORMHOLE_IMPLEMENTATION.md).
 
 ## Interface preview
 
@@ -122,7 +122,6 @@ Packaging and platform acceptance checks are described in the [release instructi
 - [User guide](docs/usage.md): detailed examples, output, service configuration, and limits.
 - [macOS guide](README-macOS.md): installation and platform-specific instructions.
 - [Changelog](CHANGELOG.md) and [release instructions](RELEASING.md).
-- [Wormhole implementation record](WORMHOLE_IMPLEMENTATION.md): validation performed and remaining release checks.
 
 ## Feedback and license
 

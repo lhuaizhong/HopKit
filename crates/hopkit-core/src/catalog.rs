@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolId {
+    Scan,
+    Subnet,
     Check,
     Monitor,
     Network,
@@ -29,8 +31,8 @@ impl ToolId {
     }
 }
 pub const IMPLEMENTED_TOOLS: &[&str] = &[
-    "check", "monitor", "network", "target", "ping", "trace", "tcping", "dns", "ntp", "iperf3",
-    "ftp", "http", "wormhole", "tftp", "syslog",
+    "scan", "subnet", "check", "monitor", "network", "target", "ping", "trace", "tcping", "dns",
+    "ntp", "iperf3", "ftp", "http", "wormhole", "tftp", "syslog",
 ];
 #[derive(Serialize)]
 pub struct Capabilities {
@@ -79,7 +81,7 @@ pub fn capabilities() -> Capabilities {
         tools: IMPLEMENTED_TOOLS,
         network_overview: cfg!(any(windows, target_os = "macos")),
         icmp: cfg!(any(windows, target_os = "macos", target_os = "linux")),
-        source_binding: &["check.tcp", "check.http"],
+        source_binding: &["check.tcp", "check.http", "scan.tcp"],
         adapters: vec![
             Capability {
                 id: "icmp",
@@ -105,7 +107,7 @@ pub fn capabilities() -> Capabilities {
                 id: "source_binding",
                 status: CapabilityStatus::Partial,
                 adapter: "bound-tcp-socket",
-                limitation: "check TCP/HTTP connections support source IP binding. Fixed-interface binding and source binding for other tools are not implemented.",
+                limitation: "check TCP/HTTP and scan TCP connections support source IP binding. Fixed-interface binding and source binding for other tools are not implemented.",
             },
         ],
         probe_budget: Default::default(),
@@ -114,6 +116,25 @@ pub fn capabilities() -> Capabilities {
 impl Request {
     pub fn tool_id(&self) -> Result<ToolId, ToolError> {
         ToolId::parse(&self.tool)
+    }
+    /// New nested tool configurations must match their stable operation identity.
+    pub fn validate_tool_config(&self) -> Result<(), ToolError> {
+        self.tool_id()?;
+        let invalid = self.scan.is_some() && self.tool != "scan"
+            || self.subnet.is_some() && self.tool != "subnet"
+            || self.tool == "scan" && (self.action != "tcp" || self.scan.is_none())
+            || self.tool == "subnet"
+                && self
+                    .subnet
+                    .as_ref()
+                    .is_none_or(|c| c.operation != self.action);
+        if invalid {
+            return Err(ToolError::new(
+                "INVALID_ARGUMENT",
+                "Tool/action/config mismatch / 工具、操作与配置不匹配",
+            ));
+        }
+        Ok(())
     }
     /// Explicit boundary for task/profile persistence. Runtime secrets stay on Request only.
     pub fn snapshot(&self) -> Result<serde_json::Value, ToolError> {
@@ -131,8 +152,24 @@ mod tests {
     use super::*;
     #[test]
     fn unimplemented_tools_are_rejected() {
-        assert!(ToolId::parse("scan").is_err());
+        assert!(ToolId::parse("unimplemented").is_err());
         assert!(ToolId::parse("http").is_ok());
+        let mut r = Request {
+            tool: "scan".into(),
+            scan: Some(Default::default()),
+            ..Default::default()
+        };
+        assert!(r.validate_tool_config().is_err());
+        r.action = "tcp".into();
+        assert!(r.validate_tool_config().is_ok());
+        r.tool = "ping".into();
+        assert!(r.validate_tool_config().is_err());
+        r.scan = None;
+        r.tool = "subnet".into();
+        r.subnet = Some(Default::default());
+        assert!(r.validate_tool_config().is_err());
+        r.action = "inspect".into();
+        assert!(r.validate_tool_config().is_ok());
     }
     #[test]
     fn snapshot_excludes_credentials_payloads_and_url_query() {

@@ -10,7 +10,7 @@ const items=computed(()=>query.value.trim()?searchTools(query.value):tools.filte
 const activeCount=(category:CategoryId)=>props.activeTools.filter(id=>tools.some(tool=>tool.id===id&&tool.category===category)).length
 const favorites=computed(()=>props.state.favorites.map(id=>tools.find(t=>t.id===id)!).filter(Boolean))
 function scroll(){if(!query.value.trim()&&list.value){props.state.scroll[props.state.category]=list.value.scrollTop;emit('change')}}
-async function category(id:CategoryId){scroll();props.state.category=id;query.value='';emit('change');await nextTick();if(list.value)list.value.scrollTop=props.state.scroll[id]}
+async function category(id:CategoryId){scroll();props.state.category=id;query.value='';if(categoryOf(props.state.tool)!==id){const first=tools.find(t=>t.category===id);if(first)emit('select',first.id)}emit('change');await nextTick();if(list.value)list.value.scrollTop=props.state.scroll[id]}
 async function select(id:ToolId){scroll();props.state.category=categoryOf(id);query.value='';emit('select',id);emit('change');await nextTick();if(list.value)list.value.scrollTop=props.state.scroll[props.state.category];document.querySelector<HTMLElement>('main h1')?.focus({preventScroll:true})}
 function favorite(id:ToolId){props.state.favorites=props.state.favorites.includes(id)?props.state.favorites.filter(t=>t!==id):[...props.state.favorites,id];emit('change')}
 nextTick(()=>{if(list.value)list.value.scrollTop=props.state.scroll[props.state.category]})
@@ -20,7 +20,7 @@ nextTick(()=>{if(list.value)list.value.scrollTop=props.state.scroll[props.state.
   <label for="tool-search" class="nav-search-label">{{t('查找工具','Find a tool')}}</label>
   <input id="tool-search" v-model="query" type="search" :placeholder="t('搜索名称或协议…','Search name or protocol…')" @keydown.esc="query=''" @keydown.enter.prevent="items[0]&&select(items[0].id)">
   <div class="category-switch" role="group" :aria-label="t('工具分类','Tool categories')">
-   <button v-for="c in categories" :key="c.id" type="button" :aria-pressed="state.category===c.id" @click="category(c.id)">{{en?c.label[1]:c.label[0]}}<span v-if="activeCount(c.id)"> · {{activeCount(c.id)}}</span></button>
+   <button v-for="c in categories" :key="c.id" type="button" :aria-pressed="state.category===c.id" @click="category(c.id)"><span class="category-name">{{en?c.label[1]:c.label[0]}}</span><span v-if="activeCount(c.id)" class="category-count"><span class="category-count-separator"> · </span>{{activeCount(c.id)}}</span></button>
   </div>
   <button type="button" class="navigation-tasks" @click="emit('tasks')">{{t('任务中心','Task center')}} · {{activeTools.length}} {{t('项运行中','active')}}</button>
   <nav ref="list" :aria-label="t('工具导航','Tool navigation')" @scroll.passive="scroll">
@@ -35,6 +35,17 @@ nextTick(()=>{if(list.value)list.value.scrollTop=props.state.scroll[props.state.
  </div>
 </template>
 <style scoped>
-.tool-navigation{display:flex;flex-direction:column;min-height:0;flex:1;gap:10px}.nav-search-label{font-size:12px;margin:0;color:#43536a}#tool-search{width:100%;min-width:0;padding:9px;border:1px solid #8b9bb0}.category-switch{display:flex;flex-direction:column;gap:4px}.category-switch button,.navigation-tasks{min-height:32px;border:1px solid #b6c4d4;background:#fff;color:#43536a;text-align:left;padding:6px 9px}.category-switch [aria-pressed=true]{background:#eaf2ff;color:#174b94;border-color:#1756a9}.navigation-tasks{color:#174b94}.tool-nav-row{display:flex;align-items:center;min-width:0}.nav-item{flex:1;min-width:0;margin:0;padding:10px 5px;gap:8px;width:auto}.nav-item>span:nth-child(2){min-width:0}.nav-item b,.nav-item small{overflow-wrap:anywhere;white-space:normal}.favorite-toggle{flex:none;width:28px;padding:4px 0;background:transparent;border:0;color:#82601b;font-size:19px}.navigation-empty{font-size:13px;padding:12px 8px;line-height:1.65;color:#43536a}.nav-label{padding:8px;font-size:11px}nav{flex:1;min-height:0;overflow-y:auto}.nav-glyph{flex-shrink:0;width:22px;font-size:21px}button:focus-visible,#tool-search:focus-visible{outline:3px solid #1756a9;outline-offset:-2px}
-:root[data-theme=readable] .category-switch button,:root[data-theme=readable] .navigation-tasks,:root[data-theme=readable] .nav-search-label,:root[data-theme=readable] .nav-label,:root[data-theme=readable] .navigation-empty{font-size:14px} :root[data-theme=readable] .favorite-toggle{min-height:40px}
+.tool-navigation{display:flex;flex-direction:column;min-height:0;flex:1;gap:10px}.nav-search-label{font-size:12px;margin:0;color:#43536a}#tool-search{width:100%;min-width:0;padding:9px;border:1px solid #8b9bb0}
+.category-switch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;flex-shrink:0}
+.category-switch button,.navigation-tasks{min-height:32px;border:1px solid #b6c4d4;background:#fff;color:#43536a;padding:6px 9px}
+.category-switch button{display:flex;align-items:center;justify-content:center;gap:3px;min-width:0;padding:4px 3px;font-size:12px;line-height:1.3;text-align:center}
+.category-name{min-width:0;overflow-wrap:normal}
+.category-count{flex-shrink:0;min-width:16px;padding:1px 4px;border-radius:8px;background:#eaf2ff;color:#174b94;font-size:10px;line-height:14px}
+.category-count-separator{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.category-switch [aria-pressed=true]{background:#eaf2ff;color:#174b94;border-color:#1756a9}
+.navigation-tasks{color:#174b94;text-align:left}.tool-nav-row{display:flex;align-items:center;min-width:0}.nav-item{flex:1;min-width:0;margin:0;padding:10px 5px;gap:8px;width:auto}.nav-item>span:nth-child(2){min-width:0}.nav-item b,.nav-item small{overflow-wrap:anywhere;white-space:normal}.favorite-toggle{flex:none;width:28px;padding:4px 0;background:transparent;border:0;color:#82601b;font-size:19px}.navigation-empty{font-size:13px;padding:12px 8px;line-height:1.65;color:#43536a}.nav-label{padding:8px;font-size:11px}nav{flex:1;min-height:0;overflow-y:auto}.nav-glyph{flex-shrink:0;width:22px;font-size:21px}button:focus-visible,#tool-search:focus-visible{outline:3px solid #1756a9;outline-offset:-2px}
+:root[data-theme=readable] .category-switch button,:root[data-theme=readable] .navigation-tasks,:root[data-theme=readable] .nav-search-label,:root[data-theme=readable] .nav-label,:root[data-theme=readable] .navigation-empty{font-size:14px}
+:root[data-theme=readable] .category-switch button{min-height:36px}
+:root[data-theme=readable] .category-count{font-size:12px;line-height:16px}
+:root[data-theme=readable] .favorite-toggle{min-height:40px}
 </style>

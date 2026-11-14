@@ -212,6 +212,18 @@ impl TextOutput {
         Some(out)
     }
     pub fn event(&mut self, v: &Value) -> Option<String> {
+        if v["event_type"] == "scan_row" {
+            let r = &v["row"];
+            return Some(format!(
+                "{} {} {:.2} ms",
+                s(r, "remote_endpoint"),
+                s(r, "status"),
+                r["elapsed_ms"].as_f64().unwrap_or(0.0)
+            ));
+        }
+        if v["event_type"] == "scan_target" {
+            return Some(format!("{} → {}", s(v, "input"), list(&v["candidates"])));
+        }
         let kind = v["event_type"].as_str().unwrap_or("");
         match kind {
             "target" if matches!(self.request.tool.as_str(), "ping" | "tcping" | "trace") => {
@@ -470,6 +482,27 @@ impl TextOutput {
         )
     }
     pub fn finish(&mut self, envelope: &Value) -> String {
+        if matches!(self.request.tool.as_str(), "scan" | "subnet") {
+            let data = &envelope["data"];
+            let mut out = if self.request.tool == "subnet" {
+                serde_json::to_string_pretty(data).unwrap_or_default()
+            } else {
+                format!(
+                    "{}: {} / {} · {}: {} · {}: {}",
+                    self.t("Completed", "已完成"),
+                    n(&data["stats"], "completed"),
+                    n(&data["stats"], "total"),
+                    self.t("Remaining", "剩余"),
+                    n(&data["stats"], "remaining"),
+                    self.t("Open", "开放"),
+                    data["stats"]["counts"]["open"].as_u64().unwrap_or(0)
+                )
+            };
+            if !envelope["error"].is_null() {
+                out.push_str(&format!("\n{}", self.error(&envelope["error"])));
+            }
+            return out;
+        }
         let mut lines = vec![];
         if let Some(hop) = self.flush_hop() {
             lines.push(hop);

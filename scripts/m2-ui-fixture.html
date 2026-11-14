@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="app"></div><script type="module">
+import {mockIPC} from '@tauri-apps/api/mocks'
+import {createApp} from 'vue'
+import App from '../src/App.vue'
+import '../src/style.css'
+import '../src/appearance.css'
+const tasks=[]
+window.m2Fixture={requests:[],exports:[]}
+mockIPC(async(command,args)=>{
+ if(command==='app_info')return {version:'0.2.0-dev.3 fixture',os:'macOS',platform:'macOS fixture'}
+ if(command==='network_overview')return {interfaces:[],default_routes:[],dns:[],captured_at:'fixture'}
+ if(command==='list_tasks')return structuredClone(tasks)
+ if(command==='task_poll')return structuredClone(tasks.find(t=>t.id===args.id))
+ if(command==='calculate_subnet'){const r=await fetch('/m2-api',{method:'POST',body:JSON.stringify(args.config)});const v=await r.json();if(v.error)throw Error(v.error.message);return v.data}
+ if(command==='start_task'){
+  const r=structuredClone(args.request);window.m2Fixture.requests.push(r)
+  const rows=Array.from({length:105},(_,i)=>({address:'192.0.2.10',port:i+1,status:i===0?'open':'refused',elapsed_ms:1.25,remote_endpoint:'192.0.2.10:'+(i+1),local_endpoint:'192.0.2.1:50000',error:null}))
+  const data={schema_version:1,candidates:['192.0.2.10'],ports:rows.map(r=>r.port),rows,stats:{total:105,completed:105,remaining:0,interrupted:0,counts:{open:1,refused:104},duration_ms:100},partial:false,notes:[]}
+  const id='scan-'+tasks.length;const running=r.scan?.rate===1;tasks.push({id,tool:'scan',action:'tcp',target:r.target,port:0,started_at:new Date().toISOString(),seq:1,status:running?'running':'succeeded',events:[],latest_stats:null,request:r,result:running?null:{status:'succeeded',data}});return id
+ }
+ if(command==='cancel_task'||command==='stop_all'){
+  for(const t of tasks)if(command==='stop_all'||t.id===args.id){
+   t.status='cancelled';t.seq++
+   t.result={status:'cancelled',data:{schema_version:1,candidates:['192.0.2.10'],ports:[1,2],rows:[],stats:{total:2,completed:0,remaining:2,interrupted:0,counts:{},duration_ms:100},partial:true,notes:[]}}
+  }
+  return
+ }
+ if(command==='export_result'){window.m2Fixture.exports.push(JSON.parse(args.content));return true}
+ return null
+})
+createApp(App).mount('#app')
+</script></body></html>

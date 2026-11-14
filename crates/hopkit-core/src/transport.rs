@@ -122,6 +122,8 @@ fn connect_error(e: io::Error) -> ToolError {
             "CONNECTION_REFUSED"
         } else if is_timeout(&e) {
             "TIMEOUT"
+        } else if matches!(e.raw_os_error(), Some(51 | 65 | 101 | 113 | 10051 | 10065)) {
+            "NETWORK_UNREACHABLE"
         } else {
             "CONNECT_ERROR"
         },

@@ -1,11 +1,12 @@
 export const categories = [
  {id:'common', label:['常用工具','Common']},
+ {id:'files', label:['文件传输','File Transfer']},
  {id:'expert', label:['专家工具','Expert']},
  {id:'utilities', label:['小工具','Utilities']},
 ] as const
 export type CategoryId = typeof categories[number]['id']
-export type ToolId = 'check'|'monitor'|'ping'|'trace'|'tcping'|'dns'|'ntp'|'iperf3'|'tftp'|'ftp'|'http'|'wormhole'|'syslog'
-export type ToolDefinition = {id:ToolId;name:string;glyph:string;sub:[string,string];desc:[string,string];category:CategoryId;aliases:string[];view:'check'|'monitor'|'wormhole'|'legacy';requirements:string[]}
+export type ToolId = 'scan'|'subnet'|'check'|'monitor'|'ping'|'trace'|'tcping'|'dns'|'ntp'|'iperf3'|'tftp'|'ftp'|'http'|'wormhole'|'syslog'
+export type ToolDefinition = {id:ToolId;name:string;glyph:string;sub:[string,string];desc:[string,string];category:CategoryId;aliases:string[];view:'check'|'monitor'|'wormhole'|'scan'|'subnet'|'legacy';requirements:string[]}
 const entries:Omit<ToolDefinition,'category'|'aliases'|'view'|'requirements'>[]=[
  {id:'ping',name:'Ping',glyph:'↗',sub:['连通性测试','ICMP echo'],desc:['检测目标可达性、延迟与丢包。','Measure reachability, latency and packet loss.']},
  {id:'trace',name:'Traceroute',glyph:'⌁',sub:['路由追踪','Route tracing'],desc:['逐跳查看 ICMP 路径，识别响应与超时。','Inspect ICMP responses along the route.']},
@@ -22,8 +23,11 @@ const entries:Omit<ToolDefinition,'category'|'aliases'|'view'|'requirements'>[]=
  {id:'monitor',name:'Monitor',glyph:'◴',sub:['多目标持续监测','Multi-target monitoring'],desc:['同时观察网关、外部目标和业务服务器，记录失败与恢复时间。','Observe gateway, external and business targets together, with failure and recovery times.']}
 ]
 const order:ToolId[]=['check','monitor','ping','trace','tcping','dns','iperf3','ntp','tftp','ftp','http','wormhole','syslog']
+const fileTools:ToolId[]=['tftp','ftp','http','wormhole']
 const aliases:Partial<Record<ToolId,string[]>>={check:['网络排障','troubleshooting','诊断'],monitor:['持续监测','monitor'],trace:['路由追踪','traceroute'],http:['HTTP','文件共享','file sharing'],ftp:['文件传输'],syslog:['日志','日志接收']}
-export const tools:ToolDefinition[]=order.map(id=>({...entries.find(t=>t.id===id)!,id,category:'common',aliases:aliases[id]??[],view:['check','monitor','wormhole'].includes(id)?id as 'check'|'monitor'|'wormhole':'legacy',requirements:[]}))
+export const tools:ToolDefinition[]=order.map(id=>({...entries.find(t=>t.id===id)!,id,category:fileTools.includes(id)?'files':'common',aliases:aliases[id]??[],view:['check','monitor','wormhole'].includes(id)?id as 'check'|'monitor'|'wormhole':'legacy',requirements:[]}))
+tools.push({id:'scan',name:'TCP Scan',glyph:'▦',sub:['TCP 端口扫描','TCP port scanner'],desc:['对明确目标做有界 TCP 建连扫描。','Bounded TCP connect scanning of explicit targets.'],category:'expert',aliases:['扫端口','端口扫描','port scan','scanner'],view:'scan',requirements:[]},{id:'subnet',name:'Subnet',glyph:'⊞',sub:['子网计算器','Subnet calculator'],desc:['离线计算 IPv4/IPv6 网段、包含关系、拆分与精确聚合。','Offline IPv4/IPv6 subnet arithmetic, containment, splitting and exact aggregation.'],category:'utilities',aliases:['子网','掩码','CIDR','subnet calculator'],view:'subnet',requirements:[]})
+
 export function isToolId(value:unknown):value is ToolId {return tools.some(t=>t.id===value)}
 export function displayName(tool:ToolDefinition,en:boolean){return en&&tool.id==='http'?'HTTP File Sharing':tool.name}
 export function searchTools(query:string){const normalized=query.trim().toLocaleLowerCase(),terms=normalized.split(/\s+/);return tools.filter(t=>terms.every(term=>[t.name,...t.sub,...t.desc,...t.aliases,t.id].join(' ').toLocaleLowerCase().includes(term))).sort((a,b)=>Number([b.id,b.name,...b.aliases].some(s=>s.toLocaleLowerCase()===normalized))-Number([a.id,a.name,...a.aliases].some(s=>s.toLocaleLowerCase()===normalized)))}

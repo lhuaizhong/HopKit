@@ -122,7 +122,14 @@ fn snap(t: &Task, after: u64) -> Snapshot {
 
 #[tauri::command]
 fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String, String> {
-    request.tool_id().map_err(|e| e.to_string())?;
+    request.validate_tool_config().map_err(|e| e.to_string())?;
+    if request.tool == "subnet" {
+        return Err("Use offline subnet calculation command".into());
+    }
+    if request.tool == "scan" {
+        hopkit_core::scan::validate(request.scan.as_ref().ok_or("Scan configuration required")?)
+            .map_err(|e| e.to_string())?;
+    }
     if request.tool == "wormhole" {
         let config = request
             .wormhole
@@ -253,6 +260,10 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
         }
     });
     Ok(id)
+}
+#[tauri::command]
+fn calculate_subnet(config: hopkit_core::subnet::Config) -> Result<Value, String> {
+    hopkit_core::subnet::calculate(&config).map_err(|e| e.to_string())
 }
 #[tauri::command]
 async fn network_overview() -> Result<Value, String> {
@@ -609,7 +620,9 @@ fn shutdown(handle: tauri::AppHandle, state: Tasks) {
 #[cfg(feature = "native-test")]
 #[tauri::command]
 fn native_test_report(value: Value, app: tauri::AppHandle) -> Result<(), String> {
-    let relative = if value["scenario"] == "m1" {
+    let relative = if value["scenario"] == "m2" {
+        "../test-output/m2/native.json"
+    } else if value["scenario"] == "m1" {
         "../test-output/m1/native.json"
     } else {
         "../test-output/wormhole/native.json"
@@ -621,6 +634,18 @@ fn native_test_report(value: Value, app: tauri::AppHandle) -> Result<(), String>
     Ok(())
 }
 fn main() {
+    let context = tauri::generate_context!();
+    #[cfg(feature = "native-test")]
+    let context = {
+        let mut context = context;
+        // Test form values must never reach the user's persistent WebView store.
+        if std::env::var_os("HOPKIT_NATIVE_TEST_CONFIG").is_some() {
+            for window in &mut context.config_mut().app.windows {
+                window.incognito = true;
+            }
+        }
+        context
+    };
     let app = tauri::Builder::default()
         .on_page_load(|webview, payload| {
             #[cfg(feature = "native-test")]
@@ -629,7 +654,9 @@ fn main() {
                     if let Ok(value) = std::fs::read_to_string(config).and_then(|s| {
                         serde_json::from_str::<Value>(&s).map_err(std::io::Error::other)
                     }) {
-                        let driver = if value["scenario"] == "m1" {
+                        let driver = if value["scenario"] == "m2" {
+                            include_str!("../../scripts/m2-native-driver.js")
+                        } else if value["scenario"] == "m1" {
                             include_str!("../../scripts/m1-native-driver.js")
                         } else {
                             include_str!("../../scripts/wormhole-native-driver.js")
@@ -648,6 +675,7 @@ fn main() {
             native_test_report,
             start_task,
             network_overview,
+            calculate_subnet,
             http_file_addresses,
             parse_target,
             list_tasks,
@@ -667,7 +695,7 @@ fn main() {
             browse_syslog_logs,
             app_info
         ])
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("Cannot start HopKit; check the platform WebView runtime");
     app.run(|app, event| {
         // macOS normally keeps an app alive after the last window closes.

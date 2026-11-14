@@ -1,11 +1,12 @@
+import {cleanScan,cleanSubnet} from './m2'
 import {defaults, type ToolSnapshot} from './config'
 import {isToolId, type ToolId} from './registry'
 export type TargetBookmark={id:string;name:string;target:string}
 export type Profile={id:string;name:string;snapshot:ToolSnapshot}
 export type Library={schema_version:1;bookmarks:TargetBookmark[];profiles:Profile[];configurations:ToolSnapshot[]}
 export const emptyLibrary=():Library=>({schema_version:1,bookmarks:[],profiles:[],configurations:[]})
-export const defaultMode=(id:ToolId)=>({ftp:'list',http:'serve',tftp:'get',ntp:'query',iperf3:'client',syslog:'listen',dns:'system',wormhole:'send'} as Partial<Record<ToolId,string>>)[id]??''
-const modes:Partial<Record<ToolId,string[]>>={ftp:['list','get','put','serve'],http:['serve'],tftp:['get','put','serve'],ntp:['query','serve'],iperf3:['client','serve'],syslog:['listen','send'],dns:['system','direct'],wormhole:['send','receive']}
+export const defaultMode=(id:ToolId)=>({ftp:'list',http:'serve',tftp:'get',ntp:'query',iperf3:'client',syslog:'listen',dns:'system',wormhole:'send',scan:'tcp'} as Partial<Record<ToolId,string>>)[id]??''
+const modes:Partial<Record<ToolId,string[]>>={ftp:['list','get','put','serve'],http:['serve'],tftp:['get','put','serve'],ntp:['query','serve'],iperf3:['client','serve'],syslog:['listen','send'],dns:['system','direct'],wormhole:['send','receive'],scan:['tcp'],subnet:['']}
 const validMode=(tool:ToolId,mode:unknown)=>typeof mode==='string'&&(modes[tool]??['']).includes(mode)
 const bounded=(v:unknown,max=4096):v is string=>typeof v==='string'&&v.length<=max&&!/[\x00-\x1f]/.test(v)
 export function safeTarget(target:string):string{
@@ -33,6 +34,8 @@ export function sanitizeSnapshot(input:unknown):ToolSnapshot{
  }
  if(values.ipv4&&values.ipv6||values.iperf_protocol!==undefined&&!['tcp','udp'].includes(values.iperf_protocol)||values.record_type!==undefined&&!['A','AAAA','CNAME','MX','TXT','NS','PTR','SOA'].includes(values.record_type))throw Error('Invalid configuration option / 配置选项无效')
  const snapshot:ToolSnapshot={schema_version:1,tool:data.tool,mode:data.mode,values}
+ if(data.tool==='scan'&&data.scan)snapshot.scan=cleanScan(data.scan)
+ if(data.tool==='subnet'&&data.subnet)snapshot.subnet=cleanSubnet(data.subnet)
  if(data.tool==='monitor'&&data.monitor){
   const m=data.monitor
   if(!Array.isArray(m.targets)||m.targets.length<1||m.targets.length>3)throw Error('Invalid monitor targets')
