@@ -212,6 +212,12 @@ impl TextOutput {
         Some(out)
     }
     pub fn event(&mut self, v: &Value) -> Option<String> {
+        if v["event_type"] == "discovery_device" {
+            // Text results are printed once, numerically sorted, after completion.
+            // JSONL continues to expose every incremental evidence event.
+            return None;
+        }
+
         if v["event_type"] == "scan_row" {
             let r = &v["row"];
             return Some(format!(
@@ -482,6 +488,36 @@ impl TextOutput {
         )
     }
     pub fn finish(&mut self, envelope: &Value) -> String {
+        if self.request.tool == "discovery" {
+            let d = &envelope["data"];
+            let mut text=format!("{}: {} · {}: {} · {}: {}\n{}",self.t("Candidates","候选"),n(&d["stats"],"candidates"),self.t("Responders","响应设备"),n(&d["stats"],"responders"),self.t("Unknown","未知"),n(&d["stats"],"unknown"),self.t("No response does not prove offline or an available IP. Cache and PTR are separate evidence.","未响应不代表离线或空闲 IP；邻居缓存与 PTR 名称为独立证据。"));
+            for row in d["rows"].as_array().into_iter().flatten() {
+                if d["stats"]["planned"] != 0 && row["responded"] != true {
+                    continue;
+                }
+                if d["stats"]["planned"] == 0
+                    && !row["neighbors"]
+                        .as_array()
+                        .is_some_and(|ns| ns.iter().any(|n| n["mac"].is_string()))
+                {
+                    continue;
+                }
+                text.push_str(&format!(
+                    "\n{} · neighbors={} · PTR={} · MAC change={}",
+                    s(row, "address"),
+                    row["neighbors"],
+                    row["name"],
+                    row["mac_change_hint"]
+                ));
+            }
+            for error in d["errors"].as_array().into_iter().flatten() {
+                text.push_str(&format!("\n{}", self.error(error)));
+            }
+            if !envelope["error"].is_null() {
+                text.push_str(&format!("\n{}", self.error(&envelope["error"])));
+            }
+            return text;
+        }
         if matches!(self.request.tool.as_str(), "scan" | "subnet") {
             let data = &envelope["data"];
             let mut out = if self.request.tool == "subnet" {

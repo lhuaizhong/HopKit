@@ -103,6 +103,16 @@ pub(crate) fn icmp(
     payload_size: usize,
     cancel: &Cancel,
 ) -> Result<Value, ToolError> {
+    icmp_bound(addr, ttl, timeout, payload_size, cancel, "")
+}
+pub(crate) fn icmp_bound(
+    addr: SocketAddr,
+    ttl: u8,
+    timeout: u32,
+    payload_size: usize,
+    cancel: &Cancel,
+    source: &str,
+) -> Result<Value, ToolError> {
     let v6 = addr.is_ipv6();
     let socket = Socket::new(
         Domain::for_address(addr),
@@ -120,6 +130,13 @@ pub(crate) fn icmp(
         socket.set_unicast_hops_v6(ttl as u32)?;
     } else {
         socket.set_ttl_v4(ttl as u32)?;
+    }
+    if !source.is_empty() {
+        let local = crate::target::literal_socket(source, 0)
+            .ok_or_else(|| ToolError::new("INVALID_ARGUMENT", "Invalid source"))?;
+        socket
+            .bind(&local.into())
+            .map_err(|e| ToolError::new("SOURCE_BIND_FAILED", e.to_string()))?;
     }
     let socket: UdpSocket = socket.into();
     // Short reads make cancellation independent of the configured probe timeout.

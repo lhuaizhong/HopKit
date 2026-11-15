@@ -1,0 +1,28 @@
+<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="app"></div><script type="module">
+import {mockIPC} from '@tauri-apps/api/mocks'
+import {createApp} from 'vue'
+import App from '../src/App.vue'
+import '../src/style.css'
+import '../src/appearance.css'
+const tasks=[]
+window.m3Fixture={requests:[],exports:[]}
+const at='2026-11-15T09:00:00Z'
+function device(i){return {address:`192.0.2.${i+1}`,responded:i<105,first_response_at:i<105?at:null,last_response_at:i<105?at:null,observations:i===0?[{method:'tcp',status:'refused',responded:true,port:443,elapsed_ms:1.25,observed_at:at,source:'192.0.2.254',local_endpoint:null,error:null}]:[],neighbors:i===0?[{address:'192.0.2.1',interface:'fixture0',interface_index:7,mac:'02:00:00:00:00:01',state:'stale',source:'fixture-arp',observed_at:at,phase:'before'},{address:'192.0.2.1',interface:'fixture0',interface_index:7,mac:'02:00:00:00:00:02',state:'reachable',source:'fixture-arp',observed_at:at,phase:'after'}]:[],name:i===0?{source:'dns_ptr',server:'192.0.2.53',observed_at:at,names:['<img src=x onerror=alert(1)>.example'],error:null}:null,mac_change_hint:i===0}}
+mockIPC(async(command,args)=>{
+ if(command==='app_info')return {version:'0.2.0-dev.4 fixture',os:'macOS',platform:'macOS fixture'}
+ if(command==='network_overview')return {interfaces:[],default_routes:[],dns:[],captured_at:at}
+ if(command==='discovery_interfaces')return [{name:'fixture0',index:7,address:'192.0.2.254',prefix:24}]
+ if(command==='list_tasks')return structuredClone(tasks)
+ if(command==='task_poll')return structuredClone(tasks.find(t=>t.id===args.id))
+ if(command==='start_task'){
+  const r=structuredClone(args.request);window.m3Fixture.requests.push(r)
+  const rows=Array.from({length:108},(_,i)=>device(i)).reverse();const data={schema_version:1,rows,stats:{candidates:108,responders:105,unknown:3,planned:108,completed:108,remaining:0,duration_ms:100},neighbor_sources:['fixture-arp'],errors:[],partial:false,limitations:['ARP is limited to directly connected IPv4 targets']}
+  rows.find(r=>r.address==='192.0.2.2').observations=[{method:'icmp',status:'timeout',responded:false,port:null,elapsed_ms:100,observed_at:at,source:'192.0.2.254',local_endpoint:null,error:null},{method:'arp',status:'reply',responded:true,port:null,elapsed_ms:2,observed_at:at,source:'192.0.2.254',local_endpoint:null,error:null}];rows.find(r=>r.address==='192.0.2.2').neighbors=[{address:'192.0.2.2',interface:'fixture0',interface_index:7,mac:'02:00:00:00:00:22',state:'reply',source:'macos-bpf-arp',observed_at:at,phase:'active'}];
+  const id='discovery-'+tasks.length,running=r.discovery?.rate===1;tasks.push({id,tool:'discovery',action:'discover',target:r.target,port:0,started_at:at,seq:1,status:running?'running':'succeeded',events:running?Array.from({length:150},(_,i)=>({cursor:i+2,event_type:'discovery_device',device:device(106)})):[],discovery_devices:running?[device(0)]:undefined,latest_stats:null,request:r,result:running?null:{status:'succeeded',data}});return id
+ }
+ if(command==='cancel_task'||command==='stop_all'){for(const t of tasks)if(command==='stop_all'||t.id===args.id){t.status='cancelled';t.seq++;t.result={status:'cancelled',data:{schema_version:1,rows:[device(0)],stats:{candidates:105,responders:1,unknown:104,planned:105,completed:1,remaining:104,duration_ms:100},neighbor_sources:[],errors:[],partial:true,limitations:[]}}}return}
+ if(command==='export_result'){window.m3Fixture.exports.push(JSON.parse(args.content));return true}
+ return null
+})
+createApp(App).mount('#app')
+</script></body></html>

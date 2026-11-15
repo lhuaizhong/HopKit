@@ -1,3 +1,4 @@
+mod discovery_cli;
 mod m2_cli;
 mod text;
 mod wormhole_cli;
@@ -67,6 +68,10 @@ struct Probe {
 }
 #[derive(Subcommand)]
 enum Command {
+    #[command(
+        about = "Device discovery; no response means unknown / 设备发现，未响应不代表空闲 IP"
+    )]
+    Discover(discovery_cli::Discover),
     #[command(subcommand, about = "Bounded TCP connect scanning / 有界 TCP 端口扫描")]
     Scan(m2_cli::Scan),
     #[command(
@@ -432,6 +437,7 @@ enum Syslog {
 fn request(cmd: Command) -> Result<Request, ToolError> {
     let mut r = Request::default();
     match cmd {
+        Command::Discover(c) => return Ok(c.request()),
         Command::Scan(c) => return Ok(c.request()),
         Command::Subnet(c) => return Ok(c.request()),
         Command::Monitor {
@@ -820,7 +826,14 @@ fn exit_code(e: &str) -> i32 {
     match e {
         "CANCELLED" => 130,
         "INVALID_ARGUMENT" | "INVALID_CODE" => 2,
-        "PERMISSION_DENIED" | "ADDRESS_IN_USE" | "DIRECTORY_IN_USE" | "UNSUPPORTED_CAPABILITY" => 3,
+        "PERMISSION_DENIED"
+        | "ADDRESS_IN_USE"
+        | "DIRECTORY_IN_USE"
+        | "UNSUPPORTED_CAPABILITY"
+        | "LOCAL_PROBE_FAILED"
+        | "SOURCE_BIND_FAILED"
+        | "RESOURCE_EXHAUSTED"
+        | "SYSTEM_QUERY_FAILED" => 3,
         "IO_ERROR" | "STORAGE_FULL" | "INTERNAL_ERROR" | "ALREADY_EXISTS" | "NOT_FOUND" => 4,
         _ => 1,
     }

@@ -1,5 +1,12 @@
 # Changelog / 版本记录
 
+## 0.2.0-dev.4 — M3 / 2026-11-15
+
+- Add bounded ARP/ICMP/TCP device discovery for explicit IPv4 ranges and IPv6 candidates, with shared Scan admission/rate budgets, source binding, cancellation and partial results.
+- Keep active responses, read-only neighbor cache and optional bounded PTR evidence separate. Preserve link/state/time/MAC sources, surface MAC change clues without asserting conflict, and treat redacted MACs as unknown.
+- Add `hk discover`, Expert Discovery GUI, filtering/paging/full JSON export, saved profiles and manual handoff to Scan/Ping/TCPing/Check without execution. Preserve bilingual navigation and both appearances.
+- 新增 M3 设备发现、邻居来源、可选 PTR、MAC 变化线索与跨工具手动联动；未响应始终为未知，不判断空闲 IP。发现结果仅显示响应设备并按 IP 排序，MAC 直显；ARP 仅限实际路由直连的 IPv4 目标。macOS BPF 权限、主动 ND、OUI 厂商及三平台现场验收的边界见 [M3 开发与验收记录](docs/M3-开发与验收记录.md)。
+
 ## 0.2.0-dev.3 — M2 / 2026-11-14
 
 - Add offline IPv4/IPv6 subnet inspection, containment/overlap, bounded splitting and exact aggregation. Preserve exact decimal counts through IPv6 /0. CLI and Utilities GUI share the same core; calculation takes no network task slot.

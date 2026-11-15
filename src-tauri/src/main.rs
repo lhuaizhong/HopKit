@@ -34,11 +34,27 @@ struct Task {
     result: Option<Value>,
     request: Value,
     latest_stats: Option<Value>,
+    discovery_devices: BTreeMap<String, Value>,
     monitor_control: Arc<hopkit_core::monitor::Control>,
     wormhole_control: Arc<hopkit_core::wormhole::Control>,
 }
 impl Task {
     fn record_event(&mut self, body: Value) {
+        // Discovery state is bounded by candidate IPs, not the generic event preview.
+        // A responding gateway must survive thousands of later timeout events.
+        if body["event_type"] == "discovery_device" {
+            let device = &body["device"];
+            if let Some(ip) = device["address"].as_str()
+                && (device["responded"] == true
+                    || device["neighbors"]
+                        .as_array()
+                        .is_some_and(|ns| ns.iter().any(|n| n["mac"].is_string())))
+                && (self.discovery_devices.contains_key(ip) || self.discovery_devices.len() < 4096)
+            {
+                self.discovery_devices
+                    .insert(ip.to_string(), device.clone());
+            }
+        }
         if body["event_type"] == "wormhole_state" {
             self.latest_stats = Some(body);
             self.seq += 1;
@@ -89,6 +105,8 @@ struct Snapshot {
     result: Option<Value>,
     request: Value,
     latest_stats: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    discovery_devices: Option<Vec<Value>>,
 }
 fn snap(t: &Task, after: u64) -> Snapshot {
     Snapshot {
@@ -112,6 +130,8 @@ fn snap(t: &Task, after: u64) -> Snapshot {
             t.result.clone()
         },
         request: t.request.clone(),
+        discovery_devices: (t.tool == "discovery" && after != u64::MAX)
+            .then(|| t.discovery_devices.values().cloned().collect()),
         latest_stats: if after == u64::MAX && t.tool != "wormhole" {
             None
         } else {
@@ -121,10 +141,30 @@ fn snap(t: &Task, after: u64) -> Snapshot {
 }
 
 #[tauri::command]
+async fn discovery_interfaces() -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let c = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        hopkit_core::discovery::interfaces::list(&c)
+            .map(|rows| serde_json::to_value(rows).unwrap())
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
 fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String, String> {
     request.validate_tool_config().map_err(|e| e.to_string())?;
     if request.tool == "subnet" {
         return Err("Use offline subnet calculation command".into());
+    }
+    if request.tool == "discovery" {
+        hopkit_core::discovery::validate(
+            request
+                .discovery
+                .as_ref()
+                .ok_or("Discovery configuration required")?,
+        )
+        .map_err(|e| e.to_string())?;
     }
     if request.tool == "scan" {
         hopkit_core::scan::validate(request.scan.as_ref().ok_or("Scan configuration required")?)
@@ -214,6 +254,7 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
                 result: None,
                 request: request.snapshot().map_err(|e| e.to_string())?,
                 latest_stats: None,
+                discovery_devices: BTreeMap::new(),
                 monitor_control: monitor_control.clone(),
                 wormhole_control: wormhole_control.clone(),
             },
@@ -620,7 +661,9 @@ fn shutdown(handle: tauri::AppHandle, state: Tasks) {
 #[cfg(feature = "native-test")]
 #[tauri::command]
 fn native_test_report(value: Value, app: tauri::AppHandle) -> Result<(), String> {
-    let relative = if value["scenario"] == "m2" {
+    let relative = if value["scenario"] == "m3" {
+        "../test-output/m3/native.json"
+    } else if value["scenario"] == "m2" {
         "../test-output/m2/native.json"
     } else if value["scenario"] == "m1" {
         "../test-output/m1/native.json"
@@ -654,7 +697,9 @@ fn main() {
                     if let Ok(value) = std::fs::read_to_string(config).and_then(|s| {
                         serde_json::from_str::<Value>(&s).map_err(std::io::Error::other)
                     }) {
-                        let driver = if value["scenario"] == "m2" {
+                        let driver = if value["scenario"] == "m3" {
+                            include_str!("../../scripts/m3-native-driver.js")
+                        } else if value["scenario"] == "m2" {
                             include_str!("../../scripts/m2-native-driver.js")
                         } else if value["scenario"] == "m1" {
                             include_str!("../../scripts/m1-native-driver.js")
@@ -671,6 +716,7 @@ fn main() {
         })
         .manage(Tasks::default())
         .invoke_handler(tauri::generate_handler![
+            discovery_interfaces,
             #[cfg(feature = "native-test")]
             native_test_report,
             start_task,
@@ -782,6 +828,7 @@ mod trust_tests {
             result: None,
             request: serde_json::to_value(&request).unwrap(),
             latest_stats: None,
+            discovery_devices: BTreeMap::new(),
             monitor_control: Arc::new(hopkit_core::monitor::Control::default()),
             wormhole_control: Arc::new(hopkit_core::wormhole::Control::default()),
         };
@@ -799,5 +846,21 @@ mod trust_tests {
         assert_eq!(snapshot["request"]["port"], 443);
         assert!(snapshot["request"].get("ftp_password").is_none());
         assert!(!snapshot.to_string().contains("must-never-export"));
+        task.tool = "discovery".into();
+        task.record_event(json!({"event_type":"discovery_device","device":{"address":"192.168.10.1","responded":true,"neighbors":[]}}));
+        for n in 2..=254 {
+            task.record_event(json!({"event_type":"discovery_device","device":{"address":format!("192.168.10.{n}"),"responded":false,"neighbors":[]}}));
+        }
+        let snapshot = serde_json::to_value(snap(&task, 0)).unwrap();
+        assert!(
+            !snapshot["events"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|e| e["device"]["address"] == "192.168.10.1")
+        );
+        assert_eq!(snapshot["discovery_devices"][0]["address"], "192.168.10.1");
+        assert_eq!(snapshot["discovery_devices"][0]["responded"], true);
+        assert!(snap(&task, u64::MAX).discovery_devices.is_none());
     }
 }

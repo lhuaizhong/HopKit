@@ -217,11 +217,21 @@ fn enable_error_queue(socket: &Socket, v6: bool) -> io::Result<()> {
 }
 
 pub(crate) fn icmp(
+    addr: SocketAddr,
+    ttl: u8,
+    timeout: u32,
+    payload_size: usize,
+    cancel: &Cancel,
+) -> Result<Value, ToolError> {
+    icmp_bound(addr, ttl, timeout, payload_size, cancel, "")
+}
+pub(crate) fn icmp_bound(
     mut addr: SocketAddr,
     ttl: u8,
     timeout: u32,
     payload_size: usize,
     cancel: &Cancel,
+    source: &str,
 ) -> Result<Value, ToolError> {
     cancelled(cancel)?;
     let v6 = addr.is_ipv6();
@@ -246,8 +256,15 @@ pub(crate) fn icmp(
         socket.set_ttl_v4(u32::from(ttl))?;
     }
     enable_error_queue(&socket, v6)?;
-    let local: SocketAddr = if v6 { "[::]:0" } else { "0.0.0.0:0" }.parse().unwrap();
-    socket.bind(&local.into())?;
+    let local: SocketAddr = if source.is_empty() {
+        if v6 { "[::]:0" } else { "0.0.0.0:0" }.parse().unwrap()
+    } else {
+        crate::target::literal_socket(source, 0)
+            .ok_or_else(|| ToolError::new("INVALID_ARGUMENT", "Invalid source"))?
+    };
+    socket
+        .bind(&local.into())
+        .map_err(|e| ToolError::new("SOURCE_BIND_FAILED", e.to_string()))?;
     let socket: UdpSocket = socket.into();
     socket.set_nonblocking(true)?;
     let request = echo_request(v6, payload_size, socket.local_addr()?.port());
@@ -451,6 +468,9 @@ mod tests {
                 .bind(&SocketAddr::new(destination.ip(), 0).into())
                 .unwrap();
             enable_error_queue(&socket, destination.is_ipv6()).unwrap();
+            if !source.is_empty() {
+                socket.bind(&crate::target::literal_socket(source, 0).unwrap().into())?;
+            }
             let socket: UdpSocket = socket.into();
             let request = echo_request(
                 destination.is_ipv6(),

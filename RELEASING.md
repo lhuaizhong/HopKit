@@ -1,7 +1,7 @@
 # Release builds / 发布构建
 
-Source development is now `0.2.0-dev.3`; the published candidate remains `0.1.0-rc.2`.
-M2 subnet calculation and TCP connect scanning are implemented; see the [M2 record](docs/M2-开发与验收记录.md) and [M1 foundations](docs/M1-开发与验收记录.md).
+Source development is now `0.2.0-dev.4`; the published candidate remains `0.1.0-rc.2`.
+M3 device discovery, neighbor evidence and tool handoff are implemented; see the [M3 record](docs/M3-开发与验收记录.md) for platform/physical acceptance limits. M2 subnet calculation and TCP connect scanning are implemented; see the [M2 record](docs/M2-开发与验收记录.md) and [M1 foundations](docs/M1-开发与验收记录.md).
 Later features and release gates are defined in the [0.2.0 technical development plan](docs/HopKit-0.2.0-技术开发计划书.md).
 Keep the version in `package.json`,
 `package-lock.json`, the workspace `Cargo.toml`/`Cargo.lock`, and

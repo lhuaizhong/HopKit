@@ -1,6 +1,7 @@
 pub mod budget;
 pub mod catalog;
 pub mod diagnostics;
+pub mod discovery;
 pub mod dns;
 pub mod file_io;
 pub mod ftp;

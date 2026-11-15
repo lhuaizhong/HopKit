@@ -12,6 +12,31 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 #[cfg(windows)]
 fn icmp(ip: IpAddr, ttl: u8, timeout: u32, payload_size: usize) -> Result<Value, ToolError> {
+    icmp_windows(
+        std::net::SocketAddr::new(ip, 0),
+        "",
+        ttl,
+        timeout,
+        payload_size,
+    )
+}
+#[cfg(windows)]
+fn icmp_windows(
+    addr: std::net::SocketAddr,
+    source: &str,
+    ttl: u8,
+    timeout: u32,
+    payload_size: usize,
+) -> Result<Value, ToolError> {
+    let ip = addr.ip();
+    let local = if source.is_empty() {
+        None
+    } else {
+        Some(
+            crate::target::literal_socket(source, 0)
+                .ok_or_else(|| ToolError::new("INVALID_ARGUMENT", "Invalid source"))?,
+        )
+    };
     use windows_sys::Win32::{
         Foundation::{GetLastError, INVALID_HANDLE_VALUE},
         NetworkManagement::IpHelper::*,
@@ -45,7 +70,15 @@ fn icmp(ip: IpAddr, ttl: u8, timeout: u32, payload_size: usize) -> Result<Value,
                 std::ptr::null_mut(),
                 None,
                 std::ptr::null(),
-                0,
+                local
+                    .and_then(|a| {
+                        if let IpAddr::V4(ip) = a.ip() {
+                            Some(u32::from_ne_bytes(ip.octets()))
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or(0),
                 u32::from_ne_bytes(v.octets()),
                 payload.as_ptr().cast(),
                 payload.len() as u16,
@@ -58,9 +91,16 @@ fn icmp(ip: IpAddr, ttl: u8, timeout: u32, payload_size: usize) -> Result<Value,
                 use windows_sys::Win32::Networking::WinSock::*;
                 let mut src: SOCKADDR_IN6 = std::mem::zeroed();
                 src.sin6_family = AF_INET6;
+                if let Some(std::net::SocketAddr::V6(a)) = local {
+                    src.sin6_addr.u.Byte = a.ip().octets();
+                    src.Anonymous.sin6_scope_id = a.scope_id();
+                }
                 let mut dst: SOCKADDR_IN6 = std::mem::zeroed();
                 dst.sin6_family = AF_INET6;
                 dst.sin6_addr.u.Byte = v.octets();
+                if let std::net::SocketAddr::V6(a) = addr {
+                    dst.Anonymous.sin6_scope_id = a.scope_id();
+                }
                 Icmp6SendEcho2(
                     handle,
                     std::ptr::null_mut(),
@@ -456,7 +496,12 @@ pub fn ntp(r: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
             "NTP supports 1..20 samples per task",
         ));
     }
-    let addr = resolve(&r.target, if r.port == 0 { 123 } else { r.port }, r.address_family()?, c)?;
+    let addr = resolve(
+        &r.target,
+        if r.port == 0 { 123 } else { r.port },
+        r.address_family()?,
+        c,
+    )?;
     let socket = bind_udp(any_addr(addr.is_ipv6()))?;
     socket.connect(addr)?;
     let mut samples = Vec::new();
@@ -825,5 +870,49 @@ mod trust_tests {
         );
         assert_eq!(value["status"], "cancelled");
         assert_eq!(value["data"]["sent"], 1);
+    }
+}
+
+/// Discovery uses the same packet matching with a bounded single probe.
+pub(crate) fn discovery_echo(
+    addr: std::net::SocketAddr,
+    source: &str,
+    timeout: u32,
+    c: &Cancel,
+) -> ToolResult {
+    cancelled(c)?;
+    #[cfg(target_os = "macos")]
+    {
+        crate::macos_icmp::icmp_bound(addr, 128, timeout, 32, c, source)
+    }
+    #[cfg(target_os = "linux")]
+    {
+        crate::linux_icmp::icmp_bound(addr, 128, timeout, 32, c, source)
+    }
+    #[cfg(windows)]
+    {
+        // Windows synchronous ICMP call: discovery caps timeout at 1000ms.
+        let result = icmp_windows(addr, source, 128, timeout, 32)?;
+        if result["status"] == "icmp_error"
+            && matches!(
+                result["status_code"].as_u64(),
+                Some(1 | 5 | 8 | 50 | 87 | 995 | 10013 | 11050)
+            )
+        {
+            return Err(ToolError::new(
+                if matches!(result["status_code"].as_u64(), Some(5 | 10013)) {
+                    "PERMISSION_DENIED"
+                } else {
+                    "LOCAL_PROBE_FAILED"
+                },
+                format!("Windows ICMP: {}", result["status_code"]),
+            ));
+        }
+        Ok(result)
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
+    {
+        let _ = (addr, source, timeout);
+        Err(ToolError::new("UNSUPPORTED_CAPABILITY", "ICMP unavailable"))
     }
 }

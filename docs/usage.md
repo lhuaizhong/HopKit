@@ -12,7 +12,7 @@ The GUI selects English or Chinese from the system language and starts with the 
 
 The task center supports **4 concurrent tasks** and **40 session tasks**, with active tasks pinned above filterable history. Opening a task preserves the form; **Rerun** loads its saved request for review. Tool/mode parameters are retained separately during the session. Stop tasks individually or use **Stop all**; partial evidence is preserved. Closing the GUI stops its tasks while independent CLI processes continue. Task history does not persist and tasks never restart automatically. Valid non-secret tool/mode settings are saved locally and restored.
 
-The sidebar categories are **Common / File Transfer / Expert / Utilities**. Common retains 9 diagnostic/monitoring tools. File Transfer contains TFTP, FTP, HTTP File Sharing and Wormhole, keeping FTP and HTTP adjacent. TCP Scan is under Expert and Subnet under Utilities. Selecting a category selects a tool from that category. Search across categories by Chinese/English names, protocol or alias; exact names rank first. Enter selects the first result and Esc clears the search. Stars add/remove global favorites. Recent category/tool and sidebar scroll position are saved locally. Older navigation records follow the tool ID into its current category, preserving favorites and settings. Navigation does not start or cancel tasks; the sidebar task-center button always reaches active tasks.
+The sidebar categories are **Common / File Transfer / Expert / Utilities**. Common retains 9 diagnostic/monitoring tools. File Transfer contains TFTP, FTP, HTTP File Sharing and Wormhole, keeping FTP and HTTP adjacent. TCP Scan and Discovery are under Expert and Subnet under Utilities. Selecting a category selects a tool from that category. Search across categories by Chinese/English names, protocol or alias; exact names rank first. Enter selects the first result and Esc clears the search. Stars add/remove global favorites. Recent category/tool and sidebar scroll position are saved locally. Older navigation records follow the tool ID into its current category, preserving favorites and settings. Navigation does not start or cancel tasks; the sidebar task-center button always reaches active tasks.
 
 Expand **Saved targets and site profiles**, enter a name and save the current target or settings. A target opens Troubleshooting; a profile restores its tool and mode. Load settings manually or delete entries with ×. JSON import merges by entry ID and replaces matching tool/mode settings. Schema 1 limits each list to 100 entries and the complete library to 256 KiB, including the merged result. Invalid files preserve the current library; storage errors remain visible while the session stays usable.
 
@@ -75,6 +75,26 @@ hk --help
 Ping payload size is **0–65,500 bytes**, default **32**, excluding IP/ICMP headers; JSON records it as `payload_size_bytes`. Large packets depend on path MTU, fragmentation, and device policy.
 
 The CLI built from source on Linux supports IPv4/IPv6 `ping` and `trace` using kernel ICMP datagram sockets, with no external ping/traceroute program. Unprivileged use requires `net.ipv4.ping_group_range` to include one of the process's groups, including supplementary groups; denied access returns `PERMISSION_DENIED`. `doctor` reports the `linux-datagram` adapter. Linux network overview and route queries are not yet implemented.
+
+### Device discovery (M3)
+
+```sh
+hk discover                                      # Read-only cache; no active probes
+hk discover 192.168.1.0/28 --interface en0 --methods arp,icmp,tcp --ports 80,443
+hk discover 192.168.1.10-192.168.1.20 192.168.2.5 --methods tcp --format json
+hk discover fe80::1%4 --methods icmp
+hk discover 192.168.1.10 --name-lookup --dns-server 192.168.1.1 --format jsonl
+```
+
+Interfaces use macOS/Linux names or Windows aliases/numeric ifIndex. GUI refresh reads local interfaces; filling a suggested network does not run it. Blank targets read cache only. IPv6 requires explicit candidates. Limits: 4096 candidates, 8 TCP ports, 65536 probes, 100–1000 ms per probe. Discovery and Scan share 128 permits and 200 probes/s within one process; each task is capped at 100/s.
+
+Current responses, neighbor cache and PTR names retain separate sources and timestamps. TCP refusal is response evidence and may come from a middlebox. No response proves neither offline nor an available IP; cache presence does not prove current liveness. MAC changes are clues, with Proxy ARP/VRRP/interface changes possible. Routed targets never inherit gateway MACs. Hidden/placeholder MACs remain unknown. ARP runs alongside ICMP/TCP by default, only for IPv4 targets in a local interface subnet whose current route is on-link; gateway and IP-tunnel routes are skipped. ARP replies discover ping-blocked hosts and carry their exact MAC. The results view shows responders sorted numerically by IP with visible MACs; JSON retains unknown candidates. macOS needs BPF read/write access and a visible interface MAC; permission errors are explicit while ICMP/TCP continue. Use `--methods icmp,tcp` to disable ARP. No active ND verification, RFC5227 probes or OUI/vendor dataset.
+
+Selecting an interface chooses a source IP and IPv6 scope; it does not enforce fixed-interface routing. Optional PTR uses system routing to an explicit resolver, up to 4 bounded UDP workers; lookup errors preserve active evidence. Manual handoff to Scan/Ping/TCPing/Check carries applicable address/family/scope/source and does not start tasks. Startup clears automatic source/interface binding; explicitly loaded profiles can restore it.
+
+CLI exits 0 on completion including zero responders, 2 on invalid input, 3 on local probe/capability errors and 130 on cancellation with partial evidence. GUI JSON contains the complete task; image export captures the visible filtered/page view. Platform acceptance limits are in the [M3 record (Chinese)](M3-开发与验收记录.md).
+
+Discovery retains responding devices by IP independently of the recent event queue. After the first pass, unanswered ICMP timeouts receive at most one bounded ICMP retry; a timeout itself never counts as a response.
 
 ### TCP connect scanning (M2)
 

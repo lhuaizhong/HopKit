@@ -164,13 +164,13 @@ impl Default for Scheduler {
         }
     }
 }
-struct Session<'a> {
+pub(crate) struct Session<'a> {
     scheduler: &'a Scheduler,
     id: u64,
     rate: u32,
 }
 impl Scheduler {
-    fn session(&self, rate: u32) -> Session<'_> {
+    pub(crate) fn session(&self, rate: u32) -> Session<'_> {
         let mut s = self.state.lock().unwrap();
         s.serial += 1;
         let id = s.serial;
@@ -185,7 +185,7 @@ impl Scheduler {
     }
 }
 impl Session<'_> {
-    fn acquire(&self, c: &Cancel) -> Result<Permit, ToolError> {
+    pub(crate) fn acquire(&self, c: &Cancel) -> Result<Permit, ToolError> {
         {
             let mut s = self.scheduler.state.lock().unwrap();
             *s.waiting.get_mut(&self.id).unwrap() += 1;
@@ -279,7 +279,7 @@ impl Event<'_> {
         sink(serde_json::to_value(self).expect("Scan events contain serializable bounded fields"));
     }
 }
-fn address_text(addr: SocketAddr) -> String {
+pub(crate) fn address_text(addr: SocketAddr) -> String {
     match addr {
         SocketAddr::V6(v) if v.scope_id() != 0 => format!("{}%{}", v.ip(), v.scope_id()),
         _ => addr.ip().to_string(),
@@ -328,15 +328,12 @@ fn probe_result(
         error,
     }
 }
-pub fn run(config: &Config, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
+pub(crate) fn shared_scheduler() -> &'static Scheduler {
     static SHARED: OnceLock<Scheduler> = OnceLock::new();
-    run_with(
-        config,
-        c,
-        emit,
-        SHARED.get_or_init(Scheduler::default),
-        &probe,
-    )
+    SHARED.get_or_init(Scheduler::default)
+}
+pub fn run(config: &Config, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
+    run_with(config, c, emit, shared_scheduler(), &probe)
 }
 fn run_with(
     config: &Config,

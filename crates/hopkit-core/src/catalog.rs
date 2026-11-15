@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum ToolId {
     Scan,
+    Discovery,
     Subnet,
     Check,
     Monitor,
@@ -31,8 +32,24 @@ impl ToolId {
     }
 }
 pub const IMPLEMENTED_TOOLS: &[&str] = &[
-    "scan", "subnet", "check", "monitor", "network", "target", "ping", "trace", "tcping", "dns",
-    "ntp", "iperf3", "ftp", "http", "wormhole", "tftp", "syslog",
+    "discovery",
+    "scan",
+    "subnet",
+    "check",
+    "monitor",
+    "network",
+    "target",
+    "ping",
+    "trace",
+    "tcping",
+    "dns",
+    "ntp",
+    "iperf3",
+    "ftp",
+    "http",
+    "wormhole",
+    "tftp",
+    "syslog",
 ];
 #[derive(Serialize)]
 pub struct Capabilities {
@@ -81,8 +98,46 @@ pub fn capabilities() -> Capabilities {
         tools: IMPLEMENTED_TOOLS,
         network_overview: cfg!(any(windows, target_os = "macos")),
         icmp: cfg!(any(windows, target_os = "macos", target_os = "linux")),
-        source_binding: &["check.tcp", "check.http", "scan.tcp"],
+        source_binding: &[
+            "check.tcp",
+            "check.http",
+            "scan.tcp",
+            "discovery.tcp",
+            "discovery.icmp",
+        ],
         adapters: vec![
+            Capability {
+                id: "discovery_neighbors",
+                status: if cfg!(any(windows, target_os = "macos")) {
+                    CapabilityStatus::Partial
+                } else {
+                    CapabilityStatus::Unsupported
+                },
+                adapter: if cfg!(windows) {
+                    "windows-iphelper"
+                } else if cfg!(target_os = "macos") {
+                    "macos-arp-ndp"
+                } else {
+                    "unavailable"
+                },
+                limitation: "Read-only neighbor cache; no liveness inference. macOS ARP cache age is unknown; OS queries may be restricted.",
+            },
+            Capability {
+                id: "discovery_arp_verify",
+                status: if cfg!(any(windows, target_os = "macos")) {
+                    CapabilityStatus::Partial
+                } else {
+                    CapabilityStatus::Unsupported
+                },
+                adapter: if cfg!(windows) {
+                    "windows-sendarp"
+                } else if cfg!(target_os = "macos") {
+                    "macos-bpf-arp"
+                } else {
+                    "unavailable"
+                },
+                limitation: "IPv4 only, matching local subnet and on-link route required; routed/VPN targets skipped. macOS requires BPF access. No active ND, RFC5227 or vendor dataset. MAC changes are clues only.",
+            },
             Capability {
                 id: "icmp",
                 status: if icmp_adapter == "unavailable" {
@@ -107,7 +162,7 @@ pub fn capabilities() -> Capabilities {
                 id: "source_binding",
                 status: CapabilityStatus::Partial,
                 adapter: "bound-tcp-socket",
-                limitation: "check TCP/HTTP and scan TCP connections support source IP binding. Fixed-interface binding and source binding for other tools are not implemented.",
+                limitation: "check TCP/HTTP, scan TCP, and discovery TCP/ICMP support source IP binding. Fixed-interface binding and source binding for other tools are not implemented.",
             },
         ],
         probe_budget: Default::default(),
@@ -120,7 +175,9 @@ impl Request {
     /// New nested tool configurations must match their stable operation identity.
     pub fn validate_tool_config(&self) -> Result<(), ToolError> {
         self.tool_id()?;
-        let invalid = self.scan.is_some() && self.tool != "scan"
+        let invalid = self.discovery.is_some() && self.tool != "discovery"
+            || self.tool == "discovery" && (self.action != "discover" || self.discovery.is_none())
+            || self.scan.is_some() && self.tool != "scan"
             || self.subnet.is_some() && self.tool != "subnet"
             || self.tool == "scan" && (self.action != "tcp" || self.scan.is_none())
             || self.tool == "subnet"

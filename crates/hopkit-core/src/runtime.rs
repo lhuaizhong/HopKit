@@ -57,6 +57,8 @@ pub struct Request {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scan: Option<crate::scan::Config>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub discovery: Option<crate::discovery::Config>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub subnet: Option<crate::subnet::Config>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub monitor: Option<crate::monitor::Config>,
@@ -104,6 +106,7 @@ impl Default for Request {
         Self {
             tool: "ping".into(),
             scan: None,
+            discovery: None,
             subnet: None,
             monitor: None,
             wormhole: None,
@@ -331,6 +334,9 @@ pub fn is_timeout(e: &std::io::Error) -> bool {
 pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
     req.validate_tool_config()?;
     req.address_family()?;
+    if req.tool == "discovery" {
+        return crate::discovery::run(req.discovery.as_ref().unwrap(), c, emit);
+    }
     if req.tool == "scan" {
         return crate::scan::run(
             req.scan
