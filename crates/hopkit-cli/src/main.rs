@@ -1,5 +1,6 @@
 mod discovery_cli;
 mod m2_cli;
+mod m4_cli;
 mod text;
 mod wormhole_cli;
 use clap::{Args, Parser, Subcommand};
@@ -68,6 +69,12 @@ struct Probe {
 }
 #[derive(Subcommand)]
 enum Command {
+    #[command(about = "Interactive TCP/UDP debug channel / TCP/UDP 调试助手")]
+    Socket(m4_cli::Socket),
+    #[command(about = "Read-only local endpoints / 本机端口与连接")]
+    Connections(m4_cli::Connections),
+    #[command(about = "Send IPv4 Magic Packets; no wake-up guarantee / 网络唤醒报文发送")]
+    Wol(m4_cli::Wol),
     #[command(
         about = "Device discovery; no response means unknown / 设备发现，未响应不代表空闲 IP"
     )]
@@ -437,6 +444,9 @@ enum Syslog {
 fn request(cmd: Command) -> Result<Request, ToolError> {
     let mut r = Request::default();
     match cmd {
+        Command::Socket(_) => unreachable!("handled before request conversion"),
+        Command::Connections(c) => return Ok(c.request()),
+        Command::Wol(c) => return Ok(c.request()),
         Command::Discover(c) => return Ok(c.request()),
         Command::Scan(c) => return Ok(c.request()),
         Command::Subnet(c) => return Ok(c.request()),
@@ -876,6 +886,7 @@ fn main() {
         return;
     };
     let command = match command {
+        Command::Socket(c) => std::process::exit(c.execute(&cli.format, cli.lang == "en-US")),
         Command::Wormhole(c) => {
             std::process::exit(wormhole_cli::execute(c, &cli.format, cli.lang == "en-US"))
         }
@@ -972,7 +983,7 @@ fn main() {
         Err(e) => exit_code(&e.code),
     };
     let mut final_value = envelope(&id, &r.tool, result);
-    final_value["request"] = serde_json::to_value(&r).expect("Serializable request snapshot");
+    final_value["request"] = r.snapshot().expect("Serializable request snapshot");
     let out = if cli.format == "text" {
         human.lock().unwrap().finish(&final_value)
     } else if cli.format == "jsonl" {

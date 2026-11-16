@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url'
 import {chromium} from '@playwright/test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
@@ -21,15 +22,15 @@ try{
  await page.goto(base+'/scripts/navigation-ui-fixture.html')
  if(await page.getByRole('button',{name:'中文',exact:true}).isVisible())await page.getByRole('button',{name:'中文',exact:true}).click()
  assert.deepEqual(await page.locator('.category-switch button').allTextContents(),['常用工具','文件传输','专家工具','小工具'])
- assert.equal(await page.locator('nav .tool-nav-row').count(),9)
- assert.deepEqual(await page.locator('nav .tool-nav-row b').allTextContents(),['HopKit','Monitor','Ping','Traceroute','TCPing','DNS','iperf3','NTP','Syslog'])
+ assert.equal(await page.locator('nav .tool-nav-row').count(),7)
+ assert.deepEqual(await page.locator('nav .tool-nav-row b').allTextContents(),['HopKit','Ping','Traceroute','TCPing','DNS','iperf3','NTP'])
  await page.getByRole('button',{name:'文件传输',exact:true}).click()
  assert.deepEqual(await page.locator('nav .tool-nav-row b').allTextContents(),['TFTP','FTP','HTTP 文件服务','Wormhole'])
  await select('FTP');await page.locator('#port').fill('2121');await page.getByRole('button',{name:'收藏工具 FTP',exact:true}).click()
  await page.getByRole('button',{name:'常用工具',exact:true}).click();await page.locator('nav .nav-item').filter({has:page.getByText('FTP',{exact:true})}).click()
  assert.equal(await page.getByRole('button',{name:'文件传输',exact:true}).getAttribute('aria-pressed'),'true');assert.equal(await page.locator('#port').inputValue(),'2121')
  await page.getByRole('button',{name:'取消收藏 FTP',exact:true}).first().click();await page.reload();await page.locator('#ftp-password').waitFor();assert.equal(await page.locator('#port').inputValue(),'2121');assert.equal(await page.getByRole('button',{name:'文件传输',exact:true}).getAttribute('aria-pressed'),'true')
- check('Four categories; 9 Common and 4 File Transfer tools; favorite/search selection and FTP parameters survive restart')
+ check('Four categories; 7 Common and 4 File Transfer tools; favorite/search selection and FTP parameters survive restart')
  await page.getByRole('button',{name:'专家工具',exact:true}).click()
  await page.locator('#scan-targets').waitFor()
  await select('TCPing')
@@ -110,14 +111,14 @@ try{
  check('Invalid import retains usable settings; profile/favorite deletion; empty search and Escape')
  await page.getByRole('button',{name:'视力友好',exact:true}).click()
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth))
- await page.screenshot({path:new URL('readable-960.png',output).pathname,fullPage:true})
+ await page.screenshot({path:fileURLToPath(new URL('readable-960.png',output)),fullPage:true})
  await page.getByRole('button',{name:'清新',exact:true}).click()
- await page.screenshot({path:new URL('fresh-960.png',output).pathname,fullPage:true})
+ await page.screenshot({path:fileURLToPath(new URL('fresh-960.png',output)),fullPage:true})
  await page.getByRole('button',{name:'English',exact:true}).click()
  await page.getByRole('button',{name:'File Transfer',exact:true}).click()
  assert.deepEqual(await page.locator('nav .tool-nav-row b').allTextContents(),['TFTP','FTP','HTTP File Sharing','Wormhole'])
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth))
- await page.screenshot({path:new URL('file-transfer-english-960.png',output).pathname,fullPage:true})
+ await page.screenshot({path:fileURLToPath(new URL('file-transfer-english-960.png',output)),fullPage:true})
  await page.getByRole('button',{name:'Expert',exact:true}).click()
  await page.locator('#scan-targets').waitFor()
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth))
@@ -130,4 +131,4 @@ try{
  assert.deepEqual(errors,[])
  await fs.writeFile(new URL('ui-results.json',output),JSON.stringify({checks,errors},null,2))
  console.log(`PASS ${checks.length} M1 browser scenarios`)
-}catch(error){await page.screenshot({path:new URL('failure.png',output).pathname,fullPage:true});await fs.writeFile(new URL('failure.txt',output),String(error)+'\n'+await page.locator('body').innerText());throw error}finally{await browser.close();await server.close()}
+}catch(error){await page.screenshot({path:fileURLToPath(new URL('failure.png',output)),fullPage:true});await fs.writeFile(new URL('failure.txt',output),String(error)+'\n'+await page.locator('body').innerText());throw error}finally{await browser.close();await server.close()}

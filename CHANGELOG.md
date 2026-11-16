@@ -1,5 +1,12 @@
 # Changelog / 版本记录
 
+## 0.2.0-dev.5 — M4 / 2026-11-16
+
+- Expand the sidebar tool list into the space previously used by the preview/version/local-first block. Move multi-target Monitor and temporary Syslog from Common to Expert, preserving saved settings and favorites.
+- Add shared Rust TCP/UDP debug channels, native task-scoped send/half-close/close controls, binary-safe HEX/UTF-8 previews, bounded scheduled sends, source restrictions and opt-in capped payload recording. GUI and CLI use the same core.
+- Add read-only local TCP/UDP endpoint inspection with Windows IP Helper PID/name evidence, explicit partial macOS visibility, filters, non-overlapping refresh and port-conflict handoff. Add IPv4 Wake-on-LAN with exact Magic Packets, source binding and interface-prefix broadcast suggestions.
+- 新增 TCP/UDP 调试助手、本机端口与连接查看器及 Wake-on-LAN；正文默认仅在有限内存预览中保存，通用任务导出排除正文。已在 Windows 验证独立对端、原生 IPC 与 UDP 监听两小时稳定性；macOS、真实设备唤醒仍待验收，详见 [M4 记录](docs/M4-开发与验收记录.md)。
+
 ## 0.2.0-dev.4 — M3 / 2026-11-15
 
 - Add bounded ARP/ICMP/TCP device discovery for explicit IPv4 ranges and IPv6 candidates, with shared Scan admission/rate budgets, source binding, cancellation and partial results.

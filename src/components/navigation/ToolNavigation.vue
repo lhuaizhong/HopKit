@@ -36,6 +36,7 @@ nextTick(()=>{if(list.value)list.value.scrollTop=props.state.scroll[props.state.
 </template>
 <style scoped>
 .tool-navigation{display:flex;flex-direction:column;min-height:0;flex:1;gap:10px}.nav-search-label{font-size:12px;margin:0;color:#43536a}#tool-search{width:100%;min-width:0;padding:9px;border:1px solid #8b9bb0}
+.tool-navigation> :not(nav){flex-shrink:0}
 .category-switch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;flex-shrink:0}
 .category-switch button,.navigation-tasks{min-height:32px;border:1px solid #b6c4d4;background:#fff;color:#43536a;padding:6px 9px}
 .category-switch button{display:flex;align-items:center;justify-content:center;gap:3px;min-width:0;padding:4px 3px;font-size:12px;line-height:1.3;text-align:center}

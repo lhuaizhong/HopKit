@@ -55,6 +55,12 @@ impl std::error::Error for ToolError {}
 pub struct Request {
     pub tool: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub socket: Option<crate::socket_tool::Config>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connections: Option<crate::connections::Config>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wol: Option<crate::wol::Config>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub scan: Option<crate::scan::Config>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub discovery: Option<crate::discovery::Config>,
@@ -105,6 +111,9 @@ impl Default for Request {
     fn default() -> Self {
         Self {
             tool: "ping".into(),
+            socket: None,
+            connections: None,
+            wol: None,
             scan: None,
             discovery: None,
             subnet: None,
@@ -334,6 +343,15 @@ pub fn is_timeout(e: &std::io::Error) -> bool {
 pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
     req.validate_tool_config()?;
     req.address_family()?;
+    if req.tool == "socket" {
+        return crate::socket_tool::run(req.socket.as_ref().unwrap(), c, emit, &Default::default());
+    }
+    if req.tool == "connections" {
+        return crate::connections::run(req.connections.as_ref().unwrap(), c, emit);
+    }
+    if req.tool == "wol" {
+        return crate::wol::run(req.wol.as_ref().unwrap(), c, emit);
+    }
     if req.tool == "discovery" {
         return crate::discovery::run(req.discovery.as_ref().unwrap(), c, emit);
     }

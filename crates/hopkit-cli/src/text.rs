@@ -488,6 +488,56 @@ impl TextOutput {
         )
     }
     pub fn finish(&mut self, envelope: &Value) -> String {
+        if self.request.tool == "connections" {
+            let d = &envelope["data"];
+            let mut lines = vec![format!(
+                "{} · {} → {} · {}: {}",
+                s(d, "adapter"),
+                s(d, "query_started_at"),
+                s(d, "query_ended_at"),
+                self.t("Process visibility", "进程可见性"),
+                s(d, "process_visibility")
+            )];
+            for r in d["rows"].as_array().into_iter().flatten() {
+                lines.push(format!(
+                    "{} {} → {} {} PID={} {}",
+                    s(r, "protocol"),
+                    s(r, "local_endpoint"),
+                    s(r, "remote_endpoint"),
+                    s(r, "state"),
+                    n(r, "pid"),
+                    s(r, "process")
+                ));
+            }
+            for e in d["partial_errors"].as_array().into_iter().flatten() {
+                lines.push(self.error(e));
+            }
+            if let Some(e) = envelope.get("error").filter(|e| !e.is_null()) {
+                lines.push(self.error(e));
+            }
+            return lines.join("\n");
+        }
+        if self.request.tool == "wol" {
+            let d = &envelope["data"];
+            return format!(
+                "{} {} → {} · {}: {} / {} · {}\n{}",
+                s(d, "mac"),
+                s(d, "actual_local_address"),
+                s(d, "destination"),
+                self.t("Sent", "已发送"),
+                n(d, "sent"),
+                n(d, "attempts"),
+                self.t(
+                    "Sending does not prove device wake-up",
+                    "发送不证明设备已唤醒"
+                ),
+                if envelope["error"].is_null() {
+                    String::new()
+                } else {
+                    self.error(&envelope["error"])
+                }
+            );
+        }
         if self.request.tool == "discovery" {
             let d = &envelope["data"];
             let mut text=format!("{}: {} · {}: {} · {}: {}\n{}",self.t("Candidates","候选"),n(&d["stats"],"candidates"),self.t("Responders","响应设备"),n(&d["stats"],"responders"),self.t("Unknown","未知"),n(&d["stats"],"unknown"),self.t("No response does not prove offline or an available IP. Cache and PTR are separate evidence.","未响应不代表离线或空闲 IP；邻居缓存与 PTR 名称为独立证据。"));

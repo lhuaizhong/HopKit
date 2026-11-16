@@ -1,5 +1,6 @@
 pub mod budget;
 pub mod catalog;
+pub mod connections;
 pub mod diagnostics;
 pub mod discovery;
 pub mod dns;
@@ -16,10 +17,12 @@ pub mod network;
 pub mod ntp;
 mod process;
 pub mod runtime;
+pub mod socket_tool;
 pub mod syslog;
 pub mod target;
 pub mod tftp;
 pub mod troubleshoot;
+pub mod wol;
 pub mod wormhole;
 pub use runtime::*;
 

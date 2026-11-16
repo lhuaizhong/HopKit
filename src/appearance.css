@@ -1,4 +1,3 @@
-.sidebar { overflow-y: auto; }
 /* Keep every tool reachable as the navigation grows. */
 .sidebar { overflow-y: auto; }
 /* The switch stays legible in both appearances so it is easy to discover. */
@@ -72,7 +71,7 @@ footer { flex-wrap: wrap; align-items: center; }
   box-shadow: none;
 }
 :root[data-theme="readable"] button:hover:not(:disabled) { filter: none; }
-:root[data-theme="readable"] .sidebar { width: 224px; padding: 22px 12px; overflow-y: auto; }
+:root[data-theme="readable"] .sidebar { width: 224px; padding: 22px 12px 8px; overflow-y: auto; }
 :root[data-theme="readable"] .workspace { margin-left: 224px; width: calc(100% - 224px); min-width: 0; }
 :root[data-theme="readable"] .brand { padding-bottom: 24px; }
 :root[data-theme="readable"] .brand small { font-size: 11px; color: var(--read-secondary); letter-spacing: .5px; }
@@ -83,8 +82,6 @@ footer { flex-wrap: wrap; align-items: center; }
 :root[data-theme="readable"] .nav-item small { font-size: 14px; color: var(--read-secondary); }
 :root[data-theme="readable"] .nav-item.active { background: var(--read-blue-bg); color: var(--read-accent); box-shadow: inset 4px 0 var(--read-accent); }
 :root[data-theme="readable"] .nav-item.active small { color: var(--read-accent); }
-:root[data-theme="readable"] .sidebar-bottom { padding: 16px 8px 0; }
-:root[data-theme="readable"] :is(.preview-badge,.sidebar-bottom p,.sidebar-bottom small) { font-size: 14px; color: var(--read-secondary); letter-spacing: 0; }
 :root[data-theme="readable"] header { min-height: 76px; height: auto; padding: 12px 24px; gap: 12px; flex-wrap: wrap; }
 :root[data-theme="readable"] .header-actions { gap: 12px; flex-wrap: wrap; }
 :root[data-theme="readable"] :is(.breadcrumb,.breadcrumb strong,.breadcrumb span,.platform,.quiet) { font-size: 14px; color: var(--read-secondary); }
@@ -189,7 +186,6 @@ footer { flex-wrap: wrap; align-items: center; }
   :root[data-theme="readable"] .shell { flex-direction: column; }
   :root[data-theme="readable"] nav { display: flex; flex-wrap: wrap; }
   :root[data-theme="readable"] .nav-item { width: auto; flex: 1 1 180px; }
-  :root[data-theme="readable"] .sidebar-bottom { display: none; }
   :root[data-theme="readable"] .workspace { margin-left: 0; width: 100%; }
   :root[data-theme="readable"] :is(main,header) { padding: 16px; }
   :root[data-theme="readable"] .page-heading { flex-wrap: wrap; }

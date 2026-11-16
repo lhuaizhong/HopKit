@@ -1,6 +1,6 @@
 {
   "name": "hopkit-network-toolkit",
-  "version": "0.2.0-dev.4",
+  "version": "0.2.0-dev.5",
   "private": true,
   "engines": {
     "node": ">=24 <25"
@@ -19,7 +19,8 @@
     "test:navigation": "node scripts/navigation-test.mjs",
     "test:m1-ui": "node scripts/m1-ui-test.mjs",
     "test:m2-ui": "node scripts/m2-ui-test.mjs",
-    "test:m3-ui": "node scripts/m3-ui-test.mjs"
+    "test:m3-ui": "node scripts/m3-ui-test.mjs",
+    "test:m4-ui": "node scripts/m4-ui-test.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

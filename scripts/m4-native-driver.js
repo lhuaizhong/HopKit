@@ -1,0 +1,27 @@
+(async()=>{
+ const invoke=window.__TAURI_INTERNALS__.invoke,config=window.__HOPKIT_TEST_CONFIG__,reports=[];
+ const sleep=ms=>new Promise(r=>setTimeout(r,ms));const assert=(v,s)=>{if(!v)throw Error(s)};
+ const wait=async fn=>{for(let i=0;i<200;i++){const v=await fn();if(v)return v;await sleep(50)}throw Error('Native wait timed out')};
+ const button=text=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===text);
+ const field=(id,value)=>{const el=document.getElementById(id);assert(el,'Missing '+id);el.value=String(value);el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))};
+ const select=async id=>{field('tool-search',id);await sleep(40);document.getElementById('tool-search').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));await sleep(70)};
+ let result,phase='setup';
+ try{
+  if(button('中文'))button('中文').click();await select('socket');field('socket-target','127.0.0.1');field('socket-port',config.tcp_port);button('启动通道').click();
+  phase='start socket';const task=await wait(async()=>{const tasks=await invoke('list_tasks');return tasks.find(t=>t.tool==='socket')});phase='wait session';await wait(async()=>{const s=await invoke('socket_state',{id:task.id});return s.sessions?.length});await wait(()=>document.getElementById('socket-session')?.value==='1');
+  field('socket-encoding','hex');field('socket-body','00ff0102');button('发送').click();
+  phase='binary send';const state=await wait(async()=>{const s=await invoke('socket_state',{id:task.id});return s.stats?.received_bytes>=4&&s});assert(state.records.some(r=>r.hex==='00ff0102'),'Binary preview wrong');
+  const snapshot=await invoke('task_poll',{id:task.id,after:0});assert(!JSON.stringify(snapshot).includes('00ff0102'),'Payload leaked into generic task snapshot');reports.push('Real WebView form, Rust IPC, binary send/receive, stable session and payload-free task snapshot');
+  let rejected=false;try{await invoke('socket_send',{id:task.id,command:{operation:'send',session_id:9999,destination:null,encoding:'hex',data:'00',newline:'none',count:1,interval_ms:1000}})}catch{rejected=true}assert(rejected,'Invalid session accepted');
+  const connections=await invoke('query_connections',{config:{port:config.tcp_port}});assert(connections.rows.some(r=>r.pid===config.peer_pid),'Independent peer PID missing');reports.push('Native Windows IP Helper sees independent Python TCP listener PID');
+  await select('wol');field('wol-mac','AA:BB:CC:DD:EE:02');field('wol-destination','127.0.0.1');field('wol-port',config.udp_port);button('发送唤醒报文').click();await wait(async()=>{const t=(await invoke('list_tasks')).find(t=>t.tool==='wol');return t?.status==='succeeded'});reports.push('Native WOL GUI uses Rust UDP; independent receiver checks exact bytes');
+  await invoke('cancel_task',{id:task.id});await wait(async()=>(await invoke('task_poll',{id:task.id,after:0})).status==='cancelled');
+  rejected=false;try{await invoke('socket_send',{id:task.id,command:{operation:'send',session_id:1,destination:null,encoding:'hex',data:'00',newline:'none',count:1,interval_ms:1000}})}catch{rejected=true}assert(rejected,'Stopped task accepted send');
+  const ids=[];for(const [i,port] of config.listen_ports.entries())ids.push(await invoke('start_task',{request:{tool:'socket',action:'listen',socket:{protocol:i===3?'udp':'tcp',mode:'listen',listen:'127.0.0.1',port,preview_bytes:4096}}}));
+  await wait(async()=>{const ss=await Promise.all(ids.map(id=>invoke('socket_state',{id})));return ss.every(s=>s.active)});rejected=false;try{await invoke('start_task',{request:{tool:'wol',action:'send',wol:{mac:'AA:BB:CC:DD:EE:02',destination:'127.0.0.1'}}})}catch{rejected=true}assert(rejected,'Fifth task accepted');
+  phase='UDP load';const loaded=await wait(async()=>{const s=await invoke('socket_state',{id:ids[3]});return s.stats?.datagrams_received>=1024&&s});assert(loaded.stats.preview_dropped>0&&JSON.stringify(loaded.records).length<8192,'UDP preview is not bounded');
+  await select('socket');const loadRow=await wait(()=>[...document.querySelectorAll('.task-row')].find(r=>r.querySelector('code')?.textContent===`127.0.0.1:${config.listen_ports[3]}`));loadRow.querySelector('button').click();await wait(()=>document.querySelectorAll('.socket-record').length>0);await sleep(300);reports.push('Native UDP flood: at least 1024 independent datagrams, bounded preview and rendered live results while four tasks run');
+  await select('connections');document.querySelector('.navigation-tasks').click();await wait(()=>button('停止全部'));const began=Date.now();button('停止全部').click();await wait(async()=>{const all=await invoke('list_tasks');return ids.every(id=>all.some(t=>t.id===id&&t.status==='cancelled'))});const stopped=Date.now()-began;assert(stopped<1500,'Stop too slow');reports.push('Four listener tasks, fifth-task rejection, cross-category stop-all and stopped-send rejection');result={scenario:'m4',status:'passed',reports,stop_all_ms:stopped,version:(await invoke('app_info')).version};
+ }catch(e){const tasks=await invoke('list_tasks').catch(()=>[]);const socket_stats=await Promise.all(tasks.filter(t=>t.tool==='socket').map(async t=>{const s=await invoke('socket_state',{id:t.id}).catch(()=>({}));return {id:t.id,active:s.active,stats:s.stats}}));await invoke('stop_all').catch(()=>{});result={scenario:'m4',status:'failed',reports,phase,error:String(e),tasks,socket_stats,body:document.body.innerText}}
+ await invoke('native_test_report',{value:result});
+})()

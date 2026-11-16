@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolId {
+    Socket,
+    Connections,
+    Wol,
     Scan,
     Discovery,
     Subnet,
@@ -32,6 +35,9 @@ impl ToolId {
     }
 }
 pub const IMPLEMENTED_TOOLS: &[&str] = &[
+    "socket",
+    "connections",
+    "wol",
     "discovery",
     "scan",
     "subnet",
@@ -99,6 +105,9 @@ pub fn capabilities() -> Capabilities {
         network_overview: cfg!(any(windows, target_os = "macos")),
         icmp: cfg!(any(windows, target_os = "macos", target_os = "linux")),
         source_binding: &[
+            "socket.tcp",
+            "socket.udp",
+            "wol.ipv4",
             "check.tcp",
             "check.http",
             "scan.tcp",
@@ -106,6 +115,30 @@ pub fn capabilities() -> Capabilities {
             "discovery.icmp",
         ],
         adapters: vec![
+            Capability {
+                id: "socket",
+                status: CapabilityStatus::Supported,
+                adapter: "rust-socket2",
+                limitation: "TCP byte stream and UDP datagrams. Source IP binding only; max 16 live sessions, 32 queued schedules and 1 MiB preview. Echo requires explicit source CIDRs and rate limit.",
+            },
+            Capability {
+                id: "connections",
+                status: CapabilityStatus::Partial,
+                adapter: if cfg!(windows) {
+                    "windows-iphelper"
+                } else if cfg!(target_os = "macos") {
+                    "macos-lsof"
+                } else {
+                    "linux-proc-net"
+                },
+                limitation: "Read-only sequential snapshots. Names best effort on Windows, visibility permission-limited on macOS; Linux has no process attribution. OS workers bounded; query timeout 5s.",
+            },
+            Capability {
+                id: "wol",
+                status: CapabilityStatus::Supported,
+                adapter: "rust-udp-broadcast",
+                limitation: "IPv4 only; successful submission does not prove delivery or wake-up. Real-device wake-up and macOS native validation remain pending.",
+            },
             Capability {
                 id: "discovery_neighbors",
                 status: if cfg!(any(windows, target_os = "macos")) {
@@ -162,7 +195,7 @@ pub fn capabilities() -> Capabilities {
                 id: "source_binding",
                 status: CapabilityStatus::Partial,
                 adapter: "bound-tcp-socket",
-                limitation: "check TCP/HTTP, scan TCP, and discovery TCP/ICMP support source IP binding. Fixed-interface binding and source binding for other tools are not implemented.",
+                limitation: "check TCP/HTTP, scan TCP, discovery TCP/ICMP, socket TCP/UDP and WOL IPv4 support source IP binding. Fixed-interface binding and source binding for other tools are not implemented.",
             },
         ],
         probe_budget: Default::default(),
@@ -175,7 +208,13 @@ impl Request {
     /// New nested tool configurations must match their stable operation identity.
     pub fn validate_tool_config(&self) -> Result<(), ToolError> {
         self.tool_id()?;
-        let invalid = self.discovery.is_some() && self.tool != "discovery"
+        let invalid = self.socket.is_some() && self.tool != "socket"
+            || self.connections.is_some() && self.tool != "connections"
+            || self.wol.is_some() && self.tool != "wol"
+            || self.tool == "socket" && self.socket.as_ref().is_none_or(|s| s.mode != self.action)
+            || self.tool == "connections" && (self.connections.is_none() || self.action != "query")
+            || self.tool == "wol" && (self.wol.is_none() || self.action != "send")
+            || self.discovery.is_some() && self.tool != "discovery"
             || self.tool == "discovery" && (self.action != "discover" || self.discovery.is_none())
             || self.scan.is_some() && self.tool != "scan"
             || self.subnet.is_some() && self.tool != "subnet"
@@ -200,6 +239,9 @@ impl Request {
             .map_err(|_| ToolError::new("INVALID_ARGUMENT", "Cannot snapshot request"))?;
         if let Some(object) = value.as_object_mut() {
             object.remove("message");
+            if let Some(socket) = object.get_mut("socket").and_then(|s| s.as_object_mut()) {
+                socket.remove("record_path");
+            }
         }
         Ok(value)
     }

@@ -16,6 +16,11 @@ import FileServerResults from './components/FileServerResults.vue'
 import DiscoverySetup from './components/DiscoverySetup.vue'
 import DiscoveryResults from './components/DiscoveryResults.vue'
 import {discoveryDefaults,type DiscoveryDevice,type DiscoveryResult,type DiscoveryEvent} from './tools/discovery'
+import SocketSetup from './components/SocketSetup.vue'
+import SocketResults from './components/SocketResults.vue'
+import WolSetup from './components/WolSetup.vue'
+import ConnectionsTool from './components/ConnectionsTool.vue'
+import {socketDefaults,wolDefaults,connectionsDefaults,type SocketState,type SendCommand} from './tools/m4'
 import ScanSetup from './components/ScanSetup.vue'
 import ScanResults from './components/ScanResults.vue'
 import SubnetTool from './components/SubnetTool.vue'
@@ -40,6 +45,7 @@ const projectUrl='https://github.com/lhuaizhong/HopKit'
 const projectLinkError=ref('')
 async function openProject(){try{projectLinkError.value='';await invoke('open_project')}catch(e){projectLinkError.value=t('无法打开浏览器，请复制链接访问：','Could not open the browser. Copy this link: ')+projectUrl}}
 
+const socketConfig=reactive(socketDefaults()),wolConfig=reactive(wolDefaults()),connectionsConfig=reactive(connectionsDefaults()),socketState=ref<SocketState|null>(null)
 const discoveryConfig=reactive(discoveryDefaults())
 const scanConfig=reactive(scanDefaults()),subnetConfig=reactive(subnetDefaults())
 const m2Configurations=new Map<string,ToolSnapshot>()
@@ -68,13 +74,13 @@ const configKey=()=>`${selected.value}:${selected.value==='dns'?form.dns_mode:se
 // Source binding depends on the current network. On startup use OS routing;
 // explicit profile loads and manual edits can still opt into source binding.
 for(const saved of library.configurations){configurationsMapEntry(saved,false);modes.set(saved.tool,saved.mode)}
-function saveConfig(){if(!initialized)return;const key=configKey();configurations.set(key,{...form,ftp_password:''});if(selected.value==='monitor')monitorConfigurations.set(key,JSON.parse(JSON.stringify(monitorConfig)));if(selected.value==='wormhole'){const {code,...savedWormhole}=wormholeConfig;wormholeConfigurations.set(key,savedWormhole)}if(['discovery','scan','subnet'].includes(selected.value)){try{m2Configurations.set(key,currentSnapshot())}catch{}}rememberConfiguration()}
+function saveConfig(){if(!initialized)return;const key=configKey();configurations.set(key,{...form,ftp_password:''});if(selected.value==='monitor')monitorConfigurations.set(key,JSON.parse(JSON.stringify(monitorConfig)));if(selected.value==='wormhole'){const {code,...savedWormhole}=wormholeConfig;wormholeConfigurations.set(key,savedWormhole)}if(['socket','wol','connections','discovery','scan','subnet'].includes(selected.value)){try{m2Configurations.set(key,currentSnapshot())}catch{}}rememberConfiguration()}
 function loadConfig(id:string,mode:string){
  const key=`${id}:${mode}`
  const saved=configurations.get(key)
  Object.assign(form,saved??{...defaults(),target:id==='check'?'':'127.0.0.1',action:mode,dns_mode:id==='dns'?mode:'system',port:({ntp:123,ftp:21,http:80,iperf3:5201,tftp:69,syslog:514} as Row)[id]??443,timeout_ms:['ftp','iperf3'].includes(id)?5000:id==='ntp'?2000:1000,interval_ms:id==='ntp'?2000:1000,duration_secs:id==='iperf3'&&mode!=='serve'?10:0})
  form.ftp_password=''
- const m2=m2Configurations.get(key);if(id==='discovery')Object.assign(discoveryConfig,discoveryDefaults(),m2?.discovery);if(id==='scan')Object.assign(scanConfig,scanDefaults(),m2?.scan);if(id==='subnet')Object.assign(subnetConfig,subnetDefaults(),m2?.subnet)
+ const m2=m2Configurations.get(key);if(id==='socket')Object.assign(socketConfig,socketDefaults(),m2?.socket);if(id==='wol')Object.assign(wolConfig,wolDefaults(),m2?.wol);if(id==='connections')Object.assign(connectionsConfig,connectionsDefaults(),m2?.connections);if(id==='discovery')Object.assign(discoveryConfig,discoveryDefaults(),m2?.discovery);if(id==='scan')Object.assign(scanConfig,scanDefaults(),m2?.scan);if(id==='subnet')Object.assign(subnetConfig,subnetDefaults(),m2?.subnet)
  const monitor=monitorConfigurations.get(key),wormhole=wormholeConfigurations.get(key)
  if(monitor)Object.assign(monitorConfig,JSON.parse(JSON.stringify(monitor)))
  if(id==='wormhole')Object.assign(wormholeConfig,wormholeDefaults(),wormhole??{},{operation:mode,code:''})
@@ -141,7 +147,7 @@ const number=(n:any,suffix='')=>n==null?'—':`${Number(n).toFixed(2)}${suffix}`
 // Retain newly accepted tasks until a poll observes them, including when an
 // older poll was already in flight while start_task was being submitted.
 const pendingTasks=new Map<string,Task>()
-function pickTool(id:ToolId){wormholeConfig.code='';saveConfig();modes.set(selected.value,selected.value==='wormhole'?wormholeConfig.operation:selected.value==='dns'?form.dns_mode:form.action);selected.value=id;navigation.tool=id;navigation.category=categoryOf(id);persistNavigation();loadConfig(id,modes.get(id)??defaultMode(id));active.value='';activeDetail.value=null;rows.value=[];error.value='';expanded.value=false}
+function pickTool(id:ToolId){wormholeConfig.code='';saveConfig();modes.set(selected.value,selected.value==='wormhole'?wormholeConfig.operation:selected.value==='dns'?form.dns_mode:form.action);selected.value=id;navigation.tool=id;navigation.category=categoryOf(id);persistNavigation();loadConfig(id,modes.get(id)??defaultMode(id));active.value='';activeDetail.value=null;socketState.value=null;rows.value=[];error.value='';expanded.value=false}
 function useCheckTarget(tool:ToolId,target:Row){pickTool(tool);form.target=target.host;if(tool==='tcping'&&target.port)form.port=target.port}
 function useDiscoveryTarget(tool:'scan'|'ping'|'tcping'|'check',row:DiscoveryDevice){
  const config=task.value?.request?.discovery
@@ -160,6 +166,8 @@ async function rerun(item:Task){try{
  if(!detail.request)return
  pickTool(detail.tool);setMode(detail.tool==='dns'?(detail.request.dns_server?'direct':'system'):detail.action)
  if(detail.tool==='wormhole'&&detail.request.wormhole)Object.assign(wormholeConfig,detail.request.wormhole,{code:''})
+ if(detail.tool==='socket'&&detail.request.socket)Object.assign(socketConfig,detail.request.socket,{record_path:'',echo:false})
+ if(detail.tool==='wol'&&detail.request.wol)Object.assign(wolConfig,detail.request.wol)
  if(detail.tool==='discovery'&&detail.request.discovery)Object.assign(discoveryConfig,detail.request.discovery)
  if(detail.tool==='scan'&&detail.request.scan)Object.assign(scanConfig,detail.request.scan)
  if(detail.tool==='monitor'&&detail.request.monitor)Object.assign(monitorConfig,JSON.parse(JSON.stringify(detail.request.monitor)))
@@ -174,32 +182,36 @@ async function stopItem(id:string){try{await invoke('cancel_task',{id});await po
 
 function persistNavigation(){writeNavigation(navigation)}
 function persistLibrary(){storageError.value=saveLibrary(library)?'':t('配置无法写入本机；本次会话仍可使用。','Settings could not be saved; this session remains usable.')}
-function currentSnapshot():ToolSnapshot{return sanitizeSnapshot({schema_version:1,tool:selected.value,mode:selected.value==='wormhole'?wormholeConfig.operation:selected.value==='dns'?form.dns_mode:form.action,values:{...form},discovery:selected.value==='discovery'?JSON.parse(JSON.stringify(discoveryConfig)):undefined,scan:selected.value==='scan'?JSON.parse(JSON.stringify(scanConfig)):undefined,subnet:selected.value==='subnet'?{...subnetConfig}:undefined,monitor:selected.value==='monitor'?JSON.parse(JSON.stringify(monitorConfig)):undefined,wormhole:selected.value==='wormhole'?{...wormholeConfig}:undefined})}
+function currentSnapshot():ToolSnapshot{return sanitizeSnapshot({schema_version:1,tool:selected.value,mode:selected.value==='wormhole'?wormholeConfig.operation:selected.value==='dns'?form.dns_mode:form.action,values:{...form},socket:selected.value==='socket'?{...socketConfig}:undefined,wol:selected.value==='wol'?{...wolConfig}:undefined,connections:selected.value==='connections'?{...connectionsConfig}:undefined,discovery:selected.value==='discovery'?JSON.parse(JSON.stringify(discoveryConfig)):undefined,scan:selected.value==='scan'?JSON.parse(JSON.stringify(scanConfig)):undefined,subnet:selected.value==='subnet'?{...subnetConfig}:undefined,monitor:selected.value==='monitor'?JSON.parse(JSON.stringify(monitorConfig)):undefined,wormhole:selected.value==='wormhole'?{...wormholeConfig}:undefined})}
 function rememberConfiguration(){try{const snapshot=currentSnapshot();library.configurations=library.configurations.filter(c=>c.tool!==snapshot.tool||c.mode!==snapshot.mode);library.configurations.push(snapshot);persistLibrary()}catch{/* Partially typed invalid input is not persisted. */}}
-function restoreSnapshot(input:ToolSnapshot){try{const snapshot=sanitizeSnapshot(input);pickTool(snapshot.tool);setMode(snapshot.mode);Object.assign(form,defaults(),snapshot.values,{action:snapshot.mode,dns_mode:snapshot.tool==='dns'?snapshot.mode:'system',ftp_password:''});if(snapshot.discovery)Object.assign(discoveryConfig,snapshot.discovery);if(snapshot.scan)Object.assign(scanConfig,snapshot.scan);if(snapshot.subnet)Object.assign(subnetConfig,snapshot.subnet);if(snapshot.monitor)Object.assign(monitorConfig,snapshot.monitor);if(snapshot.wormhole)Object.assign(wormholeConfig,wormholeDefaults(),snapshot.wormhole,{code:''});error.value='';rememberConfiguration()}catch(e){error.value=String(e)}}
+function restoreSnapshot(input:ToolSnapshot){try{const snapshot=sanitizeSnapshot(input);pickTool(snapshot.tool);setMode(snapshot.mode);Object.assign(form,defaults(),snapshot.values,{action:snapshot.mode,dns_mode:snapshot.tool==='dns'?snapshot.mode:'system',ftp_password:''});if(snapshot.socket)Object.assign(socketConfig,snapshot.socket);if(snapshot.wol)Object.assign(wolConfig,snapshot.wol);if(snapshot.connections)Object.assign(connectionsConfig,snapshot.connections);if(snapshot.discovery)Object.assign(discoveryConfig,snapshot.discovery);if(snapshot.scan)Object.assign(scanConfig,snapshot.scan);if(snapshot.subnet)Object.assign(subnetConfig,snapshot.subnet);if(snapshot.monitor)Object.assign(monitorConfig,snapshot.monitor);if(snapshot.wormhole)Object.assign(wormholeConfig,wormholeDefaults(),snapshot.wormhole,{code:''});error.value='';rememberConfiguration()}catch(e){error.value=String(e)}}
 function saveProfile(name:string){try{if(library.profiles.length>=100)throw Error(t('最多保存 100 项配置','At most 100 profiles'));library.profiles.push({id:crypto.randomUUID(),name,snapshot:currentSnapshot()});persistLibrary()}catch(e){error.value=String(e)}}
-function saveBookmark(name:string){try{if(service.value||['monitor','wormhole','discovery','scan','subnet'].includes(selected.value)||!form.target.trim())throw Error(t('请在客户端工具中填写单个目标','Enter a single target in a client tool'));if(library.bookmarks.length>=100)throw Error(t('最多收藏 100 个目标','At most 100 targets'));library.bookmarks.push({id:crypto.randomUUID(),name,target:safeTarget(form.target)});persistLibrary()}catch(e){error.value=String(e)}}
+function saveBookmark(name:string){try{if(service.value||['socket','wol','connections','monitor','wormhole','discovery','scan','subnet'].includes(selected.value)||!form.target.trim())throw Error(t('请在客户端工具中填写单个目标','Enter a single target in a client tool'));if(library.bookmarks.length>=100)throw Error(t('最多收藏 100 个目标','At most 100 targets'));library.bookmarks.push({id:crypto.randomUUID(),name,target:safeTarget(form.target)});persistLibrary()}catch(e){error.value=String(e)}}
 function loadBookmark(target:string){pickTool('check');form.target=target}
 function removeSaved(kind:'profiles'|'bookmarks',id:string){if(kind==='profiles')library.profiles=library.profiles.filter(p=>p.id!==id);else library.bookmarks=library.bookmarks.filter(b=>b.id!==id);persistLibrary()}
 function importLibrary(incoming:Library,complete:(error?:string)=>void){try{const merged=mergeLibraries(library,incoming);Object.assign(library,merged);for(const c of merged.configurations)configurationsMapEntry(c);const current=incoming.configurations.find(c=>c.tool===selected.value&&`${c.tool}:${c.mode}`===configKey());if(current)restoreSnapshot(current);persistLibrary();complete()}catch(e){complete(String(e))}}
-function configurationsMapEntry(snapshot:ToolSnapshot,restoreSource=true){const key=`${snapshot.tool}:${snapshot.mode}`;if(snapshot.discovery)m2Configurations.set(key,!restoreSource?{...snapshot,discovery:{...snapshot.discovery,source:'',interface:''}}:snapshot);if(snapshot.scan||snapshot.subnet)m2Configurations.set(key,!restoreSource&&snapshot.scan?{...snapshot,scan:{...snapshot.scan,source:''}}:snapshot);configurations.set(key,{...defaults(),...snapshot.values,action:snapshot.mode,dns_mode:snapshot.tool==='dns'?snapshot.mode:'system'});if(snapshot.monitor)monitorConfigurations.set(key,JSON.parse(JSON.stringify(snapshot.monitor)));if(snapshot.wormhole)wormholeConfigurations.set(key,{...snapshot.wormhole})}
-async function showTasks(){if(selected.value==='subnet')pickTool('check');navigation.category=categoryOf(selected.value);persistNavigation();await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));document.querySelector('.task-panel')?.scrollIntoView({behavior:'smooth',block:'start'})}
+function configurationsMapEntry(snapshot:ToolSnapshot,restoreSource=true){const key=`${snapshot.tool}:${snapshot.mode}`;if(snapshot.socket||snapshot.wol||snapshot.connections)m2Configurations.set(key,{...snapshot,socket:snapshot.socket?{...snapshot.socket,source:restoreSource?snapshot.socket.source:'',record_path:'',echo:false}:undefined,wol:snapshot.wol?{...snapshot.wol,source:restoreSource?snapshot.wol.source:''}:undefined});if(snapshot.discovery)m2Configurations.set(key,!restoreSource?{...snapshot,discovery:{...snapshot.discovery,source:'',interface:''}}:snapshot);if(snapshot.scan||snapshot.subnet)m2Configurations.set(key,!restoreSource&&snapshot.scan?{...snapshot,scan:{...snapshot.scan,source:''}}:snapshot);configurations.set(key,{...defaults(),...snapshot.values,action:snapshot.mode,dns_mode:snapshot.tool==='dns'?snapshot.mode:'system'});if(snapshot.monitor)monitorConfigurations.set(key,JSON.parse(JSON.stringify(snapshot.monitor)));if(snapshot.wormhole)wormholeConfigurations.set(key,{...snapshot.wormhole})}
+async function showTasks(){if(['subnet','connections'].includes(selected.value))pickTool('check');navigation.category=categoryOf(selected.value);persistNavigation();await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));document.querySelector('.task-panel')?.scrollIntoView({behavior:'smooth',block:'start'})}
 loadConfig(selected.value,modes.get(selected.value)??defaultMode(selected.value))
 initialized=true
 let settingsTimer:ReturnType<typeof setTimeout>
-watch([form,monitorConfig,wormholeConfig,discoveryConfig,scanConfig,subnetConfig],()=>{clearTimeout(settingsTimer);settingsTimer=setTimeout(()=>{saveConfig()},250)},{deep:true})
+watch([form,monitorConfig,wormholeConfig,discoveryConfig,scanConfig,subnetConfig,socketConfig,wolConfig,connectionsConfig],()=>{clearTimeout(settingsTimer);settingsTimer=setTimeout(()=>{saveConfig()},250)},{deep:true})
 function flushSettings(){clearTimeout(settingsTimer);saveConfig();persistNavigation()}
 onMounted(()=>window.addEventListener('pagehide',flushSettings))
 onUnmounted(()=>{flushSettings();window.removeEventListener('pagehide',flushSettings)})
 function language(){lang.value=en.value?'zh-CN':'en-US';savePreference('language',lang.value)}
 async function choose(){try{const kind=service.value?'directory':form.action==='get'?'save':'file';const path=await invoke<string|null>('choose_path',{kind});if(path)form.path=path}catch(e){error.value=String(e)}}
 async function browseLogs(){try{await invoke('browse_syslog_logs')}catch(e){error.value=String(e)}}
+function inspectPort(port:number){pickTool('connections');connectionsConfig.port=port}
+async function sendSocket(command:SendCommand){try{if(!task.value||task.value.tool!=='socket')return;await invoke('socket_send',{id:task.value.id,command});error.value=''}catch(e){error.value=String(e)}}
 async function start(){
  if(startDisabled.value)return
  error.value='';loading.value=true
  try{
   const request={source_address:selected.value==='check'?form.source_address:'',tls_ca_file:selected.value==='check'?form.tls_ca_file:'',insecure_tls:form.insecure_tls,include_trace:form.include_trace,tool:selected.value,target:form.target.trim(),port:selected.value==='dns'?0:Number(form.port),count:form.continuous&&['ping','tcping'].includes(selected.value)?0:Number(form.count),timeout_ms:Number(form.timeout_ms),interval_ms:Number(form.interval_ms),payload_size_bytes:selected.value==='ping'?Number(form.payload_size_bytes):32,ipv4:form.ipv4,ipv6:form.ipv6,max_hops:Number(form.max_hops),record_type:form.dns_mode==='system'?'A':form.record_type,dns_server:selected.value==='check'||selected.value==='dns'&&form.dns_mode==='direct'?form.dns_server.trim():'',path:form.path,remote_name:selected.value==='ftp'&&form.action==='list'?form.ftp_remote_path:form.remote_name,action:form.action,listen:form.listen.trim(),allow:form.allow.trim(),writable:form.writable,overwrite:form.overwrite,message:form.message,ntp_stratum:Number(form.ntp_stratum),duration_secs:selected.value==='iperf3'||['ntp','ftp','http'].includes(selected.value)&&service.value?Number(form.duration_secs):0,iperf_protocol:form.iperf_protocol,iperf_parallel:selected.value==='iperf3'&&form.iperf_protocol==='udp'?1:Number(form.iperf_parallel),iperf_reverse:form.iperf_reverse,iperf_bitrate_mbps:Number(form.iperf_bitrate_mbps),ftp_username:selected.value==='ftp'?form.ftp_username:'anonymous',ftp_password:selected.value==='ftp'?form.ftp_password:''}
   if(selected.value==='dns'&&form.dns_mode==='direct'&&!request.dns_server)throw new Error(t('请输入 DNS 服务器 IP。','Enter a DNS server IP.'))
+  if(selected.value==='socket')Object.assign(request,{socket:{...socketConfig},action:socketConfig.mode,target:socketConfig.target,listen:socketConfig.listen,port:socketConfig.port})
+  if(selected.value==='wol')Object.assign(request,{wol:{...wolConfig},action:'send',target:wolConfig.destination,port:wolConfig.port})
   if(selected.value==='discovery')Object.assign(request,{discovery:JSON.parse(JSON.stringify(discoveryConfig)),target:discoveryConfig.targets.join(', '),action:'discover'})
   if(selected.value==='scan')Object.assign(request,{scan:JSON.parse(JSON.stringify(scanConfig)),target:scanConfig.targets.join(', '),action:'tcp'})
   if(selected.value==='monitor'){
@@ -211,6 +223,7 @@ async function start(){
   const id=await invoke<string>('start_task',{request})
   const safeRequest={...request,target:normalized?.normalized??request.target}
   if(selected.value==='wormhole'){wormholeConfig.code='';(safeRequest as Row).wormhole={...(safeRequest as Row).wormhole};delete (safeRequest as Row).wormhole.code}
+  if(selected.value==='socket') { (safeRequest as Row).socket={...(safeRequest as Row).socket,record_path:''};socketState.value=null }
   form.ftp_password=''
   delete (safeRequest as Row).message
   const started:Task={id,tool:request.tool,action:request.action,target:['serve','listen'].includes(request.action)?`${request.listen}:${request.port}`:safeRequest.target,port:request.port,status:'running',started_at:String(Date.now()).padStart(20,'0'),seq:0,events:[],result:null,request:{...safeRequest,ftp_password:undefined}}
@@ -239,8 +252,9 @@ async function poll(){if(polling)return;polling=true;try{
   const preview=rows.value,after=cached?.tool==='monitor'?cached.seq:preview.length?Number(preview[preview.length-1]?.cursor||0):0
   const detail=await invoke<Task>('task_poll',{id,after})
   if(active.value!==id||rows.value!==preview)return
-  if(detail.events.length){if(after&&detail.events[0].cursor>after+1&&detail.tool!=='discovery')error.value=t('部分实时预览已淘汰；全程统计独立保留。','Some preview events expired; cumulative statistics are retained independently.');rows.value=[...preview,...detail.events].slice(-300)}
+  if(detail.events.length){if(after&&detail.events[0].cursor>after+1&&!['discovery','socket'].includes(detail.tool))error.value=t('部分实时预览已淘汰；全程统计独立保留。','Some preview events expired; cumulative statistics are retained independently.');rows.value=[...preview,...detail.events].slice(-300)}
   activeDetail.value=detail
+  if(detail.tool==='socket'){const state=await invoke<SocketState>('socket_state',{id});if(active.value===id)socketState.value=state}
   if(detail.request?.target&&!['serve','listen'].includes(detail.action))reusableTarget.value=detail.tool==='check'?(detail.result?.data?.target?.host??''):detail.request.target
  }
  }catch(e){error.value=String(e)}finally{polling=false}}
@@ -275,7 +289,6 @@ onUnmounted(()=>clearInterval(timer))
   <aside class="sidebar">
    <div class="brand"><div class="brand-icon"><span></span><span></span><span></span></div><div><b>HopKit<span class="brand-dot">.</span></b><small>NETWORK TOOLKIT</small></div></div>
    <ToolNavigation :en="en" :state="navigation" :active-tools="tasks.filter(x=>['running','cancelling'].includes(x.status)).map(x=>x.tool)" @select="pickTool" @change="persistNavigation" @tasks="showTasks"/>
-   <div class="sidebar-bottom"><div class="preview-badge">{{appInfo.os.toUpperCase()}} PREVIEW</div><p>v{{appInfo.version}}</p><small>{{t('本地优先 · 基础工具离线可用','Local first · Core tools work offline')}}</small></div>
   </aside>
   <div class="workspace">
    <header>
@@ -293,10 +306,13 @@ onUnmounted(()=>clearInterval(timer))
    <main v-if="tools.some(tool=>tool.category===navigation.category)">
     <SavedConfigurations :en="en" :library="library" :storage-error="storageError" @save-profile="saveProfile" @save-bookmark="saveBookmark" @restore="restoreSnapshot" @target="loadBookmark" @remove="removeSaved" @import="importLibrary"/>
     <div class="page-heading"><div><div class="eyebrow">NETWORK DIAGNOSTICS</div><h1 tabindex="-1">{{displayName(current,en)}}<span>{{en?current.sub[1]:current.sub[0]}}</span></h1><p>{{en?current.desc[1]:current.desc[0]}}</p></div><span class="local-pill"><span>◈</span>{{t('本机执行','LOCAL EXECUTION')}}</span></div>
-    <SubnetTool v-if="selected==='subnet'" :en="en" :config="subnetConfig"/>
+    <ConnectionsTool v-if="selected==='connections'" :en="en" :config="connectionsConfig"/>
+    <SubnetTool v-else-if="selected==='subnet'" :en="en" :config="subnetConfig"/>
     <div v-else class="content-grid">
      <section class="panel config-panel" v-if="selected==='monitor'"><MonitorSetup :en="en" :config="monitorConfig" :family="form" :disabled="startDisabled" @run="start"/><p v-if="error" class="error" role="alert">{{error}}</p></section>
-     <section class="panel config-panel" v-if="selected==='discovery'"><DiscoverySetup :en="en" :config="discoveryConfig" :disabled="startDisabled" :running="running" @run="start" @stop="stop"/><p v-if="error" class="error" role="alert">{{error}}</p></section>
+     <section class="panel config-panel" v-if="selected==='socket'"><SocketSetup :en="en" :config="socketConfig" :disabled="startDisabled" :running="running" @run="start" @stop="stop"/><p v-if="error" class="error" role="alert">{{error}}</p><button v-if="error.includes('ADDRESS_IN_USE')" @click="inspectPort(socketConfig.port)">{{t('查看端口占用','Inspect port use')}}</button></section>
+     <section class="panel config-panel" v-else-if="selected==='wol'"><WolSetup :en="en" :config="wolConfig" :disabled="startDisabled" :running="running" @run="start" @stop="stop"/><p v-if="error" class="error">{{error}}</p></section>
+     <section class="panel config-panel" v-else-if="selected==='discovery'"><DiscoverySetup :en="en" :config="discoveryConfig" :disabled="startDisabled" :running="running" @run="start" @stop="stop"/><p v-if="error" class="error" role="alert">{{error}}</p></section>
      <section class="panel config-panel" v-else-if="selected==='scan'"><ScanSetup :en="en" :config="scanConfig" :disabled="startDisabled" :running="running" @run="start" @stop="stop"/><p v-if="error" class="error" role="alert">{{error}}</p></section>
      <section class="panel config-panel" v-else-if="selected==='wormhole'"><WormholeSetup :en="en" :config="wormholeConfig" :disabled="startDisabled" @run="start"/><p v-if="error" class="error" role="alert">{{error}}</p></section>
      <section class="panel config-panel" v-else-if="selected==='check'"><CheckSetup :en="en" :config="form" :disabled="startDisabled" @run="start"/><div v-if="error" class="error" role="alert">{{error}}</div><button v-if="running" class="stop" @click="stop">■ {{t('停止排障','Stop troubleshooting')}}</button></section>
@@ -348,12 +364,15 @@ onUnmounted(()=>clearInterval(timer))
       <section class="metrics" v-else-if="resultTool==='ntp'&&resultService"><div><small>{{t('收到请求','RECEIVED')}}</small><b>{{data?.received??latestStats?.received??0}}</b></div><div><small>{{t('已响应','REPLIED')}}</small><b>{{data?.replied??latestStats?.replied??0}}</b></div><div><small>{{t('来源拒绝','DENIED')}}</small><b>{{data?.denied??latestStats?.denied??0}}</b></div><div><small>{{t('无效报文','INVALID')}}</small><b>{{data?.invalid??latestStats?.invalid??0}}</b></div></section>
       <section class="metrics" v-else-if="resultTool==='ftp'&&resultService"><div><small>{{t('连接数','CONNECTIONS')}}</small><b>{{data?.connections??latestStats?.connections??0}}</b></div><div><small>{{t('在线连接','ACTIVE')}}</small><b>{{data?.active??latestStats?.active??0}}</b></div><div><small>{{t('已传输','TRANSFERS')}}</small><b>{{data?.transfers??latestStats?.transfers??0}}</b></div><div><small>{{t('传输字节','BYTES')}}</small><b>{{data?.bytes??latestStats?.bytes??0}}</b></div></section>
       <section class="result-panel panel">
-       <div class="panel-title"><h2>{{t('实时结果','Live results')}}<span v-if="task" :class="['status',task.status]">{{statusText(task.status)}}</span></h2><div class="result-tools"><button :disabled="!task?.result||exportingImage" @click="exportImage('file')">{{exportingImage?t('正在导出…','Exporting…'):t('导出图片','Export image')}}</button><button :disabled="!task?.result||exportingImage" @click="exportImage('clipboard')">{{imageCopied?t('图片已复制','Image copied'):t('复制图片','Copy image')}}</button><span v-if="imageSaved" role="status">{{t('图片已保存','Image saved')}}</span><button :disabled="!task" @click="copy">{{copied?t('已复制','Copied'):t('复制','Copy')}}</button><button :disabled="!task" @click="exportData">{{t('导出 JSON','Export JSON')}}</button></div></div>
+       <div class="panel-title"><h2>{{t('实时结果','Live results')}}<span v-if="task" :class="['status',task.status]">{{statusText(task.status)}}</span></h2><div class="result-tools"><button :disabled="!task?.result||exportingImage||resultTool==='socket'" @click="exportImage('file')">{{exportingImage?t('正在导出…','Exporting…'):t('导出图片','Export image')}}</button><button :disabled="!task?.result||exportingImage||resultTool==='socket'" @click="exportImage('clipboard')">{{imageCopied?t('图片已复制','Image copied'):t('复制图片','Copy image')}}</button><span v-if="imageSaved" role="status">{{t('图片已保存','Image saved')}}</span><button :disabled="!task" @click="copy">{{copied?t('已复制','Copied'):t('复制','Copy')}}</button><button :disabled="!task" @click="exportData">{{t('导出 JSON','Export JSON')}}</button></div></div>
        <div v-if="imageError" class="result-error" role="alert">{{imageError}}</div>
+       <button v-if="task?.result?.error?.code==='ADDRESS_IN_USE'" @click="inspectPort(task?.port??form.port)">{{t('查看端口占用','Inspect port use')}}</button>
        <div v-if="resultTool==='discovery'"><DiscoveryResults :en="en" :data="(data??null) as DiscoveryResult|null" :events="rows as DiscoveryEvent[]" :devices="task?.discovery_devices" @use="useDiscoveryTarget"/><p v-if="task?.result?.error" class="result-error">{{task.result.error.code}} · {{task.result.error.message}}</p></div>
        <div v-else-if="resultTool==='scan'"><ScanResults :en="en" :data="(data??null) as ScanResult|null" :events="rows as ScanEvent[]" @use="useScanTarget"/><p v-if="task?.result?.error" class="result-error">{{task.result.error.code}} · {{task.result.error.message}}</p></div>
        <div v-else-if="resultTool==='check'"><CheckResults :data="data" :events="rows" :en="en" @use="useCheckTarget"/><p v-if="task?.result?.error" class="result-error">{{statusText(task.status)}} · {{task.result.error.code}}</p></div>
        <div v-else-if="resultTool==='monitor'"><MonitorResults :en="en" :data="data??latestStats" :task-id="task?.id??''" :running="running" @stop="stop"/><p v-if="task?.result?.error" :class="['result-error',{cancelled:task.status==='cancelled'}]">{{statusText(task.status)}} · {{task.result.error.code}} · {{task.result.error.message}}</p></div>
+       <div v-else-if="resultTool==='socket'"><SocketResults :en="en" :state="socketState" :config="task?.request?.socket??socketConfig" :running="running" :task-id="active" @send="sendSocket"/><p v-if="task?.result?.error" class="result-error">{{task.result.error.code}} · {{task.result.error.message}}</p></div>
+       <div v-else-if="resultTool==='wol'" class="m4-results"><h3>{{t('唤醒报文发送结果','Magic Packet send result')}}</h3><p>{{t('已发送 / 尝试','Sent / attempted')}}: {{data?.sent??0}} / {{data?.attempts??0}}</p><p>{{data?.mac}} → {{data?.destination}}</p><p>{{t('实际本机端点','Actual local endpoint')}}: {{data?.actual_local_address??'—'}}</p><p>{{t('发送不代表设备已唤醒。','Sending does not prove device wake-up.')}}</p><p v-if="task?.result?.error" class="error">{{task.result.error.message}}</p></div>
        <WormholeResults v-else-if="resultTool==='wormhole'" :en="en" :task="task" @stop="stop"/>
        <div v-else-if="!active" class="empty-state"><div class="radar"><span></span><i></i><b>⌁</b></div><h3>{{selected==='http'?t('选择共享目录，启动文件服务','Choose a directory and start sharing'):t('准备就绪，开始第一次测试','Ready for your first test')}}</h3><p>{{t('配置左侧参数，结果将实时显示在这里。','Configure a task on the left. Results will appear here.')}}</p><div class="example">{{t('快速开始','QUICK START')}}<code>hk {{resultTool==='ntp'&&resultService?'ntp serve --help':['ftp','http','tftp','iperf3'].includes(resultTool)?resultTool+' --help':resultTool==='syslog'?'syslog --help':resultTool+' 127.0.0.1'+(resultTool==='tcping'?' 443':'')}}</code></div></div>
        <template v-else>

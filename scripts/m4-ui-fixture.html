@@ -1,0 +1,17 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="app"></div><script type="module">
+import {mockIPC} from '@tauri-apps/api/mocks';import {createApp} from 'vue';import App from '../src/App.vue';import '../src/style.css';import '../src/appearance.css';
+const tasks=[],at='2026-11-16T00:00:00Z';let state={active:true,local_endpoint:'127.0.0.1:9000',sessions:[{id:1,local_endpoint:'127.0.0.1:9000',remote_endpoint:'127.0.0.1:54321',read_closed:false,write_closed:false,closed:false}],records:[{seq:1,kind:'received_stream_bytes',bytes:3,hex:'00ff01',text:'<img src=x onerror=alert(1)>',utf8_valid:false,elapsed_ms:20,session_id:1}],stats:{sent_bytes:0,received_bytes:3,datagrams_sent:0,datagrams_received:0,sessions_total:1,send_errors:0,preview_dropped:7,recording_stopped:false}};
+window.m4Fixture={requests:[],sends:[],exports:[],queries:[],inFlight:0,maxInFlight:0};const f=window.m4Fixture;
+mockIPC(async(command,args)=>{
+ if(command==='app_info')return {version:'0.2.0-dev.5 fixture',os:'Windows',platform:'Windows fixture'};
+ if(command==='network_overview')return {interfaces:[],default_routes:[],dns:[]};
+ if(command==='discovery_interfaces')return [{name:'Ethernet',address:'192.0.2.2',prefix:23,index:1}];
+ if(command==='list_tasks')return structuredClone(tasks);if(command==='task_poll')return structuredClone(tasks.find(t=>t.id===args.id));
+ if(command==='socket_state')return structuredClone(state);
+ if(command==='socket_send'){f.sends.push(structuredClone(args));if(args.command.operation==='shutdown_write')state.sessions[0].write_closed=true;return}
+ if(command==='query_connections'){f.queries.push(args.config);f.inFlight++;f.maxInFlight=Math.max(f.maxInFlight,f.inFlight);await new Promise(r=>setTimeout(r,50));f.inFlight--;return {rows:[{protocol:'tcp',family:'ipv4',local_endpoint:'0.0.0.0:9000',remote_endpoint:null,state:'listen',pid:42,process:'<script>bad<\/script>'},{protocol:'udp',family:'ipv6',local_endpoint:'[::]:9000',remote_endpoint:null,state:null,pid:null,process:null}],adapter:'fixture',query_started_at:at,query_ended_at:at,duration_ms:50,partial:true,partial_errors:[{code:'PARTIAL_CAPABILITY',message:'restricted process'}],process_visibility:'partial',limitations:[]}}
+ if(command==='start_task'){const r=structuredClone(args.request);f.requests.push(r);const id='m4-'+tasks.length;const conflict=r.port===9999,data=r.tool==='wol'?{sent:3,attempts:3,mac:r.wol.mac,destination:r.wol.destination,actual_local_address:'192.0.2.2:12345'}:null;tasks.push({id,tool:r.tool,action:r.action,target:r.target,port:r.port,started_at:at,seq:1,events:[],request:{...r,socket:r.socket?{...r.socket,record_path:''}:undefined},status:conflict?'failed':r.tool==='wol'?'succeeded':'running',result:conflict?{error:{code:'ADDRESS_IN_USE',message:'Port busy'}}:data?{data}:null});return id}
+ if(command==='cancel_task'||command==='stop_all'){for(const t of tasks)if(command==='stop_all'||t.id===args.id){t.status='cancelled';t.result={data:{stats:state.stats}};}state.active=false;return}
+ if(command==='export_result'){f.exports.push(JSON.parse(args.content));return true}return null;
+});createApp(App).mount('#app');
+</script></body></html>

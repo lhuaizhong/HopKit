@@ -37,9 +37,18 @@ struct Task {
     discovery_devices: BTreeMap<String, Value>,
     monitor_control: Arc<hopkit_core::monitor::Control>,
     wormhole_control: Arc<hopkit_core::wormhole::Control>,
+    socket_control: Arc<hopkit_core::socket_tool::Control>,
 }
 impl Task {
     fn record_event(&mut self, body: Value) {
+        if body["event_type"] == "socket_record" {
+            return;
+        }
+        if body["event_type"] == "socket_stats" {
+            self.latest_stats = Some(body["snapshot"].clone());
+            self.seq += 1;
+            return;
+        }
         // Discovery state is bounded by candidate IPs, not the generic event preview.
         // A responding gateway must survive thousands of later timeout events.
         if body["event_type"] == "discovery_device" {
@@ -141,6 +150,37 @@ fn snap(t: &Task, after: u64) -> Snapshot {
 }
 
 #[tauri::command]
+fn socket_send(
+    id: String,
+    command: hopkit_core::socket_tool::SendCommand,
+    tasks: tauri::State<'_, Tasks>,
+) -> Result<(), String> {
+    let map = tasks.0.lock().map_err(|_| "Task state unavailable")?;
+    let task = map.get(&id).ok_or("Unknown task")?;
+    if task.tool != "socket" || task.status != "running" || task.cancel.load(Ordering::Relaxed) {
+        return Err("Socket task is not running / 收发任务已停止".into());
+    }
+    task.socket_control.send(command).map_err(|e| e.to_string())
+}
+#[tauri::command]
+fn socket_state(id: String, tasks: tauri::State<'_, Tasks>) -> Result<Value, String> {
+    let map = tasks.0.lock().map_err(|_| "Task state unavailable")?;
+    let task = map.get(&id).ok_or("Unknown task")?;
+    if task.tool != "socket" {
+        return Err("Not a socket task".into());
+    }
+    Ok(task.socket_control.snapshot(true))
+}
+#[tauri::command]
+async fn query_connections(config: hopkit_core::connections::Config) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        hopkit_core::connections::run(&config, &Arc::new(AtomicBool::new(false)), &|_| {})
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
 async fn discovery_interfaces() -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(|| {
         let c = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -152,8 +192,26 @@ async fn discovery_interfaces() -> Result<Value, String> {
     .map_err(|e| e.to_string())?
 }
 #[tauri::command]
-fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String, String> {
+fn start_task(mut request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String, String> {
     request.validate_tool_config().map_err(|e| e.to_string())?;
+    if let Some(config) = &request.socket {
+        request.port = config.port;
+        request.listen = config.listen.clone();
+        request.target = config.target.clone();
+    }
+    if let Some(config) = &request.wol {
+        request.port = config.port;
+        request.target = config.destination.clone();
+    }
+    if let Some(config) = &request.socket {
+        hopkit_core::socket_tool::validate(config).map_err(|e| e.to_string())?;
+    }
+    if let Some(config) = &request.connections {
+        hopkit_core::connections::validate(config).map_err(|e| e.to_string())?;
+    }
+    if let Some(config) = &request.wol {
+        hopkit_core::wol::validate(config).map_err(|e| e.to_string())?;
+    }
     if request.tool == "subnet" {
         return Err("Use offline subnet calculation command".into());
     }
@@ -199,6 +257,7 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
     let monitor_control = Arc::new(hopkit_core::monitor::Control::default());
     let wormhole_control = Arc::new(hopkit_core::wormhole::Control::default());
     wormhole_control.set_task_id(&id);
+    let socket_control = Arc::new(hopkit_core::socket_tool::Control::default());
     {
         let mut map = tasks.0.lock().map_err(|_| "Task state unavailable")?;
         if map
@@ -257,6 +316,7 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
                 discovery_devices: BTreeMap::new(),
                 monitor_control: monitor_control.clone(),
                 wormhole_control: wormhole_control.clone(),
+                socket_control: socket_control.clone(),
             },
         );
     }
@@ -278,7 +338,14 @@ fn start_task(request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String
             }
         };
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            if request.tool == "wormhole" {
+            if request.tool == "socket" {
+                hopkit_core::socket_tool::run(
+                    request.socket.as_ref().unwrap(),
+                    &cancel,
+                    &emit,
+                    &socket_control,
+                )
+            } else if request.tool == "wormhole" {
                 hopkit_core::wormhole::run(&request, &cancel, &emit, &wormhole_control)
             } else if request.tool == "monitor" {
                 hopkit_core::monitor::run(&request, &cancel, &emit, &monitor_control)
@@ -661,7 +728,9 @@ fn shutdown(handle: tauri::AppHandle, state: Tasks) {
 #[cfg(feature = "native-test")]
 #[tauri::command]
 fn native_test_report(value: Value, app: tauri::AppHandle) -> Result<(), String> {
-    let relative = if value["scenario"] == "m3" {
+    let relative = if value["scenario"] == "m4" {
+        "../test-output/m4/native.json"
+    } else if value["scenario"] == "m3" {
         "../test-output/m3/native.json"
     } else if value["scenario"] == "m2" {
         "../test-output/m2/native.json"
@@ -697,7 +766,9 @@ fn main() {
                     if let Ok(value) = std::fs::read_to_string(config).and_then(|s| {
                         serde_json::from_str::<Value>(&s).map_err(std::io::Error::other)
                     }) {
-                        let driver = if value["scenario"] == "m3" {
+                        let driver = if value["scenario"] == "m4" {
+                            include_str!("../../scripts/m4-native-driver.js")
+                        } else if value["scenario"] == "m3" {
                             include_str!("../../scripts/m3-native-driver.js")
                         } else if value["scenario"] == "m2" {
                             include_str!("../../scripts/m2-native-driver.js")
@@ -716,6 +787,9 @@ fn main() {
         })
         .manage(Tasks::default())
         .invoke_handler(tauri::generate_handler![
+            socket_send,
+            socket_state,
+            query_connections,
             discovery_interfaces,
             #[cfg(feature = "native-test")]
             native_test_report,
@@ -831,6 +905,7 @@ mod trust_tests {
             discovery_devices: BTreeMap::new(),
             monitor_control: Arc::new(hopkit_core::monitor::Control::default()),
             wormhole_control: Arc::new(hopkit_core::wormhole::Control::default()),
+            socket_control: Arc::new(hopkit_core::socket_tool::Control::default()),
         };
         for n in 1..=1200 {
             task.record_event(json!({"event_type":"sample","seq":n}));

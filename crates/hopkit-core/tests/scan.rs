@@ -27,6 +27,8 @@ fn independent_listener_refusal_source_and_dual_stack() {
                 targets: vec![host.into(), host.into()],
                 ports: format!("{port},{refused},{port}"),
                 source: host.into(),
+                // Windows may surface a refused loopback connect after ~1s.
+                timeout_ms: 3000,
                 ..Default::default()
             },
             &cancel(),
