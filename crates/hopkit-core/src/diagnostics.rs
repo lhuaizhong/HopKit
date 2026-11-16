@@ -880,19 +880,41 @@ pub(crate) fn discovery_echo(
     timeout: u32,
     c: &Cancel,
 ) -> ToolResult {
+    mtr_echo(addr, source, 128, timeout, c)
+}
+
+/// One outstanding echo per handle/socket. IP Helper owns Windows request correlation;
+/// Unix adapters match target, identifier, sequence and available quoted payload.
+pub(crate) fn mtr_echo(
+    addr: std::net::SocketAddr,
+    source: &str,
+    ttl: u8,
+    timeout: u32,
+    c: &Cancel,
+) -> ToolResult {
     cancelled(c)?;
     #[cfg(target_os = "macos")]
     {
-        crate::macos_icmp::icmp_bound(addr, 128, timeout, 32, c, source)
+        crate::macos_icmp::icmp_bound(addr, ttl, timeout, 32, c, source)
     }
     #[cfg(target_os = "linux")]
     {
-        crate::linux_icmp::icmp_bound(addr, 128, timeout, 32, c, source)
+        crate::linux_icmp::icmp_bound(addr, ttl, timeout, 32, c, source)
     }
     #[cfg(windows)]
     {
         // Windows synchronous ICMP call: discovery caps timeout at 1000ms.
-        let result = icmp_windows(addr, source, 128, timeout, 32)?;
+        let result = icmp_windows(addr, source, ttl, timeout, 32)?;
+        if result["status"] == "icmp_error" && result["rtt_ms"].is_null() {
+            return Err(ToolError::new(
+                if matches!(result["status_code"].as_u64(), Some(5 | 10013)) {
+                    "PERMISSION_DENIED"
+                } else {
+                    "LOCAL_PROBE_FAILED"
+                },
+                format!("Windows ICMP call failed: {}", result["status_code"]),
+            ));
+        }
         if result["status"] == "icmp_error"
             && matches!(
                 result["status_code"].as_u64(),

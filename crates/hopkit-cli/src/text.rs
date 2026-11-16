@@ -212,6 +212,22 @@ impl TextOutput {
         Some(out)
     }
     pub fn event(&mut self, v: &Value) -> Option<String> {
+        if self.request.tool == "mtr" {
+            if v["event_type"] == "mtr_snapshot"
+                && self.progress_at.elapsed() >= Duration::from_secs(1)
+            {
+                self.progress_at = Instant::now();
+                return Some(format!(
+                    "MTR {} · {}: {} · {}: {}",
+                    s(&v["snapshot"], "target"),
+                    self.t("cycles", "轮次"),
+                    n(&v["snapshot"]["stats"], "cycles_completed"),
+                    self.t("target reached cycles", "到达目标轮次"),
+                    n(&v["snapshot"]["stats"], "target_reached_cycles")
+                ));
+            }
+            return None;
+        }
         if v["event_type"] == "discovery_device" {
             // Text results are printed once, numerically sorted, after completion.
             // JSONL continues to expose every incremental evidence event.
@@ -488,6 +504,38 @@ impl TextOutput {
         )
     }
     pub fn finish(&mut self, envelope: &Value) -> String {
+        if self.request.tool == "mtr" {
+            let d = &envelope["data"];
+            let mut lines=vec![format!("MTR {} · {} · {} → {}",s(d,"target"),s(d,"target_outcome"),s(d,"started_at"),s(d,"ended_at")),format!("{}: {} / {} · {}: {}",self.t("Target reached cycles","到达目标轮次"),n(&d["stats"],"target_reached_cycles"),n(&d["stats"],"cycles_completed"),self.t("gaps","采样缺口"),n(&d["stats"],"gaps")),self.t("TTL  RESPONDERS  SENT / RESP / TIMEOUT / INTERRUPTED  LAST / MIN / AVG / MAX / JITTER ms","TTL  响应地址  发送 / 响应 / 超时 / 中断  最近 / 最小 / 平均 / 最大 / 抖动 ms").into()];
+            for h in d["hops"].as_array().into_iter().flatten() {
+                let addresses = h["responders"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|a| s(a, "address"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                lines.push(format!(
+                    "{} {} {}/{}/{}/{} {}/{}/{}/{}/{}",
+                    n(h, "ttl"),
+                    addresses,
+                    n(h, "sent"),
+                    n(h, "responses"),
+                    n(h, "timeouts"),
+                    n(h, "interrupted"),
+                    n(&h["rtt"], "last_ms"),
+                    n(&h["rtt"], "min_ms"),
+                    n(&h["rtt"], "avg_ms"),
+                    n(&h["rtt"], "max_ms"),
+                    n(&h["rtt"], "jitter_ms")
+                ));
+            }
+            lines.push(self.t("Intermediate no-response is not forwarding loss. Jitter: mean absolute adjacent RTT change, same TTL/responder; timeout/gap/change breaks continuity.","中间跳未回应不等于转发丢包。抖动为同 TTL/响应者连续有效 RTT 差绝对值均值；超时、缺口或响应者变化断开计算。").into());
+            if !envelope["error"].is_null() {
+                lines.push(self.error(&envelope["error"]));
+            }
+            return lines.join("\n");
+        }
         if self.request.tool == "connections" {
             let d = &envelope["data"];
             let mut lines = vec![format!(

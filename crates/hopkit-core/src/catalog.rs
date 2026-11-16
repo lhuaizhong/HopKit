@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolId {
+    Mtr,
     Socket,
     Connections,
     Wol,
@@ -35,6 +36,7 @@ impl ToolId {
     }
 }
 pub const IMPLEMENTED_TOOLS: &[&str] = &[
+    "mtr",
     "socket",
     "connections",
     "wol",
@@ -105,6 +107,7 @@ pub fn capabilities() -> Capabilities {
         network_overview: cfg!(any(windows, target_os = "macos")),
         icmp: cfg!(any(windows, target_os = "macos", target_os = "linux")),
         source_binding: &[
+            "mtr.icmp",
             "socket.tcp",
             "socket.udp",
             "wol.ipv4",
@@ -115,6 +118,16 @@ pub fn capabilities() -> Capabilities {
             "discovery.icmp",
         ],
         adapters: vec![
+            Capability {
+                id: "mtr",
+                status: if icmp_adapter == "unavailable" {
+                    CapabilityStatus::Unsupported
+                } else {
+                    CapabilityStatus::Partial
+                },
+                adapter: icmp_adapter,
+                limitation: "ICMP IPv4/IPv6, sequential TTL probes with shared rate budget. Windows synchronous probe bounded to 1s; Unix cancel polling 50ms. Optional explicit UDP PTR, separate OS routing. Gap detection heuristic; macOS native, real isolated multi-hop, physical sleep acceptance pending.",
+            },
             Capability {
                 id: "socket",
                 status: CapabilityStatus::Supported,
@@ -208,7 +221,9 @@ impl Request {
     /// New nested tool configurations must match their stable operation identity.
     pub fn validate_tool_config(&self) -> Result<(), ToolError> {
         self.tool_id()?;
-        let invalid = self.socket.is_some() && self.tool != "socket"
+        let invalid = self.mtr.is_some() && self.tool != "mtr"
+            || self.tool == "mtr" && (self.mtr.is_none() || self.action != "icmp")
+            || self.socket.is_some() && self.tool != "socket"
             || self.connections.is_some() && self.tool != "connections"
             || self.wol.is_some() && self.tool != "wol"
             || self.tool == "socket" && self.socket.as_ref().is_none_or(|s| s.mode != self.action)

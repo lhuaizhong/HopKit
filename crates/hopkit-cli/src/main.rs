@@ -1,6 +1,7 @@
 mod discovery_cli;
 mod m2_cli;
 mod m4_cli;
+mod mtr_cli;
 mod text;
 mod wormhole_cli;
 use clap::{Args, Parser, Subcommand};
@@ -69,6 +70,8 @@ struct Probe {
 }
 #[derive(Subcommand)]
 enum Command {
+    #[command(about = "Continuous ICMP route observations / 持续 ICMP 路由观测")]
+    Mtr(mtr_cli::Mtr),
     #[command(about = "Interactive TCP/UDP debug channel / TCP/UDP 调试助手")]
     Socket(m4_cli::Socket),
     #[command(about = "Read-only local endpoints / 本机端口与连接")]
@@ -449,6 +452,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
         Command::Wol(c) => return Ok(c.request()),
         Command::Discover(c) => return Ok(c.request()),
         Command::Scan(c) => return Ok(c.request()),
+        Command::Mtr(c) => return Ok(c.request()),
         Command::Subnet(c) => return Ok(c.request()),
         Command::Monitor {
             family,
@@ -908,7 +912,10 @@ fn main() {
     if cli.format == "json"
         && (is_service && r.duration_secs == 0
             || r.count == 0
-            || r.monitor.as_ref().is_some_and(|m| m.duration_secs == 0))
+            || r.monitor.as_ref().is_some_and(|m| m.duration_secs == 0)
+            || r.mtr
+                .as_ref()
+                .is_some_and(|m| m.cycles == 0 && m.duration_secs == 0))
     {
         let _ = writeln!(
             io::stdout(),
@@ -944,7 +951,9 @@ fn main() {
             }
             return;
         }
-        if v["event_type"] == "monitor_snapshot" {
+        if v["event_type"] == "mtr_snapshot" {
+            v = json!({"event_type":"mtr_stats","event_seq":v["event_seq"],"observed_at":v["snapshot"]["ended_at"],"stats":v["snapshot"]["stats"]});
+        } else if v["event_type"] == "monitor_snapshot" {
             // Stream only counters; retained timelines are delivered in the final result.
             v = json!({"event_type":"monitor_stats","timestamp_ms":v["ended_at_ms"],"totals":v["totals"],"paused":v["paused"]});
         } else if v["event_type"] == "monitor_finished" {
@@ -968,6 +977,10 @@ fn main() {
     let mut code = match &result {
         Ok(v) => {
             if v["success"] == false
+                || cli.strict
+                    && r.tool == "mtr"
+                    && (v["stats"]["target_reached_cycles"] != v["stats"]["cycles_completed"]
+                        || v["stats"]["interrupted"].as_u64().unwrap_or(0) > 0)
                 || cli.strict
                     && (v["lost"].as_u64().unwrap_or(0) > 0
                         || v["timeout_probes"].as_u64().unwrap_or(0) > 0

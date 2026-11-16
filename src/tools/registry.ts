@@ -5,8 +5,8 @@ export const categories = [
  {id:'utilities', label:['小工具','Utilities']},
 ] as const
 export type CategoryId = typeof categories[number]['id']
-export type ToolId = 'socket'|'connections'|'wol'|'discovery'|'scan'|'subnet'|'check'|'monitor'|'ping'|'trace'|'tcping'|'dns'|'ntp'|'iperf3'|'tftp'|'ftp'|'http'|'wormhole'|'syslog'
-export type ToolDefinition = {id:ToolId;name:string;glyph:string;sub:[string,string];desc:[string,string];category:CategoryId;aliases:string[];view:'socket'|'connections'|'wol'|'check'|'monitor'|'wormhole'|'discovery'|'scan'|'subnet'|'legacy';requirements:string[]}
+export type ToolId = 'mtr'|'socket'|'connections'|'wol'|'discovery'|'scan'|'subnet'|'check'|'monitor'|'ping'|'trace'|'tcping'|'dns'|'ntp'|'iperf3'|'tftp'|'ftp'|'http'|'wormhole'|'syslog'
+export type ToolDefinition = {id:ToolId;name:string;glyph:string;sub:[string,string];desc:[string,string];category:CategoryId;aliases:string[];view:'mtr'|'socket'|'connections'|'wol'|'check'|'monitor'|'wormhole'|'discovery'|'scan'|'subnet'|'legacy';requirements:string[]}
 const entries:Omit<ToolDefinition,'category'|'aliases'|'view'|'requirements'>[]=[
  {id:'ping',name:'Ping',glyph:'↗',sub:['连通性测试','ICMP echo'],desc:['检测目标可达性、延迟与丢包。','Measure reachability, latency and packet loss.']},
  {id:'trace',name:'Traceroute',glyph:'⌁',sub:['路由追踪','Route tracing'],desc:['逐跳查看 ICMP 路径，识别响应与超时。','Inspect ICMP responses along the route.']},
@@ -37,3 +37,5 @@ export function categoryOf(id:ToolId):CategoryId{return tools.find(t=>t.id===id)
 
  tools.push({id:'socket',name:'TCP / UDP',glyph:'⇄',sub:['调试助手','Socket debug'],desc:['两端收发字节流与数据报，验证网络规则。','Exchange TCP bytes and UDP datagrams to inspect network rules.'],category:'expert',aliases:['TCP/UDP 调试助手','收发','socket','UDP','nc'],view:'socket',requirements:[]},{id:'connections',name:'Connections',glyph:'☷',sub:['本机端口与连接','Local ports & connections'],desc:['只读查看本机 TCP/UDP 端点和进程。','Inspect local TCP/UDP endpoints and available process names.'],category:'utilities',aliases:['端口占用','监听端口','netstat','connections','PID'],view:'connections',requirements:[]},{id:'wol',name:'Wake-on-LAN',glyph:'⏻',sub:['网络唤醒','Wake-on-LAN'],desc:['发送 IPv4 Magic Packet，发出不代表已唤醒。','Send IPv4 Magic Packets; sending does not prove wake-up.'],category:'utilities',aliases:['唤醒','WOL','magic packet'],view:'wol',requirements:[]})
 tools.push(...expertTools.map(legacyTool))
+
+tools.push({id:'mtr',name:'MTR',glyph:'⌁',sub:['持续路由诊断','Continuous route diagnosis'],desc:['持续 ICMP 逐跳观测、目标到达与多响应者统计。','Continuous ICMP hop observations, target reach and multiple responders.'],category:'expert',aliases:['mtr','持续路由','路由诊断'],view:'mtr',requirements:['icmp']})

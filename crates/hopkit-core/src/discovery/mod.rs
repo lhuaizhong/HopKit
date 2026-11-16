@@ -10,7 +10,7 @@ use std::{
 };
 mod arp;
 pub mod interfaces;
-mod names;
+pub(crate) mod names;
 pub mod neighbors;
 fn now() -> String {
     chrono::Utc::now().to_rfc3339()

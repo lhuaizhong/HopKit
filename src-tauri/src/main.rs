@@ -41,6 +41,11 @@ struct Task {
 }
 impl Task {
     fn record_event(&mut self, body: Value) {
+        if body["event_type"] == "mtr_snapshot" {
+            self.latest_stats = Some(body["snapshot"].clone());
+            self.seq += 1;
+            return;
+        }
         if body["event_type"] == "socket_record" {
             return;
         }
@@ -194,6 +199,10 @@ async fn discovery_interfaces() -> Result<Value, String> {
 #[tauri::command]
 fn start_task(mut request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String, String> {
     request.validate_tool_config().map_err(|e| e.to_string())?;
+    if let Some(config) = &request.mtr {
+        hopkit_core::mtr::validate(config).map_err(|e| e.to_string())?;
+        request.target = config.target.clone();
+    }
     if let Some(config) = &request.socket {
         request.port = config.port;
         request.listen = config.listen.clone();
@@ -728,7 +737,9 @@ fn shutdown(handle: tauri::AppHandle, state: Tasks) {
 #[cfg(feature = "native-test")]
 #[tauri::command]
 fn native_test_report(value: Value, app: tauri::AppHandle) -> Result<(), String> {
-    let relative = if value["scenario"] == "m4" {
+    let relative = if value["scenario"] == "m5" {
+        "../test-output/m5/native.json"
+    } else if value["scenario"] == "m4" {
         "../test-output/m4/native.json"
     } else if value["scenario"] == "m3" {
         "../test-output/m3/native.json"
@@ -766,7 +777,9 @@ fn main() {
                     if let Ok(value) = std::fs::read_to_string(config).and_then(|s| {
                         serde_json::from_str::<Value>(&s).map_err(std::io::Error::other)
                     }) {
-                        let driver = if value["scenario"] == "m4" {
+                        let driver = if value["scenario"] == "m5" {
+                            include_str!("../../scripts/m5-native-driver.js")
+                        } else if value["scenario"] == "m4" {
                             include_str!("../../scripts/m4-native-driver.js")
                         } else if value["scenario"] == "m3" {
                             include_str!("../../scripts/m3-native-driver.js")
@@ -937,5 +950,14 @@ mod trust_tests {
         assert_eq!(snapshot["discovery_devices"][0]["address"], "192.168.10.1");
         assert_eq!(snapshot["discovery_devices"][0]["responded"], true);
         assert!(snap(&task, u64::MAX).discovery_devices.is_none());
+        task.tool = "mtr".into();
+        task.record_event(json!({"event_type":"mtr_snapshot","snapshot":{"stats":{"sent":10000,"responses":9999},"hops":[{"ttl":1,"responses":9999}]}}));
+        for n in 0..200 {
+            task.record_event(json!({"event_type":"mtr_sample","sample":{"seq":n}}));
+        }
+        let snapshot = serde_json::to_value(snap(&task, task.seq)).unwrap();
+        assert_eq!(snapshot["latest_stats"]["stats"]["sent"], 10000);
+        assert_eq!(snapshot["latest_stats"]["hops"][0]["responses"], 9999);
+        assert_eq!(task.events.len(), 150);
     }
 }

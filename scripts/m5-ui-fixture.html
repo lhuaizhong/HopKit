@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="app"></div><script type="module">
+import {mockIPC} from '@tauri-apps/api/mocks';import {createApp} from 'vue';import App from '../src/App.vue';import '../src/style.css';import '../src/appearance.css';
+const tasks=[],at='2026-11-16T07:00:00Z';window.m5Fixture={requests:[],exports:[],cancelled:[]};const f=window.m5Fixture;
+const rtt={count:3,last_ms:12,min_ms:10,avg_ms:11,max_ms:12,jitter_ms:1,jitter_pairs:2};
+const hop=(ttl,address,timeout=false)=>({ttl,sent:4,responses:timeout?0:3,timeouts:timeout?4:1,interrupted:0,no_response_percent:timeout?100:25,rtt:timeout?{count:0,last_ms:null,min_ms:null,avg_ms:null,max_ms:null,jitter_ms:null,jitter_pairs:0}:rtt,responders:timeout?[]:[{address,responses:2,rtt},{address:'2001:db8::2',responses:1,rtt:{...rtt,jitter_ms:null,jitter_pairs:0}}],untracked_responses:0,last_status:timeout?'timeout':'ttl_expired'});
+const data={schema_version:1,target:'example.test',resolved_target:'192.0.2.9:0',source:'',started_at:at,ended_at:at,duration_ms:5000,stats:{cycles_started:4,cycles_completed:4,target_reached_cycles:4,target_reach_percent:100,sent:12,responses:7,timeouts:5,interrupted:0,gaps:1,path_changes:1},hops:[hop(1,'',true),hop(2,'<img src=x onerror=alert(1)>'),hop(3,'192.0.2.9')],samples:[],path_changes:[{observed_at:at,cycle:3,ttl:2,previous:'192.0.2.1',address:'2001:db8::2'}],gaps:[{observed_at:at,elapsed_ms:4000,duration_ms:20000,reason:'suspend_or_scheduler_delay'}],samples_dropped:10000,changes_dropped:0,gaps_dropped:0,target_outcome:'reached',success:true,partial:false,limitations:[]};
+mockIPC(async(command,args)=>{
+ if(command==='app_info')return {version:'0.2.0-dev.6 fixture',os:'Windows',platform:'fixture'};
+ if(command==='network_overview')return {interfaces:[],default_routes:[],dns:[]};
+ if(command==='list_tasks')return structuredClone(tasks.map(t=>({...t,latest_stats:null})));
+ if(command==='task_poll')return structuredClone(tasks.find(t=>t.id===args.id));
+ if(command==='start_task'){const r=structuredClone(args.request);f.requests.push(r);const id='m5-'+tasks.length;tasks.push({id,tool:r.tool,action:r.action,target:r.target,started_at:at,seq:15001,events:[],request:r,status:'running',result:null,latest_stats:{...data,target:r.target}});return id;}
+ if(command==='cancel_task'||command==='stop_all'){for(const task of tasks)if(command==='stop_all'||task.id===args.id){task.status='cancelled';task.seq++;task.result={data:{...task.latest_stats,partial:true},error:{code:'CANCELLED',message:'MTR stopped / MTR 已停止'}};f.cancelled.push(task.id);}return;}
+ if(command==='export_result'){f.exports.push(JSON.parse(args.content));return true;}return null;
+});createApp(App).mount('#app');
+</script></body></html>

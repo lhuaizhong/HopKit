@@ -55,6 +55,8 @@ impl std::error::Error for ToolError {}
 pub struct Request {
     pub tool: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub mtr: Option<crate::mtr::Config>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub socket: Option<crate::socket_tool::Config>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub connections: Option<crate::connections::Config>,
@@ -111,6 +113,7 @@ impl Default for Request {
     fn default() -> Self {
         Self {
             tool: "ping".into(),
+            mtr: None,
             socket: None,
             connections: None,
             wol: None,
@@ -343,6 +346,9 @@ pub fn is_timeout(e: &std::io::Error) -> bool {
 pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
     req.validate_tool_config()?;
     req.address_family()?;
+    if req.tool == "mtr" {
+        return crate::mtr::run(req.mtr.as_ref().unwrap(), c, emit);
+    }
     if req.tool == "socket" {
         return crate::socket_tool::run(req.socket.as_ref().unwrap(), c, emit, &Default::default());
     }

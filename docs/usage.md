@@ -281,3 +281,19 @@ On macOS, use `target/release/hopkit-cli`. Additional checks include `scripts/di
 Run `python scripts/cli-text-test.py --exe target/release/hopkit-cli.exe` for local CLI output checks (on macOS, omit `.exe`). It checks concise text, both languages, and JSON/JSONL compatibility without public network access.
 
 UI tests use browser fixtures or test-only debugging; normal releases do not enable a debugging port. Local evidence goes to `test-output/`; packaged evidence, when included, is under `validation/`. Paths are relative to the project or package root. Results apply to the recorded platform/artifact; other architectures, minimum OS versions, real devices, and changing VPN/multi-interface environments require their own checks.
+
+## Continuous ICMP MTR (dev.6)
+
+Find MTR under Expert tools. Defaults: 100 cycles, 1 second between cycle starts, 30 TTLs, 1 second probe timeout and 20 probes/second. IPv4/IPv6 and numeric source binding are supported. Scan, Discovery and MTR share fair admission at 200 probes/second in one GUI process; slow rounds do not queue. Stop retains cumulative results and remains available from the task center after changing category.
+
+```sh
+hk mtr example.com --cycles 100 --interval-ms 1000 --max-hops 30 --format jsonl
+hk mtr ::1 -6 --source ::1 --cycles 10 --format json
+hk mtr 192.0.2.1 --cycles 0 --duration 60 --ptr-server 192.0.2.53 --format jsonl
+```
+
+PTR is off by default. An explicit numeric resolver enables a separate bounded UDP worker (300 ms timeout, OS routing, independent of ICMP source binding). Names do not prove identity. Target reach is measured over completed cycles. Intermediate no-response is not forwarding loss, and RTT differences across TTLs are not link latency. Jitter is the mean absolute adjacent valid RTT change for the same TTL and responder; timeouts, gaps and responder changes break continuity. No adjacent pair displays a dash.
+
+Expand a hop for responder details. Change/gap timelines retain 256 entries, recent samples retain 256, and each TTL retains 16 responders; cumulative counters survive preview eviction. JSON needs finite cycles/duration; JSONL streams samples and compact counters with a final complete summary. Exit 0: at least one cycle reached the target; 1: completed without reaching; 2: invalid input; 3: local capability/permission; 130: cancellation. `--strict` requires every completed cycle to reach the target, independent of intermediate response rates.
+
+Real isolated multi-hop, macOS native and physical suspend acceptance remain pending; see [M5 scope and validation](M5-开发与验收记录.md).

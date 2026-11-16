@@ -1,5 +1,14 @@
 # Changelog / 版本记录
 
+## 0.2.0-dev.6 — M5 / 2026-11-16
+
+- Add built-in ICMP IPv4/IPv6 MTR to Expert tools and `hk mtr`: sequential per-TTL probes, source binding, finite cycles/duration, process-wide fair rate admission shared with Scan/Discovery and retained cancellation results.
+- Keep target reach separate from intermediate response rates. Show multiple responders, RTT min/mean/max/last, precisely defined adjacent RTT jitter, bounded samples/change timelines and suspend/scheduler gaps without invented loss.
+- Add optional explicit-resolver PTR on a separate bounded worker. Default numeric view sends no DNS; PTR uses OS-routed UDP independently of ICMP source binding. Integrate profiles, bilingual GUI and text/JSON/JSONL; compact streaming counters avoid repeated full snapshots.
+- 新增专家工具 MTR 持续路由诊断及 CLI，支持 ICMP 双栈、源绑定、共享限速、轮数/时长与取消保留统计。中间跳未回应不等于转发丢包；多响应者不构造唯一物理路径。
+- 提供逐跳表、响应者详情、变化时间线与采样缺口；抖动按相同 TTL/响应者连续有效 RTT 差绝对值均值计算，跨超时/缺口/响应者变化断开。窗口与预览有界，累计统计独立保留。
+- 功能、Windows 验证及尚待真实隔离多跳/macOS/物理休眠验收的范围见 [M5 开发与验收记录](docs/M5-开发与验收记录.md)。
+
 ## 0.2.0-dev.5 — M4 / 2026-11-16
 
 - Expand the sidebar tool list into the space previously used by the preview/version/local-first block. Move multi-target Monitor and temporary Syslog from Common to Expert, preserving saved settings and favorites.

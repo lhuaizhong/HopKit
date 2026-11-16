@@ -10,9 +10,11 @@ pub mod http_files;
 pub mod iperf3;
 #[cfg(target_os = "linux")]
 mod linux_icmp;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
+#[cfg_attr(not(target_os = "macos"),allow(dead_code))]
 mod macos_icmp;
 pub mod monitor;
+pub mod mtr;
 pub mod network;
 pub mod ntp;
 mod process;

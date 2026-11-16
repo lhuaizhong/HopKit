@@ -72,6 +72,8 @@ jobs:
           python scripts/integration_test.py --exe "target/release/hopkit-cli$suffix" --output test-output/integration-release.json
           python scripts/cli-text-test.py --exe "target/release/hopkit-cli$suffix"
           HOPKIT_TEST_EXE="target/release/hopkit-cli$suffix" python scripts/m4-integration-test.py
+          HOPKIT_TEST_EXE="target/release/hopkit-cli$suffix" python scripts/m5-integration-test.py
+          HOPKIT_TEST_EXE="target/release/hopkit-cli$suffix" python scripts/m5-ptr-test.py
           python scripts/monitor-soak.py --exe "target/release/hopkit-cli$suffix" --duration 35 --output test-output/monitor-release
       - name: Generate build metadata and dependency licenses
         run: |
@@ -97,6 +99,7 @@ jobs:
             test-output/wormhole/*.log
             test-output/integration-release.json
             test-output/m4/*.json
+            test-output/m5/*.json
             test-output/monitor-release/*.json
             release/metadata/BUILD_INFO.json
           if-no-files-found: warn

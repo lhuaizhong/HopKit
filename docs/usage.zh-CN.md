@@ -283,3 +283,19 @@ macOS 将程序路径替换为 `target/release/hopkit-cli`。专项检查包括 
 运行 `python scripts/cli-text-test.py --exe target/release/hopkit-cli.exe` 可检查本地 CLI 输出（macOS 去掉 `.exe`），覆盖简洁文本、中英文及 JSON/JSONL 兼容性，不访问公网。
 
 UI 测试使用浏览器 fixture 或测试专用调试，正式启动不开放调试端口。本地证据写入 `test-output/`，包内证据如有提供则位于 `validation/`，路径均相对于项目或安装包根目录。结论仅适用于记录的平台与产物；其他架构、最低系统版本、真实设备及多网卡/VPN 动态环境需单独验证。
+
+## MTR 持续路由诊断（dev.6）
+
+专家工具中搜索 MTR，填写目标后启动。支持 ICMP IPv4/IPv6、源 IP、轮数/时长、轮次间隔、最大 TTL 与每秒探测上限。默认 100 轮、1 秒间隔、30 跳、单探测 1 秒、20 次/秒；所有扫描/发现/MTR 在同一 GUI 进程合计最多 200 次/秒，慢轮次不排队。停止保留统计；切换分类后可在任务中心停止。
+
+```sh
+hk mtr example.com --cycles 100 --interval-ms 1000 --max-hops 30 --format jsonl
+hk mtr ::1 -6 --source ::1 --cycles 10 --format json
+hk mtr 192.0.2.1 --cycles 0 --duration 60 --ptr-server 192.0.2.53 --format jsonl
+```
+
+PTR 默认关闭，显式填写解析器才查询；使用独立 UDP、系统路由、300 ms 超时，不跟随 ICMP 源绑定。名称不证明身份。目标到达率按完整轮次统计；中间跳未回应率不等于转发丢包率。RTT 抖动是同 TTL/响应者连续有效 RTT 差绝对值的均值，无相邻对显示 —；超时、缺口、响应者变化断开计算。
+
+表格中的响应地址可展开各响应者统计；路径变化与缺口另有时间线。最近 256 个样本/变化/缺口、每 TTL 最多 16 个响应者，累计计数独立保留；JSON 导出说明预览淘汰。JSON 仅支持有限运行，JSONL 为样本/计数/最终结果；0 表示至少一轮到达目标，1 表示完成但未到达，2 参数错误，3 本机能力/权限，130 主动取消。`--strict` 要求所有完整轮次到达目标，不使用中间跳未回应率判失败。
+
+当前真实隔离多跳、macOS 原生及物理休眠仍待现场验收，见 [M5 记录](M5-开发与验收记录.md)。

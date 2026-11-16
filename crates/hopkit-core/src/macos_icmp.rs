@@ -73,7 +73,11 @@ fn parse(packet: &[u8], target: IpAddr, from: IpAddr, request: &[u8]) -> Option<
     } else {
         return None;
     };
-    if echo.len() < 8 || echo[0] != request[0] || echo[4..8] != request[4..8] {
+    if echo.len() < 8
+        || echo.len() > request.len()
+        || echo[..2] != request[..2]
+        || echo[4..] != request[4..echo.len()]
+    {
         return None;
     }
     Some(Reply {
@@ -274,5 +278,51 @@ mod tests {
             }
         }
         assert_eq!(checksum(&[0, 1, 0xf2, 3, 0xf4, 0xf5, 0xf6, 0xf7]), 0x220d);
+    }
+    #[test]
+    fn quoted_errors_match_family_target_id_sequence_and_available_payload() {
+        for v6 in [false, true] {
+            let target = if v6 { "2001:db8::1" } else { "192.0.2.1" }
+                .parse()
+                .unwrap();
+            let request = echo_request(v6, 32);
+            let quoted = |echo: &[u8]| {
+                if v6 {
+                    let mut p = vec![0; 40];
+                    p[0] = 0x60;
+                    p[6] = 58;
+                    if let IpAddr::V6(a) = target {
+                        p[24..40].copy_from_slice(&a.octets());
+                    }
+                    p.extend(echo);
+                    p
+                } else {
+                    ip4(echo)
+                }
+            };
+            let error = |echo: &[u8]| {
+                let mut body = vec![if v6 { 3 } else { 11 }, 0, 0, 0, 0, 0, 0, 0];
+                body.extend(quoted(echo));
+                if v6 { body } else { ip4(&body) }
+            };
+            assert!(parse(&error(&request[..8]), target, target, &request).is_some());
+            assert!(parse(&error(&request), target, target, &request).is_some());
+            for i in [4, 6, 8, 20] {
+                let mut other = request.clone();
+                other[i] ^= 1;
+                assert!(parse(&error(&other), target, target, &request).is_none());
+            }
+            assert!(
+                parse(
+                    &error(&request),
+                    if v6 { "2001:db8::2" } else { "192.0.2.2" }
+                        .parse()
+                        .unwrap(),
+                    target,
+                    &request
+                )
+                .is_none()
+            );
+        }
     }
 }

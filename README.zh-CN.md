@@ -6,7 +6,7 @@
 
 HopKit 将网络排障、持续监测、吞吐量测试、文件共享和日志采集集成在一个桌面应用中，同时提供独立 CLI。图形界面与命令行共享 Rust 核心，适用于日常运维和脚本自动化。
 
-**项目状态：** 当前源码为 `0.2.0-dev.5`，新增 M4 TCP/UDP 调试、本机端口与连接、Wake-on-LAN，GUI/CLI 共用核心；Windows 验证及 macOS/真实设备待验收范围见 [M4 开发与验收记录](docs/M4-开发与验收记录.md)。已实现 M3 设备发现：有界 ARP/ICMP/TCP、独立邻居/PTR 来源、MAC 变化线索、手动跨工具联动，见 [M3 开发与验收记录](docs/M3-开发与验收记录.md)。M2 已交付：小工具中的离线 IPv4/IPv6 子网计算器、专家工具中的 TCP connect 扫描，支持 CLI、取消和导出。导航分为常用工具、文件传输、专家工具和小工具；TFTP、FTP、HTTP 文件服务及 Wormhole 归文件传输。详见 [M2 开发与验收记录](docs/M2-开发与验收记录.md)、[M1 基础功能](docs/M1-开发与验收记录.md)和 [0.2.0 技术开发计划书](docs/HopKit-0.2.0-技术开发计划书.md)。下方下载仍指向已发布候选版 `0.1.0-rc.2`，见其[实现与验收记录](WORMHOLE_IMPLEMENTATION.md)。
+**项目状态：** 当前源码为 `0.2.0-dev.6`。M5 新增 ICMP MTR：逐 TTL/响应者累计统计、路径变化与采样缺口、共享限速、取消和独立可选 PTR，见 [M5 开发与验收记录](docs/M5-开发与验收记录.md)。此前新增 M4 TCP/UDP 调试、本机端口与连接、Wake-on-LAN，GUI/CLI 共用核心；Windows 验证及 macOS/真实设备待验收范围见 [M4 开发与验收记录](docs/M4-开发与验收记录.md)。已实现 M3 设备发现：有界 ARP/ICMP/TCP、独立邻居/PTR 来源、MAC 变化线索、手动跨工具联动，见 [M3 开发与验收记录](docs/M3-开发与验收记录.md)。M2 已交付：小工具中的离线 IPv4/IPv6 子网计算器、专家工具中的 TCP connect 扫描，支持 CLI、取消和导出。导航分为常用工具、文件传输、专家工具和小工具；TFTP、FTP、HTTP 文件服务及 Wormhole 归文件传输。详见 [M2 开发与验收记录](docs/M2-开发与验收记录.md)、[M1 基础功能](docs/M1-开发与验收记录.md)和 [0.2.0 技术开发计划书](docs/HopKit-0.2.0-技术开发计划书.md)。下方下载仍指向已发布候选版 `0.1.0-rc.2`，见其[实现与验收记录](WORMHOLE_IMPLEMENTATION.md)。
 
 ## 软件界面示例
 
