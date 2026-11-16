@@ -212,6 +212,17 @@ impl TextOutput {
         Some(out)
     }
     pub fn event(&mut self, v: &Value) -> Option<String> {
+        if self.request.tool == "snmp" && v["event_type"] == "snmp_snapshot" {
+            let d = &v["snapshot"];
+            return Some(format!(
+                "SNMP {} · {} · samples {} · responses {} · gaps {}",
+                s(d, "target"),
+                s(d, "completion_reason"),
+                n(&d["stats"], "samples"),
+                n(&d["stats"], "responses"),
+                n(&d["stats"], "gaps")
+            ));
+        }
         if self.request.tool == "mtr" {
             if v["event_type"] == "mtr_snapshot"
                 && self.progress_at.elapsed() >= Duration::from_secs(1)
@@ -504,6 +515,45 @@ impl TextOutput {
         )
     }
     pub fn finish(&mut self, envelope: &Value) -> String {
+        if self.request.tool == "snmp" {
+            let d = &envelope["data"];
+            let mut lines = vec![format!(
+                "SNMP {} · {} · {}",
+                s(d, "target"),
+                s(d, "security_level"),
+                s(d, "completion_reason")
+            )];
+            for v in d["varbinds"].as_array().into_iter().flatten() {
+                lines.push(format!(
+                    "{} = {}: {} {}",
+                    s(v, "oid"),
+                    s(v, "kind"),
+                    s(v, "value"),
+                    s(v, "object_error")
+                ));
+            }
+            for sample in d["interface_samples"].as_array().into_iter().flatten() {
+                lines.push(format!(
+                    "{} · {} ms",
+                    s(sample, "observed_at"),
+                    n(sample, "elapsed_ms")
+                ));
+                for i in sample["interfaces"].as_array().into_iter().flatten() {
+                    lines.push(format!(
+                        "{} {} · in/out bit/s: {}/{} · {}",
+                        n(i, "index"),
+                        s(i, "name"),
+                        n(i, "in_bps"),
+                        n(i, "out_bps"),
+                        s(i, "discontinuity")
+                    ));
+                }
+            }
+            if !envelope["error"].is_null() {
+                lines.push(self.error(&envelope["error"]));
+            }
+            return lines.join("\n");
+        }
         if self.request.tool == "mtr" {
             let d = &envelope["data"];
             let mut lines=vec![format!("MTR {} · {} · {} → {}",s(d,"target"),s(d,"target_outcome"),s(d,"started_at"),s(d,"ended_at")),format!("{}: {} / {} · {}: {}",self.t("Target reached cycles","到达目标轮次"),n(&d["stats"],"target_reached_cycles"),n(&d["stats"],"cycles_completed"),self.t("gaps","采样缺口"),n(&d["stats"],"gaps")),self.t("TTL  RESPONDERS  SENT / RESP / TIMEOUT / INTERRUPTED  LAST / MIN / AVG / MAX / JITTER ms","TTL  响应地址  发送 / 响应 / 超时 / 中断  最近 / 最小 / 平均 / 最大 / 抖动 ms").into()];

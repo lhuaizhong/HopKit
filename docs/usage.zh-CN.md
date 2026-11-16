@@ -299,3 +299,15 @@ PTR 默认关闭，显式填写解析器才查询；使用独立 UDP、系统路
 表格中的响应地址可展开各响应者统计；路径变化与缺口另有时间线。最近 256 个样本/变化/缺口、每 TTL 最多 16 个响应者，累计计数独立保留；JSON 导出说明预览淘汰。JSON 仅支持有限运行，JSONL 为样本/计数/最终结果；0 表示至少一轮到达目标，1 表示完成但未到达，2 参数错误，3 本机能力/权限，130 主动取消。`--strict` 要求所有完整轮次到达目标，不使用中间跳未回应率判失败。
 
 当前真实隔离多跳、macOS 原生及物理休眠仍待现场验收，见 [M5 记录](M5-开发与验收记录.md)。
+
+## SNMP（M6 源码开发版）
+
+专家工具 → SNMP 提供 v2c/v3 只读 GET、GETNEXT、GETBULK、WALK、设备概览及 IF-MIB 接口观察。填写运行凭据后手动启动；现场配置和导出排除 community/认证/加密密码。Community 在当前页面保留，方便重复查询；v3 密码启动后清空。支持数值 OID 与内置常用名称，没有完整 MIB 编译器或 SET。
+
+```sh
+hk snmp get 192.0.2.10 sysName sysUpTime --community-env HOPKIT_SNMP_COMMUNITY
+hk snmp walk 192.0.2.10 system --format json
+hk snmp interfaces 192.0.2.10 --snmp-version 3 --username operator --samples 0 --format jsonl
+```
+
+按版本在受控进程环境中设置 `HOPKIT_SNMP_COMMUNITY`、`HOPKIT_SNMP_AUTH_PASSWORD`、`HOPKIT_SNMP_PRIVACY_PASSWORD`，不把明文写进 CLI 参数。v3 默认 SHA-256/AES-128 authPriv，可显式选择 SHA-1 兼容或其他安全级别。Counter64 以十进制字符串返回；缺口、重启和断点使速率为空。范围、限制及平台/真实设备/长时验收见 [M6 记录](M6-开发与验收记录.md)。

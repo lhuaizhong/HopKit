@@ -57,6 +57,10 @@ pub struct Request {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mtr: Option<crate::mtr::Config>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub snmp: Option<crate::snmp::Config>,
+    #[serde(skip_serializing)]
+    pub snmp_credentials: crate::snmp::Credentials,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub socket: Option<crate::socket_tool::Config>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub connections: Option<crate::connections::Config>,
@@ -114,6 +118,8 @@ impl Default for Request {
         Self {
             tool: "ping".into(),
             mtr: None,
+            snmp: None,
+            snmp_credentials: Default::default(),
             socket: None,
             connections: None,
             wol: None,
@@ -346,6 +352,9 @@ pub fn is_timeout(e: &std::io::Error) -> bool {
 pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
     req.validate_tool_config()?;
     req.address_family()?;
+    if req.tool == "snmp" {
+        return crate::snmp::run(req.snmp.as_ref().unwrap(), &req.snmp_credentials, c, emit);
+    }
     if req.tool == "mtr" {
         return crate::mtr::run(req.mtr.as_ref().unwrap(), c, emit);
     }

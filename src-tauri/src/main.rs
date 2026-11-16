@@ -41,7 +41,7 @@ struct Task {
 }
 impl Task {
     fn record_event(&mut self, body: Value) {
-        if body["event_type"] == "mtr_snapshot" {
+        if body["event_type"] == "mtr_snapshot" || body["event_type"] == "snmp_snapshot" {
             self.latest_stats = Some(body["snapshot"].clone());
             self.seq += 1;
             return;
@@ -199,6 +199,13 @@ async fn discovery_interfaces() -> Result<Value, String> {
 #[tauri::command]
 fn start_task(mut request: Request, tasks: tauri::State<'_, Tasks>) -> Result<String, String> {
     request.validate_tool_config().map_err(|e| e.to_string())?;
+    if let Some(config) = &request.snmp {
+        hopkit_core::snmp::validate(config).map_err(|e| e.to_string())?;
+        hopkit_core::snmp::validate_credentials(config, &request.snmp_credentials)
+            .map_err(|e| e.to_string())?;
+        request.target = config.target.clone();
+        request.port = config.port;
+    }
     if let Some(config) = &request.mtr {
         hopkit_core::mtr::validate(config).map_err(|e| e.to_string())?;
         request.target = config.target.clone();
@@ -737,7 +744,9 @@ fn shutdown(handle: tauri::AppHandle, state: Tasks) {
 #[cfg(feature = "native-test")]
 #[tauri::command]
 fn native_test_report(value: Value, app: tauri::AppHandle) -> Result<(), String> {
-    let relative = if value["scenario"] == "m5" {
+    let relative = if value["scenario"] == "m6" {
+        "../test-output/m6/native.json"
+    } else if value["scenario"] == "m5" {
         "../test-output/m5/native.json"
     } else if value["scenario"] == "m4" {
         "../test-output/m4/native.json"
@@ -777,7 +786,9 @@ fn main() {
                     if let Ok(value) = std::fs::read_to_string(config).and_then(|s| {
                         serde_json::from_str::<Value>(&s).map_err(std::io::Error::other)
                     }) {
-                        let driver = if value["scenario"] == "m5" {
+                        let driver = if value["scenario"] == "m6" {
+                            include_str!("../../scripts/m6-native-driver.js")
+                        } else if value["scenario"] == "m5" {
                             include_str!("../../scripts/m5-native-driver.js")
                         } else if value["scenario"] == "m4" {
                             include_str!("../../scripts/m4-native-driver.js")

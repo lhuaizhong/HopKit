@@ -2,6 +2,7 @@ mod discovery_cli;
 mod m2_cli;
 mod m4_cli;
 mod mtr_cli;
+mod snmp_cli;
 mod text;
 mod wormhole_cli;
 use clap::{Args, Parser, Subcommand};
@@ -70,6 +71,8 @@ struct Probe {
 }
 #[derive(Subcommand)]
 enum Command {
+    #[command(about = "Read-only SNMP v2c/v3 GET/WALK and IF-MIB / SNMP 只读查询与接口观察")]
+    Snmp(snmp_cli::Snmp),
     #[command(about = "Continuous ICMP route observations / 持续 ICMP 路由观测")]
     Mtr(mtr_cli::Mtr),
     #[command(about = "Interactive TCP/UDP debug channel / TCP/UDP 调试助手")]
@@ -452,6 +455,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
         Command::Wol(c) => return Ok(c.request()),
         Command::Discover(c) => return Ok(c.request()),
         Command::Scan(c) => return Ok(c.request()),
+        Command::Snmp(c) => return c.request(),
         Command::Mtr(c) => return Ok(c.request()),
         Command::Subnet(c) => return Ok(c.request()),
         Command::Monitor {
@@ -876,8 +880,8 @@ fn main() {
                 let _ = writeln!(io::stdout(), "{value}");
                 std::process::exit(2);
             }
-            if e.use_stderr() && args.iter().any(|a| a == "wormhole") {
-                eprintln!("Invalid Wormhole arguments; run wormhole --help");
+            if e.use_stderr() && args.iter().any(|a| a == "wormhole" || a == "snmp") {
+                eprintln!("Invalid command arguments; run --help");
                 std::process::exit(2);
             }
             e.exit();
@@ -913,6 +917,9 @@ fn main() {
         && (is_service && r.duration_secs == 0
             || r.count == 0
             || r.monitor.as_ref().is_some_and(|m| m.duration_secs == 0)
+            || r.snmp
+                .as_ref()
+                .is_some_and(|s| s.operation == "interfaces" && s.samples == 0)
             || r.mtr
                 .as_ref()
                 .is_some_and(|m| m.cycles == 0 && m.duration_secs == 0))
@@ -951,7 +958,9 @@ fn main() {
             }
             return;
         }
-        if v["event_type"] == "mtr_snapshot" {
+        if v["event_type"] == "snmp_snapshot" {
+            v = json!({"event_type":"snmp_stats","event_seq":v["event_seq"],"stats":v["snapshot"]["stats"],"latest_sample":v["snapshot"]["interface_samples"].as_array().and_then(|s|s.last())});
+        } else if v["event_type"] == "mtr_snapshot" {
             v = json!({"event_type":"mtr_stats","event_seq":v["event_seq"],"observed_at":v["snapshot"]["ended_at"],"stats":v["snapshot"]["stats"]});
         } else if v["event_type"] == "monitor_snapshot" {
             // Stream only counters; retained timelines are delivered in the final result.

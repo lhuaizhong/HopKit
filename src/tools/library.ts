@@ -1,3 +1,4 @@
+import {cleanSnmp} from './snmp'
 import {cleanMtr} from './mtr'
 import {cleanSocket,cleanWol,cleanConnections} from './m4'
 import {cleanDiscovery} from './discovery'
@@ -8,8 +9,8 @@ export type TargetBookmark={id:string;name:string;target:string}
 export type Profile={id:string;name:string;snapshot:ToolSnapshot}
 export type Library={schema_version:1;bookmarks:TargetBookmark[];profiles:Profile[];configurations:ToolSnapshot[]}
 export const emptyLibrary=():Library=>({schema_version:1,bookmarks:[],profiles:[],configurations:[]})
-export const defaultMode=(id:ToolId)=>({mtr:'icmp',ftp:'list',http:'serve',tftp:'get',ntp:'query',iperf3:'client',syslog:'listen',dns:'system',wormhole:'send',discovery:'discover',scan:'tcp',socket:'',wol:'',connections:''} as Partial<Record<ToolId,string>>)[id]??''
-const modes:Partial<Record<ToolId,string[]>>={mtr:['icmp'],ftp:['list','get','put','serve'],http:['serve'],tftp:['get','put','serve'],ntp:['query','serve'],iperf3:['client','serve'],syslog:['listen','send'],dns:['system','direct'],wormhole:['send','receive'],discovery:['discover'],scan:['tcp'],subnet:[''],socket:['','connect','listen','send'],wol:['','send'],connections:['','query']}
+export const defaultMode=(id:ToolId)=>({snmp:'get',mtr:'icmp',ftp:'list',http:'serve',tftp:'get',ntp:'query',iperf3:'client',syslog:'listen',dns:'system',wormhole:'send',discovery:'discover',scan:'tcp',socket:'',wol:'',connections:''} as Partial<Record<ToolId,string>>)[id]??''
+const modes:Partial<Record<ToolId,string[]>>={snmp:['','get','getnext','getbulk','walk','overview','interfaces'],mtr:['icmp'],ftp:['list','get','put','serve'],http:['serve'],tftp:['get','put','serve'],ntp:['query','serve'],iperf3:['client','serve'],syslog:['listen','send'],dns:['system','direct'],wormhole:['send','receive'],discovery:['discover'],scan:['tcp'],subnet:[''],socket:['','connect','listen','send'],wol:['','send'],connections:['','query']}
 const validMode=(tool:ToolId,mode:unknown)=>typeof mode==='string'&&(modes[tool]??['']).includes(mode)
 const bounded=(v:unknown,max=4096):v is string=>typeof v==='string'&&v.length<=max&&!/[\x00-\x1f]/.test(v)
 export function safeTarget(target:string):string{
@@ -37,6 +38,7 @@ export function sanitizeSnapshot(input:unknown):ToolSnapshot{
  }
  if(values.ipv4&&values.ipv6||values.iperf_protocol!==undefined&&!['tcp','udp'].includes(values.iperf_protocol)||values.record_type!==undefined&&!['A','AAAA','CNAME','MX','TXT','NS','PTR','SOA'].includes(values.record_type))throw Error('Invalid configuration option / 配置选项无效')
  const snapshot:ToolSnapshot={schema_version:1,tool:data.tool,mode:data.mode,values}
+ if(data.tool==='snmp'&&data.snmp)snapshot.snmp=cleanSnmp(data.snmp)
  if(data.tool==='mtr'&&data.mtr)snapshot.mtr=cleanMtr(data.mtr)
  if(data.tool==='socket'&&data.socket)snapshot.socket=cleanSocket(data.socket)
  if(data.tool==='wol'&&data.wol)snapshot.wol=cleanWol(data.wol)

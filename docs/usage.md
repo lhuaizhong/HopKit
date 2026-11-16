@@ -297,3 +297,15 @@ PTR is off by default. An explicit numeric resolver enables a separate bounded U
 Expand a hop for responder details. Change/gap timelines retain 256 entries, recent samples retain 256, and each TTL retains 16 responders; cumulative counters survive preview eviction. JSON needs finite cycles/duration; JSONL streams samples and compact counters with a final complete summary. Exit 0: at least one cycle reached the target; 1: completed without reaching; 2: invalid input; 3: local capability/permission; 130: cancellation. `--strict` requires every completed cycle to reach the target, independent of intermediate response rates.
 
 Real isolated multi-hop, macOS native and physical suspend acceptance remain pending; see [M5 scope and validation](M5-开发与验收记录.md).
+
+## SNMP (source development M6)
+
+Expert → SNMP provides read-only v2c/v3 GET, GETNEXT, GETBULK, WALK, device overview and IF-MIB observation. Enter runtime credentials and start explicitly. Profiles and exports omit community/auth/privacy credentials. Community stays on the current page for repeated queries; v3 passwords are cleared after starting. Numeric OIDs and built-in symbols are supported, with no full MIB compiler or SET.
+
+```sh
+hk snmp get 192.0.2.10 sysName sysUpTime --community-env HOPKIT_SNMP_COMMUNITY
+hk snmp walk 192.0.2.10 system --format json
+hk snmp interfaces 192.0.2.10 --snmp-version 3 --username operator --samples 0 --format jsonl
+```
+
+Set `HOPKIT_SNMP_COMMUNITY`, `HOPKIT_SNMP_AUTH_PASSWORD` and `HOPKIT_SNMP_PRIVACY_PASSWORD` in the controlled process environment as applicable. v3 defaults to SHA-256/AES-128 authPriv; SHA-1 compatibility, authNoPriv and noAuthNoPriv require explicit selection. Counter64 values are decimal strings; missing samples and discontinuities clear rates. See [M6 scope, limits and validation](M6-开发与验收记录.md) for remaining platform/device/long-run gates.

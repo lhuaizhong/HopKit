@@ -1,6 +1,6 @@
 # Release builds / 发布构建
 
-Source development is now `0.2.0-dev.6`; M5 MTR scope and platform gates are documented in [M5 validation](docs/M5-开发与验收记录.md); M4 implementation and remaining platform/device gates are documented in [M4 validation](docs/M4-开发与验收记录.md); the published candidate remains `0.1.0-rc.2`.
+Source development is now `0.2.0-dev.7`; M6 SNMP implementation and pending device/platform/long-run gates are documented in [M6 validation](docs/M6-开发与验收记录.md); M5 MTR scope and platform gates are documented in [M5 validation](docs/M5-开发与验收记录.md); M4 implementation and remaining platform/device gates are documented in [M4 validation](docs/M4-开发与验收记录.md); the published candidate remains `0.1.0-rc.2`.
 M3 device discovery, neighbor evidence and tool handoff are implemented; see the [M3 record](docs/M3-开发与验收记录.md) for platform/physical acceptance limits. M2 subnet calculation and TCP connect scanning are implemented; see the [M2 record](docs/M2-开发与验收记录.md) and [M1 foundations](docs/M1-开发与验收记录.md).
 Later features and release gates are defined in the [0.2.0 technical development plan](docs/HopKit-0.2.0-技术开发计划书.md).
 Keep the version in `package.json`,

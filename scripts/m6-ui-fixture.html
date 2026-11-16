@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="app"></div><script type="module">
+import {mockIPC} from '@tauri-apps/api/mocks';import {createApp} from 'vue';import App from '../src/App.vue';import '../src/style.css';import '../src/appearance.css';
+const tasks=[],at='2026-11-16T12:00:00Z';window.m6Fixture={requests:[],exports:[],cancelled:[],images:[]};const f=window.m6Fixture;
+const data={schema_version:1,target:'switch.test',remote_endpoint:'192.0.2.1:161',local_endpoint:'192.0.2.2:12345',version:'3',security_level:'auth_priv',engine:{id:'800000123456',boots:4,time:321},varbinds:[{oid:'1.3.6.1.2.1.1.5.0',kind:'octet_string',value:'<img src=x onerror=alert(1)>',object_error:null},{oid:'1.3.6.1.2.1.31.1.1.1.6.1',kind:'counter64',value:'18446744073709551615',object_error:null}],interface_samples:[{observed_at:at,elapsed_ms:2000,interval_ms:2000,uptime:'123456',gap:false,interfaces:[{index:1,name:'eth0',alias:'<svg onload=alert(1)>',admin_status:'1',oper_status:'1',speed_bps:'1000000000',counter_bits:64,in_octets:'9007199254741993',out_octets:'18446744073709551000',in_bps:4000,out_bps:null,discontinuity:'counter_discontinuity_changed',counter_discontinuity_time:'42',in_errors:'3',out_errors:'4',in_discards:'5',out_discards:'6'}]}],stats:{requests:40,retries:1,responses:39,timeouts:1,object_errors:0,results:2,decoded_bytes:300,samples:2,samples_valid:2,samples_failed:0,gaps:1,samples_dropped:200},completion_reason:'complete',success:true,partial:false,started_at:at,ended_at:at,limitations:['Numeric OIDs and built-in names only; no full MIB compiler.']};
+mockIPC(async(command,args)=>{
+ if(command==='app_info')return {version:'0.2.0-dev.7 fixture',os:'macOS',platform:'fixture'};
+ if(command==='network_overview')return {interfaces:[],default_routes:[],dns:[]};
+ if(command==='list_tasks')return structuredClone(tasks.map(t=>({...t,latest_stats:null})));
+ if(command==='task_poll')return structuredClone(tasks.find(t=>t.id===args.id));
+ if(command==='start_task'){const r=structuredClone(args.request);f.requests.push(structuredClone(r));const id='m6-'+tasks.length;delete r.snmp_credentials;tasks.push({id,tool:r.tool,action:r.action,target:r.target,started_at:at,seq:10001,events:[],request:r,status:'running',result:null,latest_stats:{...data,target:r.target}});return id;}
+ if(command==='cancel_task'||command==='stop_all'){for(const task of tasks)if(command==='stop_all'||task.id===args.id){task.status='cancelled';task.seq++;task.result={data:{...task.latest_stats,partial:true,completion_reason:'cancelled'},error:{code:'CANCELLED',message:'SNMP stopped / SNMP 已停止'}};f.cancelled.push(task.id);}return;}
+ if(command==='export_result'){f.exports.push(JSON.parse(args.content));return true;}
+ if(command==='export_result_image'){f.images.push(args);return true;}return null;
+});createApp(App).mount('#app');
+</script></body></html>

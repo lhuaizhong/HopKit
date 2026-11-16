@@ -1,5 +1,12 @@
 # Changelog / 版本记录
 
+## 0.2.0-dev.7 — M6 / 2026-11-16
+
+- Added read-only SNMP v2c GET/GETNEXT/GETBULK/WALK and v3 USM SHA-256/SHA-1 with AES-128, explicit security levels, engine discovery/time resynchronization and cancellable bounded UDP.
+- Added device overview and IF-MIB observation with exact Counter64 strings, actual sample intervals, discontinuity/gap handling, bounded snapshots and shared request budgets.
+- Added CLI environment credentials and dedicated bilingual GUI, configuration recovery, JSON/PNG exports and secret exclusion from snapshots/persistence/output.
+- Passed independent Net-SNMP interoperability and macOS Apple Silicon native checks. Real devices, Windows/Intel native, two-hour and release-package acceptance remain pending; see [M6 validation](docs/M6-开发与验收记录.md).
+
 ## 0.2.0-dev.6 — M5 / 2026-11-16
 
 - Add built-in ICMP IPv4/IPv6 MTR to Expert tools and `hk mtr`: sequential per-TTL probes, source binding, finite cycles/duration, process-wide fair rate admission shared with Scan/Discovery and retained cancellation results.

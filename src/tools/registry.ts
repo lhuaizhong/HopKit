@@ -5,8 +5,8 @@ export const categories = [
  {id:'utilities', label:['小工具','Utilities']},
 ] as const
 export type CategoryId = typeof categories[number]['id']
-export type ToolId = 'mtr'|'socket'|'connections'|'wol'|'discovery'|'scan'|'subnet'|'check'|'monitor'|'ping'|'trace'|'tcping'|'dns'|'ntp'|'iperf3'|'tftp'|'ftp'|'http'|'wormhole'|'syslog'
-export type ToolDefinition = {id:ToolId;name:string;glyph:string;sub:[string,string];desc:[string,string];category:CategoryId;aliases:string[];view:'mtr'|'socket'|'connections'|'wol'|'check'|'monitor'|'wormhole'|'discovery'|'scan'|'subnet'|'legacy';requirements:string[]}
+export type ToolId = 'snmp'|'mtr'|'socket'|'connections'|'wol'|'discovery'|'scan'|'subnet'|'check'|'monitor'|'ping'|'trace'|'tcping'|'dns'|'ntp'|'iperf3'|'tftp'|'ftp'|'http'|'wormhole'|'syslog'
+export type ToolDefinition = {id:ToolId;name:string;glyph:string;sub:[string,string];desc:[string,string];category:CategoryId;aliases:string[];view:'snmp'|'mtr'|'socket'|'connections'|'wol'|'check'|'monitor'|'wormhole'|'discovery'|'scan'|'subnet'|'legacy';requirements:string[]}
 const entries:Omit<ToolDefinition,'category'|'aliases'|'view'|'requirements'>[]=[
  {id:'ping',name:'Ping',glyph:'↗',sub:['连通性测试','ICMP echo'],desc:['检测目标可达性、延迟与丢包。','Measure reachability, latency and packet loss.']},
  {id:'trace',name:'Traceroute',glyph:'⌁',sub:['路由追踪','Route tracing'],desc:['逐跳查看 ICMP 路径，识别响应与超时。','Inspect ICMP responses along the route.']},
@@ -39,3 +39,5 @@ export function categoryOf(id:ToolId):CategoryId{return tools.find(t=>t.id===id)
 tools.push(...expertTools.map(legacyTool))
 
 tools.push({id:'mtr',name:'MTR',glyph:'⌁',sub:['持续路由诊断','Continuous route diagnosis'],desc:['持续 ICMP 逐跳观测、目标到达与多响应者统计。','Continuous ICMP hop observations, target reach and multiple responders.'],category:'expert',aliases:['mtr','持续路由','路由诊断'],view:'mtr',requirements:['icmp']})
+
+tools.push({id:'snmp',name:'SNMP',glyph:'▥',sub:['只读查询与接口观察','Read-only queries & interfaces'],desc:['SNMP v2c/v3、设备概览、WALK 和 IF-MIB 速率。','SNMP v2c/v3, device overview, bounded WALK and IF-MIB rates.'],category:'expert',aliases:['snmp','OID','交换机','接口流量','设备查询','MIB'],view:'snmp',requirements:[]})

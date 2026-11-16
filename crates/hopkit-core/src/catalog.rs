@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolId {
+    Snmp,
     Mtr,
     Socket,
     Connections,
@@ -36,6 +37,7 @@ impl ToolId {
     }
 }
 pub const IMPLEMENTED_TOOLS: &[&str] = &[
+    "snmp",
     "mtr",
     "socket",
     "connections",
@@ -118,6 +120,12 @@ pub fn capabilities() -> Capabilities {
             "discovery.icmp",
         ],
         adapters: vec![
+            Capability {
+                id: "snmp",
+                status: CapabilityStatus::Partial,
+                adapter: "rust-usm-udp",
+                limitation: "Read-only v2c and v3 USM SHA256/SHA1, AES128. Numeric OIDs/built-in names only; bounded WALK and IF-MIB samples. No SET/MIB compiler/Trap/source binding. Real-device and platform acceptance pending.",
+            },
             Capability {
                 id: "mtr",
                 status: if icmp_adapter == "unavailable" {
@@ -221,7 +229,13 @@ impl Request {
     /// New nested tool configurations must match their stable operation identity.
     pub fn validate_tool_config(&self) -> Result<(), ToolError> {
         self.tool_id()?;
-        let invalid = self.mtr.is_some() && self.tool != "mtr"
+        let invalid = self.snmp.is_some() && self.tool != "snmp"
+            || self.tool == "snmp"
+                && self
+                    .snmp
+                    .as_ref()
+                    .is_none_or(|s| s.operation != self.action)
+            || self.mtr.is_some() && self.tool != "mtr"
             || self.tool == "mtr" && (self.mtr.is_none() || self.action != "icmp")
             || self.socket.is_some() && self.tool != "socket"
             || self.connections.is_some() && self.tool != "connections"
