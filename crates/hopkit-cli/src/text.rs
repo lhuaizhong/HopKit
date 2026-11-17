@@ -515,6 +515,50 @@ impl TextOutput {
         )
     }
     pub fn finish(&mut self, envelope: &Value) -> String {
+        if self.request.tool == "dhcp" {
+            let d = &envelope["data"];
+            let mut lines = vec![format!(
+                "DHCPv4 {} · {}",
+                s(d, "operation"),
+                s(d, "diagnostic_outcome")
+            )];
+            for i in d["interfaces"].as_array().into_iter().flatten() {
+                lines.push(format!(
+                    "{} [{}] id={} DHCP={} server={} lease={} / {}",
+                    s(i, "name"),
+                    n(i, "index"),
+                    s(i, "id"),
+                    i["dhcp_enabled"],
+                    i["server"],
+                    i["lease_start"],
+                    i["lease_expires"]
+                ));
+                lines.push(format!(
+                    "{} · addresses={} gateways={} DNS={} search={}",
+                    s(i, "config_source"),
+                    i["addresses"],
+                    i["gateways"],
+                    i["dns"],
+                    i["search_domains"]
+                ));
+            }
+            for o in d["offers"].as_array().into_iter().flatten() {
+                lines.push(format!(
+                    "OFFER server={} source={} yiaddr={} lease={} relay={} outside_expected={}",
+                    s(o, "server_id"),
+                    s(o, "packet_source"),
+                    s(o, "yiaddr"),
+                    o["lease_secs"],
+                    s(o, "relay"),
+                    o["outside_expected"]
+                ));
+            }
+            lines.push(self.t("DISCOVER only. No offer does not prove no DHCP server; outside-list does not imply malicious.","仅发 DISCOVER；无 Offer 不证明无服务器，清单外不代表恶意。").into());
+            if !envelope["error"].is_null() {
+                lines.push(self.error(&envelope["error"]))
+            }
+            return lines.join("\n");
+        }
         if self.request.tool == "pmtu" {
             let d = &envelope["data"];
             let mut lines = vec![

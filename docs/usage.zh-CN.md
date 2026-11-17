@@ -322,3 +322,17 @@ hk mtu 2001:db8::10 -6 --min 1280 --max 1500 --total-timeout-ms 30000
 ```
 
 `confirmed_lower` 是最大重复成功 IP 长度，`confirmed_upper` 是最小明确拒绝长度，不是可用 MTU。设备报告 MTU 独立展示，不能直接当作已验证成功。超时保持未知，全部候选成功仅说明“至少支持已测上限”。结果为 ICMP 观测，不保证 TCP/UDP 载荷上限。源 IP 明确绑定，但不固定出口接口。退出 0 表示相邻边界或测试上限已验证；1 未知/部分；2 参数错误；3 本机权限/能力；130 取消并保留证据。CLI text/JSON/JSONL 与 GUI JSON/PNG 共用核心，范围和待验收项见 [M7 记录](M7-开发与验收记录.md)。
+
+## DHCPv4 诊断（M8）
+
+在专家工具搜索 DHCP/租约。先手动运行只读检查，再用结果中的按钮预填接口；预填、恢复配置和切换工具不发送发现报文。Windows 读取当前 IP Helper 配置与租约；macOS 使用 SystemConfiguration 适配器（原生验收待完成）。不可取得的字段显示未知；有效 DNS/网关可能来自手动覆盖，不一概标为 DHCP 下发。
+
+```sh
+hk dhcp inspect --format json
+hk dhcp inspect --interface 8
+hk dhcp discover --interface 8 --duration 5 --attempts 3 --expected-server 192.168.1.1 --format json
+```
+
+使用 inspect 返回的接口 ID、名称或当前索引；索引可能变化，重启不自动恢复网络相关接口。仅发送 DHCPDISCOVER，收集 DHCPOFFER；不发送 REQUEST/RELEASE/DECLINE，不申请或替换本机租约。DISCOVER 可能临时预留地址。默认 5 秒、3 次，范围 1–30 秒、1–3 次，最多保留 256 个唯一 Offer。标准 UDP 68 被系统占用或无权限时明确失败，保留配置视图；请勿停止系统 DHCP 客户端。
+
+UDP 出站源 IP 由指定接口的系统栈选择；`0.0.0.0:68` 表示通配接收绑定。尚未完成未配置接口及物理 DHCP 设备兼容验收。无 Offer 不证明网络没有服务器；多 Offer 可为合法冗余，“清单外”仅比较用户清单。CLI 0 表示读配置完成或窗口内收到有效 Offer（包括清单外）；1 表示无 Offer/超预算部分结果；2 参数错误；3 本机能力/权限/端口；130 取消。停止保留证据，可导出 JSON/PNG。平台和现场待验收项见 [M8 记录](M8-开发与验收记录.md)。

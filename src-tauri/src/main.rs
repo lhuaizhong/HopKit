@@ -41,7 +41,8 @@ struct Task {
 }
 impl Task {
     fn record_event(&mut self, body: Value) {
-        if body["event_type"] == "pmtu_snapshot"
+        if body["event_type"] == "dhcp_snapshot"
+            || body["event_type"] == "pmtu_snapshot"
             || body["event_type"] == "mtr_snapshot"
             || body["event_type"] == "snmp_snapshot"
         {
@@ -208,6 +209,10 @@ fn start_task(mut request: Request, tasks: tauri::State<'_, Tasks>) -> Result<St
             .map_err(|e| e.to_string())?;
         request.target = config.target.clone();
         request.port = config.port;
+    }
+    if let Some(config) = &request.dhcp {
+        hopkit_core::dhcp::validate(config).map_err(|e| e.to_string())?;
+        request.target = config.interface.clone();
     }
     if let Some(config) = &request.pmtu {
         hopkit_core::pmtu::validate(config).map_err(|e| e.to_string())?;
@@ -750,7 +755,9 @@ fn shutdown(handle: tauri::AppHandle, state: Tasks) {
 #[cfg(feature = "native-test")]
 #[tauri::command]
 fn native_test_report(value: Value, app: tauri::AppHandle) -> Result<(), String> {
-    let relative = if value["scenario"] == "m7" {
+    let relative = if value["scenario"] == "m8" {
+        "../test-output/m8/native.json"
+    } else if value["scenario"] == "m7" {
         "../test-output/m7/native.json"
     } else if value["scenario"] == "m6" {
         "../test-output/m6/native.json"
@@ -794,7 +801,9 @@ fn main() {
                     if let Ok(value) = std::fs::read_to_string(config).and_then(|s| {
                         serde_json::from_str::<Value>(&s).map_err(std::io::Error::other)
                     }) {
-                        let driver = if value["scenario"] == "m7" {
+                        let driver = if value["scenario"] == "m8" {
+                            include_str!("../../scripts/m8-native-driver.js")
+                        } else if value["scenario"] == "m7" {
                             include_str!("../../scripts/m7-native-driver.js")
                         } else if value["scenario"] == "m6" {
                             include_str!("../../scripts/m6-native-driver.js")

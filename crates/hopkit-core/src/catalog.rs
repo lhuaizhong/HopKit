@@ -8,6 +8,7 @@ pub enum ToolId {
     Snmp,
     Mtr,
     Pmtu,
+    Dhcp,
     Socket,
     Connections,
     Wol,
@@ -41,6 +42,7 @@ pub const IMPLEMENTED_TOOLS: &[&str] = &[
     "snmp",
     "mtr",
     "pmtu",
+    "dhcp",
     "socket",
     "connections",
     "wol",
@@ -123,6 +125,32 @@ pub fn capabilities() -> Capabilities {
             "discovery.icmp",
         ],
         adapters: vec![
+            Capability {
+                id: "dhcp_inspect",
+                status: if cfg!(any(windows, target_os = "macos")) {
+                    CapabilityStatus::Partial
+                } else {
+                    CapabilityStatus::Unsupported
+                },
+                adapter: if cfg!(windows) {
+                    "windows-iphelper"
+                } else if cfg!(target_os = "macos") {
+                    "macos-systemconfiguration"
+                } else {
+                    "unavailable"
+                },
+                limitation: "Read-only current configuration; missing lease fields unknown. Windows IPv4 only; macOS native acceptance pending.",
+            },
+            Capability {
+                id: "dhcp_discover",
+                status: if cfg!(any(windows, target_os = "macos")) {
+                    CapabilityStatus::Partial
+                } else {
+                    CapabilityStatus::Unsupported
+                },
+                adapter: "interface-bound-udp-68",
+                limitation: "DISCOVER only, standard UDP 68 to 67, explicit interface, exclusive port (no reuse). Port conflict/permission failure preserves inspect. Receive restricted by Windows IFLIST/macOS IP_BOUND_IF. Real-device/platform wire acceptance pending.",
+            },
             Capability {
                 id: "pmtu_ipv4",
                 status: if icmp_adapter == "unavailable" {
@@ -252,7 +280,13 @@ impl Request {
     /// New nested tool configurations must match their stable operation identity.
     pub fn validate_tool_config(&self) -> Result<(), ToolError> {
         self.tool_id()?;
-        let invalid = self.pmtu.is_some() && self.tool != "pmtu"
+        let invalid = self.dhcp.is_some() && self.tool != "dhcp"
+            || self.tool == "dhcp"
+                && self
+                    .dhcp
+                    .as_ref()
+                    .is_none_or(|s| s.operation != self.action)
+            || self.pmtu.is_some() && self.tool != "pmtu"
             || self.tool == "pmtu" && (self.pmtu.is_none() || self.action != "icmp")
             || self.snmp.is_some() && self.tool != "snmp"
             || self.tool == "snmp"

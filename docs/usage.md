@@ -320,3 +320,17 @@ hk mtu 2001:db8::10 -6 --min 1280 --max 1500 --total-timeout-ms 30000
 ```
 
 `confirmed_lower` is the largest repeatedly successful IP length. `confirmed_upper` is the smallest explicitly rejected IP length (not a supported MTU). A reported MTU is a separate hint, never a confirmed success. Timeouts leave bounds unchanged; all candidates succeeding means only “at least the tested maximum”. ICMP results do not guarantee TCP/UDP payload limits. Source IP is explicitly bound, without fixing an interface. 0 means a verified adjacent interval or tested maximum; 1 unknown/partial; 2 invalid input; 3 local capability/permission; 130 cancelled with retained evidence. Text/JSON/JSONL and GUI JSON/PNG use the same core. See [M7 limits and validation](M7-开发与验收记录.md).
+
+## DHCPv4 diagnostics (M8)
+
+Search DHCP in Expert. Run read-only inspection, then explicitly prefill an interface for discovery; neither handoff nor profile restoration starts probes. Windows uses current IP Helper configuration and leases. The macOS SystemConfiguration adapter awaits native acceptance. Missing fields stay unknown; effective DNS/gateways may contain manual overrides.
+
+```sh
+hk dhcp inspect --format json
+hk dhcp inspect --interface 8
+hk dhcp discover --interface 8 --duration 5 --attempts 3 --expected-server 192.168.1.1 --format json
+```
+
+Use an adapter ID/name/current index from inspect. Defaults: 5 seconds, 3 DISCOVERs; bounds: 1–30 seconds, 1–3 sends, 256 unique offers. Uses standard UDP 68→67 with exclusive client-port ownership. Port conflicts/permissions fail explicitly and preserve inspection; keep the system DHCP client running. No DHCPREQUEST/RELEASE/DECLINE, lease acquisition or address modification. DISCOVER can temporarily reserve an offer.
+
+The UDP source IPv4 follows the pinned interface's OS stack; `0.0.0.0:68` denotes the wildcard receive bind. Unconfigured-interface and physical DHCP-device acceptance remain pending. No offer does not prove no server; multiple servers can be legitimate, and outside-list only compares user expectations. Exit 0: inspection completed or a valid offer observed (including outside-list); 1: no offer/preview limit; 2: invalid input; 3: local capability/permission/port issue; 130: cancellation. Cancel retains evidence for JSON/PNG export. See [M8 validation](M8-开发与验收记录.md).

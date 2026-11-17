@@ -1,3 +1,4 @@
+mod dhcp_cli;
 mod discovery_cli;
 mod m2_cli;
 mod m4_cli;
@@ -74,6 +75,8 @@ struct Probe {
 enum Command {
     #[command(about = "ICMP PMTU bounds; timeout remains unknown / 路径 MTU，超时为未知")]
     Mtu(pmtu_cli::Mtu),
+    /// Read-only configuration or DHCPDISCOVER-only diagnostics / DHCPv4 诊断
+    Dhcp(dhcp_cli::Dhcp),
     #[command(about = "Read-only SNMP v2c/v3 GET/WALK and IF-MIB / SNMP 只读查询与接口观察")]
     Snmp(snmp_cli::Snmp),
     #[command(about = "Continuous ICMP route observations / 持续 ICMP 路由观测")]
@@ -461,6 +464,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
         Command::Snmp(c) => return c.request(),
         Command::Mtr(c) => return Ok(c.request()),
         Command::Mtu(c) => return Ok(c.request()),
+        Command::Dhcp(c) => return Ok(c.request()),
         Command::Subnet(c) => return Ok(c.request()),
         Command::Monitor {
             family,

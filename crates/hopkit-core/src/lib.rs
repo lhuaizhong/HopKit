@@ -1,6 +1,7 @@
 pub mod budget;
 pub mod catalog;
 pub mod connections;
+pub mod dhcp;
 pub mod diagnostics;
 pub mod discovery;
 pub mod dns;

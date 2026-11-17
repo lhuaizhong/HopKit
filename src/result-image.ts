@@ -29,7 +29,7 @@ export async function resultImage(source: HTMLElement, english: boolean): Promis
       copy.replaceWith(text)
     }
   })
-  clone.querySelectorAll('[data-sensitive],.wormhole-controls,.task-panel,.result-tools,.raw-result,.check-handoff,.request-summary button,.monitor-actions,.monitor-note,[role="alert"]').forEach(node => node.remove())
+  clone.querySelectorAll('[data-sensitive],.wormhole-controls,.task-panel,.result-tools,.raw-result,.check-handoff,.dhcp-handoff,.request-summary button,.monitor-actions,.monitor-note,[role="alert"]').forEach(node => node.remove())
   clone.querySelectorAll<HTMLElement>('.result-panel').forEach(node => {
     node.style.height = 'auto'; node.style.maxHeight = 'none'
   })
@@ -39,10 +39,10 @@ export async function resultImage(source: HTMLElement, english: boolean): Promis
   clone.querySelectorAll<HTMLElement>('.table-scroll').forEach(node => {
     node.style.height = 'auto'; node.style.maxHeight = 'none'; node.style.overflow = 'visible'
   })
-  // PMTU evidence has a wide live table. Fit all columns into its exported
+  // PMTU/DHCP evidence has a wide live table. Fit all columns into its exported
   // card, including reported MTU, instead of clipping the horizontal viewport.
-  clone.querySelectorAll<HTMLElement>('.pmtu-table').forEach(table => {
-    const result = table.closest<HTMLElement>('.pmtu-results')
+  clone.querySelectorAll<HTMLElement>('.pmtu-table, .dhcp-table').forEach(table => {
+    const result = table.closest<HTMLElement>('.pmtu-results, .dhcp-results')
     if (result) { result.style.height = 'auto'; result.style.maxHeight = 'none' }
     table.style.minWidth = '0'; table.style.width = '100%'; table.style.tableLayout = 'fixed'
     table.querySelectorAll<HTMLElement>('th,td').forEach(cell => {

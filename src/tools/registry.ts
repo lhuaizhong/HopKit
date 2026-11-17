@@ -5,8 +5,8 @@ export const categories = [
  {id:'utilities', label:['小工具','Utilities']},
 ] as const
 export type CategoryId = typeof categories[number]['id']
-export type ToolId = 'pmtu'|'snmp'|'mtr'|'socket'|'connections'|'wol'|'discovery'|'scan'|'subnet'|'check'|'monitor'|'ping'|'trace'|'tcping'|'dns'|'ntp'|'iperf3'|'tftp'|'ftp'|'http'|'wormhole'|'syslog'
-export type ToolDefinition = {id:ToolId;name:string;glyph:string;sub:[string,string];desc:[string,string];category:CategoryId;aliases:string[];view:'pmtu'|'snmp'|'mtr'|'socket'|'connections'|'wol'|'check'|'monitor'|'wormhole'|'discovery'|'scan'|'subnet'|'legacy';requirements:string[]}
+export type ToolId = 'dhcp'|'pmtu'|'snmp'|'mtr'|'socket'|'connections'|'wol'|'discovery'|'scan'|'subnet'|'check'|'monitor'|'ping'|'trace'|'tcping'|'dns'|'ntp'|'iperf3'|'tftp'|'ftp'|'http'|'wormhole'|'syslog'
+export type ToolDefinition = {id:ToolId;name:string;glyph:string;sub:[string,string];desc:[string,string];category:CategoryId;aliases:string[];view:'dhcp'|'pmtu'|'snmp'|'mtr'|'socket'|'connections'|'wol'|'check'|'monitor'|'wormhole'|'discovery'|'scan'|'subnet'|'legacy';requirements:string[]}
 const entries:Omit<ToolDefinition,'category'|'aliases'|'view'|'requirements'>[]=[
  {id:'ping',name:'Ping',glyph:'↗',sub:['连通性测试','ICMP echo'],desc:['检测目标可达性、延迟与丢包。','Measure reachability, latency and packet loss.']},
  {id:'trace',name:'Traceroute',glyph:'⌁',sub:['路由追踪','Route tracing'],desc:['逐跳查看 ICMP 路径，识别响应与超时。','Inspect ICMP responses along the route.']},
@@ -43,3 +43,5 @@ tools.push({id:'mtr',name:'MTR',glyph:'⌁',sub:['持续路由诊断','Continuou
 tools.push({id:'snmp',name:'SNMP',glyph:'▥',sub:['只读查询与接口观察','Read-only queries & interfaces'],desc:['SNMP v2c/v3、设备概览、WALK 和 IF-MIB 速率。','SNMP v2c/v3, device overview, bounded WALK and IF-MIB rates.'],category:'expert',aliases:['snmp','OID','交换机','接口流量','设备查询','MIB'],view:'snmp',requirements:[]})
 
 tools.push({id:'pmtu',name:'Path MTU',glyph:'↥',sub:['路径 MTU 探测','ICMP size boundaries'],desc:['禁止分片的 ICMP 探测；明确区间与未知证据。','ICMP without fragmentation, with confirmed bounds and unknown evidence.'],category:'expert',aliases:['mtu','pmtu','路径 MTU','分片','包大小','fragmentation'],view:'pmtu',requirements:['pmtu_ipv4']})
+
+tools.push({id:'dhcp',name:'DHCP',glyph:'⌘',sub:['配置与服务器诊断','Configuration & server diagnostics'],desc:['只读本机配置，或在指定接口有限发现 DHCPv4 Offer。','Inspect local configuration or discover DHCPv4 offers on an explicit interface.'],category:'expert',aliases:['dhcp','租约','自动地址','服务器发现','lease'],view:'dhcp',requirements:['dhcp_inspect']})

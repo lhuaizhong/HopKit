@@ -1,5 +1,12 @@
 # Changelog / 版本记录
 
+## 0.2.0-dev.9 — M8 / 2026-11-17
+
+- Added read-only DHCPv4 configuration inspection using Windows IP Helper and a macOS SystemConfiguration adapter; unavailable fields remain unknown with their data source.
+- Added bounded, explicit-interface DHCPDISCOVER-only diagnostics on standard UDP 68→67. No port reuse, DHCPREQUEST/RELEASE/DECLINE, or address/lease modification. Offers retain server ID, actual packet source, relay, options and expected-list comparison.
+- Added `hk dhcp inspect/discover`, dedicated bilingual GUI, cancellation with partial results, typed profiles, JSON/PNG exports and protocol/CLI/browser/native tests. No new dependencies.
+- Physical DHCP-device/isolated-network wire acceptance and macOS native validation remain release gates; see [M8 validation](docs/M8-开发与验收记录.md).
+
 ## 0.2.0-dev.8 — M7 / 2026-11-17
 
 - Add shared ICMP PMTU bounds, `hk mtu`, Expert GUI, source IP binding, size/header/payload evidence, bounded budgets, cancellation and JSON/PNG export.

@@ -53,6 +53,8 @@ impl std::error::Error for ToolError {}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Request {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dhcp: Option<crate::dhcp::Config>,
     pub tool: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mtr: Option<crate::mtr::Config>,
@@ -121,6 +123,7 @@ impl Default for Request {
             tool: "ping".into(),
             mtr: None,
             pmtu: None,
+            dhcp: None,
             snmp: None,
             snmp_credentials: Default::default(),
             socket: None,
@@ -366,6 +369,9 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
     req.address_family()?;
     if req.tool == "snmp" {
         return crate::snmp::run(req.snmp.as_ref().unwrap(), &req.snmp_credentials, c, emit);
+    }
+    if req.tool == "dhcp" {
+        return crate::dhcp::run(req.dhcp.as_ref().unwrap(), c, emit);
     }
     if req.tool == "pmtu" {
         return crate::pmtu::run(req.pmtu.as_ref().unwrap(), c, emit);

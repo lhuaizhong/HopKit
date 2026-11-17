@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="app"></div><script type="module">
+import {mockIPC} from '@tauri-apps/api/mocks';import {createApp} from 'vue';import App from '../src/App.vue';import '../src/style.css';import '../src/appearance.css';
+const tasks=[],at='2026-11-17T08:00:00Z';window.m8Fixture={requests:[],exports:[],images:[],cancelled:[]};const f=window.m8Fixture;
+const iface={id:'{fixture-adapter}',name:'Fixture Ethernet',index:8,mac:'02:03:04:05:06:07',dhcp_enabled:true,server:'192.0.2.1',lease_start:null,lease_expires:null,addresses:[{address:'192.0.2.10',mask:'255.255.255.0'}],gateways:['192.0.2.1'],dns:['192.0.2.53'],search_domains:['test'],config_source:'fixture-iphelper',field_sources:{configuration:'OS snapshot'},limitations:['Fixture only']};
+const base={schema_version:1,operation:'inspect',config_source:'fixture',started_at:at,ended_at:at,duration_ms:25,interfaces:[iface],offers:[],server_ids:[],stats:{sent:0,received:0,ignored:0,malformed:0,duplicates:0,offers_dropped:0},transaction_id:null,client_mac:null,local_endpoint:null,remote_endpoint:null,diagnostic_outcome:'configuration_observed',success:true,partial:false,limitations:['DHCPv4 only']};
+const offer={observed_at:at,server_id:'192.0.2.2',packet_source:'192.0.2.2:67',yiaddr:'192.0.2.20',siaddr:'0.0.0.0',relay:'198.51.100.1',relay_agent_hex:'010109',lease_secs:3600,mask:'255.255.255.0',routers:['192.0.2.1'],dns:['192.0.2.53'],search_domains:['<img src=x onerror=alert(1)>'],outside_expected:true};
+mockIPC(async(command,args)=>{
+ if(command==='app_info')return {version:'0.2.0-dev.9 fixture',os:'Windows',platform:'fixture'};
+ if(command==='network_overview')return {interfaces:[],default_routes:[],dns:[]};
+ if(command==='list_tasks')return structuredClone(tasks);
+ if(command==='task_poll')return structuredClone(tasks.find(t=>t.id===args.id));
+ if(command==='start_task'){const r=structuredClone(args.request);f.requests.push(r);const id='m8-'+tasks.length,discover=r.dhcp.operation==='discover',data=discover?{...base,operation:'discover',offers:[offer],server_ids:[offer.server_id],stats:{...base.stats,sent:1,received:4,ignored:1,malformed:1,duplicates:1},transaction_id:'01020304',client_mac:iface.mac,local_endpoint:'0.0.0.0:68',remote_endpoint:'255.255.255.255:67',diagnostic_outcome:'unknown',partial:true,success:false}:base;tasks.push({id,tool:r.tool,action:r.action,target:r.target,started_at:at,seq:2,events:[],request:r,status:discover?'running':'succeeded',result:discover?null:{data},latest_stats:data});return id;}
+ if(command==='cancel_task'||command==='stop_all'){for(const task of tasks)if(task.status==='running'&&(command==='stop_all'||task.id===args.id)){task.status='cancelled';task.seq++;task.result={data:task.latest_stats,error:{code:'CANCELLED',message:'DHCP stopped'}};f.cancelled.push(task.id)}return;}
+ if(command==='export_result_image'){f.images.push(args.png);return true}if(command==='export_result'){f.exports.push(JSON.parse(args.content));return true}return null;
+});createApp(App).mount('#app');
+</script></body></html>
