@@ -17,6 +17,7 @@ pub mod monitor;
 pub mod mtr;
 pub mod network;
 pub mod ntp;
+pub mod pmtu;
 mod process;
 pub mod runtime;
 pub mod snmp;

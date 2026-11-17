@@ -515,6 +515,44 @@ impl TextOutput {
         )
     }
     pub fn finish(&mut self, envelope: &Value) -> String {
+        if self.request.tool == "pmtu" {
+            let d = &envelope["data"];
+            let mut lines = vec![
+                format!(
+                    "ICMP PMTU {} · {}",
+                    s(d, "target"),
+                    s(d, "diagnostic_outcome")
+                ),
+                format!(
+                    "{}: {} / {} · reported MTU: {}",
+                    self.t(
+                        "Confirmed success / smallest rejected IP bytes",
+                        "已验证成功 / 最小明确拒绝 IP 字节数"
+                    ),
+                    n(d, "confirmed_lower"),
+                    n(d, "confirmed_upper"),
+                    n(d, "reported_mtu")
+                ),
+            ];
+            for p in d["probes"].as_array().into_iter().flatten() {
+                lines.push(format!(
+                    "#{} {} IP={} payload={} {}",
+                    n(p, "seq"),
+                    s(p, "phase"),
+                    n(p, "ip_bytes"),
+                    n(p, "payload_bytes"),
+                    s(p, "status")
+                ));
+            }
+            lines.push(self.t("ICMP observation only. Timeout is unknown; upper is a rejected length. No TCP/UDP payload guarantee.","仅为 ICMP 观测。超时是未知；上界为被拒绝长度，不是支持的 MTU。不保证 TCP/UDP 载荷。").into());
+            if !envelope["error"].is_null() {
+                lines.push(self.error(&envelope["error"]));
+            }
+            return lines.join(
+                "
+",
+            );
+        }
         if self.request.tool == "snmp" {
             let d = &envelope["data"];
             let mut lines = vec![format!(

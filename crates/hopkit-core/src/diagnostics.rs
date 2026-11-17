@@ -28,6 +28,17 @@ fn icmp_windows(
     timeout: u32,
     payload_size: usize,
 ) -> Result<Value, ToolError> {
+    icmp_windows_options(addr, source, ttl, timeout, payload_size, false)
+}
+#[cfg(windows)]
+fn icmp_windows_options(
+    addr: std::net::SocketAddr,
+    source: &str,
+    ttl: u8,
+    timeout: u32,
+    payload_size: usize,
+    dont_fragment: bool,
+) -> Result<Value, ToolError> {
     let ip = addr.ip();
     let local = if source.is_empty() {
         None
@@ -57,7 +68,7 @@ fn icmp_windows(
         let opts = IP_OPTION_INFORMATION {
             Ttl: ttl,
             Tos: 0,
-            Flags: 0,
+            Flags: if dont_fragment { IP_FLAG_DF as u8 } else { 0 },
             OptionsSize: 0,
             OptionsData: std::ptr::null_mut(),
         };
@@ -137,6 +148,55 @@ fn icmp_windows(
                 json!({"ok":reply.Status==0,"responded":reply.Status!=11010,"status_code":reply.Status,"status":if reply.Status==0{"reply"}else if reply.Status==11010{"timeout"}else if reply.Status==11013||reply.Status==11014{"ttl_expired"}else if (11002..=11005).contains(&reply.Status){"unreachable"}else{"icmp_error"},"rtt_ms":start.elapsed().as_secs_f64()*1000.0,"address":from.to_string()}),
             )
         }
+    }
+}
+/// PMTU never silently falls back to an echo that allows fragmentation.
+pub(crate) fn pmtu_echo(
+    addr: std::net::SocketAddr,
+    source: &str,
+    timeout: u32,
+    payload: usize,
+    c: &Cancel,
+) -> ToolResult {
+    cancelled(c)?;
+    #[cfg(windows)]
+    {
+        if addr.is_ipv6() {
+            return Err(ToolError::new(
+                "UNSUPPORTED_CAPABILITY",
+                "Windows ICMPv6 API does not expose verified source fragmentation control / Windows IPv6 禁止源端分片能力尚未验证",
+            ));
+        }
+        let mut value = icmp_windows_options(addr, source, 128, timeout, payload, true)?;
+        if value["responded"] != true {
+            value["address"] = serde_json::Value::Null;
+        }
+        if value["status_code"] == 11009 || value["status_code"] == 10040 {
+            value["status"] = json!("packet_too_big");
+        }
+        if value["status_code"] == 5 {
+            return Err(ToolError::new(
+                "PERMISSION_DENIED",
+                "Windows denied ICMP probe",
+            ));
+        }
+        Ok(value)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        crate::macos_icmp::pmtu_echo(addr, timeout, payload, c, source)
+    }
+    #[cfg(target_os = "linux")]
+    {
+        crate::linux_icmp::pmtu_echo(addr, timeout, payload, c, source)
+    }
+    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+    {
+        let _ = (addr, source, timeout, payload);
+        Err(ToolError::new(
+            "UNSUPPORTED_CAPABILITY",
+            "PMTU adapter unavailable",
+        ))
     }
 }
 #[cfg(windows)]

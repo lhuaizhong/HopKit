@@ -57,6 +57,8 @@ pub struct Request {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mtr: Option<crate::mtr::Config>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub pmtu: Option<crate::pmtu::Config>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub snmp: Option<crate::snmp::Config>,
     #[serde(skip_serializing)]
     pub snmp_credentials: crate::snmp::Credentials,
@@ -118,6 +120,7 @@ impl Default for Request {
         Self {
             tool: "ping".into(),
             mtr: None,
+            pmtu: None,
             snmp: None,
             snmp_credentials: Default::default(),
             socket: None,
@@ -253,6 +256,15 @@ pub fn resolve_all(
     family: impl Into<AddressFamily>,
     c: &Cancel,
 ) -> Result<Vec<SocketAddr>, ToolError> {
+    resolve_all_with_timeout(target, port, family, c, Duration::from_secs(5))
+}
+pub(crate) fn resolve_all_with_timeout(
+    target: &str,
+    port: u16,
+    family: impl Into<AddressFamily>,
+    c: &Cancel,
+    timeout: Duration,
+) -> Result<Vec<SocketAddr>, ToolError> {
     let family = family.into();
     if target.is_empty() || target.len() > 253 || target.chars().any(|x| x.is_control()) {
         return Err(ToolError::new(
@@ -291,7 +303,7 @@ pub fn resolve_all(
             .map(|x| x.filter(|a| family.accepts(a.ip())).collect::<Vec<_>>());
         let _ = tx.send(r);
     });
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + timeout;
     loop {
         cancelled(c)?;
         match rx.recv_timeout(Duration::from_millis(50)) {
@@ -309,7 +321,7 @@ pub fn resolve_all(
                 return Err(ToolError::new("INTERNAL_ERROR", "Resolver stopped"));
             }
             _ if Instant::now() >= deadline => {
-                return Err(ToolError::new("TIMEOUT", "System DNS exceeded 5 seconds"));
+                return Err(ToolError::new("TIMEOUT", "System DNS deadline exceeded"));
             }
             _ => {}
         }
@@ -354,6 +366,9 @@ pub fn run(req: &Request, c: &Cancel, emit: &Sink<'_>) -> ToolResult {
     req.address_family()?;
     if req.tool == "snmp" {
         return crate::snmp::run(req.snmp.as_ref().unwrap(), &req.snmp_credentials, c, emit);
+    }
+    if req.tool == "pmtu" {
+        return crate::pmtu::run(req.pmtu.as_ref().unwrap(), c, emit);
     }
     if req.tool == "mtr" {
         return crate::mtr::run(req.mtr.as_ref().unwrap(), c, emit);

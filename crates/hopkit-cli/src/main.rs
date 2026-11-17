@@ -2,6 +2,7 @@ mod discovery_cli;
 mod m2_cli;
 mod m4_cli;
 mod mtr_cli;
+mod pmtu_cli;
 mod snmp_cli;
 mod text;
 mod wormhole_cli;
@@ -71,6 +72,8 @@ struct Probe {
 }
 #[derive(Subcommand)]
 enum Command {
+    #[command(about = "ICMP PMTU bounds; timeout remains unknown / 路径 MTU，超时为未知")]
+    Mtu(pmtu_cli::Mtu),
     #[command(about = "Read-only SNMP v2c/v3 GET/WALK and IF-MIB / SNMP 只读查询与接口观察")]
     Snmp(snmp_cli::Snmp),
     #[command(about = "Continuous ICMP route observations / 持续 ICMP 路由观测")]
@@ -457,6 +460,7 @@ fn request(cmd: Command) -> Result<Request, ToolError> {
         Command::Scan(c) => return Ok(c.request()),
         Command::Snmp(c) => return c.request(),
         Command::Mtr(c) => return Ok(c.request()),
+        Command::Mtu(c) => return Ok(c.request()),
         Command::Subnet(c) => return Ok(c.request()),
         Command::Monitor {
             family,
@@ -1040,6 +1044,23 @@ mod tests {
 
     fn parse(args: &[&str]) -> Request {
         request(Cli::try_parse_from(args).unwrap().command.unwrap()).unwrap()
+    }
+    #[test]
+    fn mtu_identity_family_defaults_and_conflicts() {
+        let r = parse(&["hk", "mtu", "::1", "-6"]);
+        assert_eq!(r.tool, "pmtu");
+        assert_eq!(r.action, "icmp");
+        let c = r.pmtu.unwrap();
+        assert_eq!(c.family, "ipv6");
+        assert_eq!(c.min_ip_bytes, 1280);
+        assert_eq!(
+            parse(&["hk", "mtu", "127.0.0.1"])
+                .pmtu
+                .unwrap()
+                .min_ip_bytes,
+            576
+        );
+        assert!(Cli::try_parse_from(["hk", "mtu", "localhost", "-4", "-6"]).is_err());
     }
 
     #[test]

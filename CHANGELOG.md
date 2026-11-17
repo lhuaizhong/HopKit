@@ -1,5 +1,12 @@
 # Changelog / 版本记录
 
+## 0.2.0-dev.8 — M7 / 2026-11-17
+
+- Add shared ICMP PMTU bounds, `hk mtu`, Expert GUI, source IP binding, size/header/payload evidence, bounded budgets, cancellation and JSON/PNG export.
+- Only explicit packet-too-big/local-too-big evidence establishes a rejected upper length. Timeouts remain unknown; all-success reports at least the tested maximum. Repeat successful lengths and verify final bounds.
+- Windows IPv4 uses IP Helper DF; Windows IPv6 explicitly returns unsupported. Unix uses socket no-fragment options and correlated ICMP/PTB parsing; native wire/device acceptance remains pending. See [M7 scope and validation](docs/M7-开发与验收记录.md).
+- 新增路径 MTU 专属参数/证据表、双语与两外观、配置恢复和能力查询；明确本轮验证范围与后续现场门槛。
+
 ## 0.2.0-dev.7 — M6 / 2026-11-16
 
 - Added read-only SNMP v2c GET/GETNEXT/GETBULK/WALK and v3 USM SHA-256/SHA-1 with AES-128, explicit security levels, engine discovery/time resynchronization and cancellable bounded UDP.

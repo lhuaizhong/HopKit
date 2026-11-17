@@ -2075,7 +2075,7 @@ dependencies = [
 
 [[package]]
 name = "hopkit-cli"
-version = "0.2.0-dev.7"
+version = "0.2.0-dev.8"
 dependencies = [
  "clap",
  "ctrlc",
@@ -2085,7 +2085,7 @@ dependencies = [
 
 [[package]]
 name = "hopkit-core"
-version = "0.2.0-dev.7"
+version = "0.2.0-dev.8"
 dependencies = [
  "async-channel",
  "async-fs",
@@ -2111,7 +2111,7 @@ dependencies = [
 
 [[package]]
 name = "hopkit-desktop"
-version = "0.2.0-dev.7"
+version = "0.2.0-dev.8"
 dependencies = [
  "hopkit-core",
  "rfd",

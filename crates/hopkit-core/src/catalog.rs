@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub enum ToolId {
     Snmp,
     Mtr,
+    Pmtu,
     Socket,
     Connections,
     Wol,
@@ -39,6 +40,7 @@ impl ToolId {
 pub const IMPLEMENTED_TOOLS: &[&str] = &[
     "snmp",
     "mtr",
+    "pmtu",
     "socket",
     "connections",
     "wol",
@@ -110,6 +112,7 @@ pub fn capabilities() -> Capabilities {
         icmp: cfg!(any(windows, target_os = "macos", target_os = "linux")),
         source_binding: &[
             "mtr.icmp",
+            "pmtu.icmp",
             "socket.tcp",
             "socket.udp",
             "wol.ipv4",
@@ -120,6 +123,26 @@ pub fn capabilities() -> Capabilities {
             "discovery.icmp",
         ],
         adapters: vec![
+            Capability {
+                id: "pmtu_ipv4",
+                status: if icmp_adapter == "unavailable" {
+                    CapabilityStatus::Unsupported
+                } else {
+                    CapabilityStatus::Partial
+                },
+                adapter: icmp_adapter,
+                limitation: "IPv4 DF; explicit too-big evidence only. Windows next-hop MTU unavailable. Native wire acceptance pending.",
+            },
+            Capability {
+                id: "pmtu_ipv6",
+                status: if cfg!(any(target_os = "macos", target_os = "linux")) {
+                    CapabilityStatus::Partial
+                } else {
+                    CapabilityStatus::Unsupported
+                },
+                adapter: icmp_adapter,
+                limitation: "Unix IPV6_DONTFRAG with matched PTB; native wire acceptance pending. Windows source fragmentation control unverified; returns unsupported, never ordinary-ping fallback.",
+            },
             Capability {
                 id: "snmp",
                 status: CapabilityStatus::Partial,
@@ -229,7 +252,9 @@ impl Request {
     /// New nested tool configurations must match their stable operation identity.
     pub fn validate_tool_config(&self) -> Result<(), ToolError> {
         self.tool_id()?;
-        let invalid = self.snmp.is_some() && self.tool != "snmp"
+        let invalid = self.pmtu.is_some() && self.tool != "pmtu"
+            || self.tool == "pmtu" && (self.pmtu.is_none() || self.action != "icmp")
+            || self.snmp.is_some() && self.tool != "snmp"
             || self.tool == "snmp"
                 && self
                     .snmp

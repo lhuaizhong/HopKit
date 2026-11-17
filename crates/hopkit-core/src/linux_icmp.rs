@@ -15,13 +15,14 @@ use std::{
 struct Reply {
     status: &'static str,
     code: u16,
+    reported_mtu: Option<u32>,
     address: IpAddr,
 }
 
 impl Reply {
     fn sample(&self, start: Instant) -> Value {
         json!({"ok":self.status=="reply","responded":true,"status":self.status,
-            "status_code":self.code,"address":self.address.to_string(),
+            "status_code":self.code,"reported_mtu":self.reported_mtu,"address":self.address.to_string(),
             "rtt_ms":start.elapsed().as_secs_f64()*1000.0})
     }
 }
@@ -48,6 +49,7 @@ fn echo_reply(packet: &[u8], request: &[u8], target: IpAddr, from: IpAddr) -> Op
         .then_some(Reply {
             status: "reply",
             code: 0,
+            reported_mtu: None,
             address: from,
         })
 }
@@ -87,6 +89,18 @@ fn extended_error(bytes: &[u8], v6: bool) -> io::Result<Option<Reply>> {
     let Some(error) = read_struct::<libc::sock_extended_err>(bytes) else {
         return Ok(None);
     };
+    if error.ee_origin == libc::SO_EE_ORIGIN_LOCAL && error.ee_errno == libc::EMSGSIZE as u32 {
+        return Ok(Some(Reply {
+            status: "local_too_big",
+            code: 0,
+            address: if v6 {
+                Ipv6Addr::UNSPECIFIED.into()
+            } else {
+                Ipv4Addr::UNSPECIFIED.into()
+            },
+            reported_mtu: (error.ee_info > 0).then_some(error.ee_info),
+        }));
+    }
     if error.ee_origin == libc::SO_EE_ORIGIN_LOCAL {
         return Err(io::Error::from_raw_os_error(error.ee_errno as i32));
     }
@@ -109,6 +123,8 @@ fn extended_error(bytes: &[u8], v6: bool) -> io::Result<Option<Reply>> {
         sockaddr_ip(&bytes[size_of::<libc::sock_extended_err>()..]).map(|address| Reply {
             status,
             code: u16::from_be_bytes([error.ee_type, error.ee_code]),
+            reported_mtu: (status == "packet_too_big" && error.ee_info > 0)
+                .then_some(error.ee_info),
             address,
         }),
     )
@@ -226,12 +242,32 @@ pub(crate) fn icmp(
     icmp_bound(addr, ttl, timeout, payload_size, cancel, "")
 }
 pub(crate) fn icmp_bound(
+    addr: SocketAddr,
+    ttl: u8,
+    timeout: u32,
+    payload_size: usize,
+    cancel: &Cancel,
+    source: &str,
+) -> Result<Value, ToolError> {
+    icmp_options(addr, ttl, timeout, payload_size, cancel, source, false)
+}
+pub(crate) fn pmtu_echo(
+    addr: SocketAddr,
+    timeout: u32,
+    payload: usize,
+    c: &Cancel,
+    source: &str,
+) -> ToolResult {
+    icmp_options(addr, 128, timeout, payload, c, source, true)
+}
+fn icmp_options(
     mut addr: SocketAddr,
     ttl: u8,
     timeout: u32,
     payload_size: usize,
     cancel: &Cancel,
     source: &str,
+    dont_fragment: bool,
 ) -> Result<Value, ToolError> {
     cancelled(cancel)?;
     let v6 = addr.is_ipv6();
@@ -250,6 +286,51 @@ pub(crate) fn icmp_bound(
     })?;
     socket.set_send_buffer_size((payload_size + 128).max(8192))?;
     socket.set_recv_buffer_size(((payload_size + 128) * 2).max(8192))?;
+    if dont_fragment {
+        use std::os::fd::AsRawFd;
+        let (level, option, value): (i32, i32, i32) = if v6 {
+            (libc::IPPROTO_IPV6, libc::IPV6_DONTFRAG, 1)
+        } else {
+            (
+                libc::IPPROTO_IP,
+                libc::IP_MTU_DISCOVER,
+                libc::IP_PMTUDISC_PROBE,
+            )
+        };
+        if unsafe {
+            libc::setsockopt(
+                socket.as_raw_fd(),
+                level,
+                option,
+                (&value as *const i32).cast(),
+                std::mem::size_of_val(&value) as _,
+            )
+        } < 0
+        {
+            return Err(ToolError::new(
+                "UNSUPPORTED_CAPABILITY",
+                format!(
+                    "Cannot enforce no fragmentation: {}",
+                    std::io::Error::last_os_error()
+                ),
+            ));
+        }
+        if v6 {
+            let value: i32 = libc::IP_PMTUDISC_PROBE;
+            if unsafe {
+                libc::setsockopt(
+                    socket.as_raw_fd(),
+                    libc::IPPROTO_IPV6,
+                    libc::IPV6_MTU_DISCOVER,
+                    (&value as *const i32).cast(),
+                    std::mem::size_of_val(&value) as _,
+                )
+            } < 0
+            {
+                return Err(std::io::Error::last_os_error().into());
+            }
+        }
+    }
     if v6 {
         socket.set_unicast_hops_v6(u32::from(ttl))?;
     } else {
@@ -272,7 +353,15 @@ pub(crate) fn icmp_bound(
     addr.set_port(0);
     let start = Instant::now();
     cancelled(cancel)?;
-    socket.send_to(&request, addr)?;
+    if let Err(e) = socket.send_to(&request, addr) {
+        #[cfg(unix)]
+        if dont_fragment && e.raw_os_error() == Some(libc::EMSGSIZE) {
+            return Ok(
+                json!({"status":"local_too_big","status_code":e.raw_os_error(),"address":null,"reported_mtu":null}),
+            );
+        }
+        return Err(e.into());
+    }
     let budget = Duration::from_millis(u64::from(timeout));
     let mut packet = vec![0; (request.len() + 1).max(2048)];
     loop {
@@ -411,6 +500,29 @@ mod tests {
             assert_eq!(sample["responded"], true);
             assert_eq!(sample["ok"], false);
             assert!(sample["rtt_ms"].as_f64().unwrap() >= 0.0);
+        }
+    }
+    #[test]
+    fn pmtu_error_queue_preserves_reported_and_local_mtu() {
+        for v6 in [false, true] {
+            let mut bytes = error_bytes(v6, if v6 { 2 } else { 3 }, if v6 { 0 } else { 4 });
+            let mut error = read_struct::<libc::sock_extended_err>(&bytes).unwrap();
+            error.ee_info = 1400;
+            unsafe {
+                std::ptr::write_unaligned(bytes.as_mut_ptr().cast(), error);
+            }
+            assert_eq!(
+                extended_error(&bytes, v6).unwrap().unwrap().reported_mtu,
+                Some(1400)
+            );
+            error.ee_origin = libc::SO_EE_ORIGIN_LOCAL;
+            error.ee_errno = libc::EMSGSIZE as u32;
+            unsafe {
+                std::ptr::write_unaligned(bytes.as_mut_ptr().cast(), error);
+            }
+            let reply = extended_error(&bytes, v6).unwrap().unwrap();
+            assert_eq!(reply.status, "local_too_big");
+            assert_eq!(reply.reported_mtu, Some(1400));
         }
     }
 

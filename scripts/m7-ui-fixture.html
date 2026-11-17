@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="app"></div><script type="module">
+import {mockIPC} from '@tauri-apps/api/mocks';import {createApp} from 'vue';import App from '../src/App.vue';import '../src/style.css';import '../src/appearance.css';
+const tasks=[],at='2026-11-17T07:00:00Z';window.m7Fixture={requests:[],exports:[],images:[],cancelled:[]};const f=window.m7Fixture;
+const data={schema_version:1,target:'example.test',resolved_target:'192.0.2.9:0',source:'',family:'ipv4',adapter:'fixture-df',fragmentation_control:'ipv4_df',started_at:at,ended_at:at,duration_ms:5000,confirmed_lower:1400,confirmed_upper:1401,reported_mtu:1400,stats:{attempts:8,replies:4,too_big:3,unknown:1},probes:[{seq:1,observed_at:at,phase:'baseline',ip_bytes:576,ip_header_bytes:20,icmp_header_bytes:8,payload_bytes:548,status:'reply',status_code:0,responder:'192.0.2.9',reported_mtu:null,rtt_ms:1},{seq:2,observed_at:at,phase:'upper',ip_bytes:1500,ip_header_bytes:20,icmp_header_bytes:8,payload_bytes:1472,status:'packet_too_big',status_code:11009,responder:'<img src=x onerror=alert(1)>',reported_mtu:1400,rtt_ms:null},{seq:3,observed_at:at,phase:'search',ip_bytes:1401,ip_header_bytes:20,icmp_header_bytes:8,payload_bytes:1373,status:'timeout',status_code:null,responder:null,reported_mtu:null,rtt_ms:null}],unknown_reasons:['timeout'],diagnostic_outcome:'bounded',success:true,partial:false,limitations:['ICMP only']};
+mockIPC(async(command,args)=>{
+ if(command==='app_info')return {version:'0.2.0-dev.8 fixture',os:'Windows',platform:'fixture'};
+ if(command==='network_overview')return {interfaces:[],default_routes:[],dns:[]};
+ if(command==='list_tasks')return structuredClone(tasks.map(t=>({...t,latest_stats:null})));
+ if(command==='task_poll')return structuredClone(tasks.find(t=>t.id===args.id));
+ if(command==='start_task'){const r=structuredClone(args.request);f.requests.push(r);const id='m7-'+tasks.length;tasks.push({id,tool:r.tool,action:r.action,target:r.target,started_at:at,seq:12,events:[],request:r,status:'running',result:null,latest_stats:{...data,target:r.target}});return id;}
+ if(command==='cancel_task'||command==='stop_all'){for(const task of tasks)if(command==='stop_all'||task.id===args.id){task.status='cancelled';task.seq++;task.result={data:{...task.latest_stats,partial:true,success:false},error:{code:'CANCELLED',message:'PMTU stopped'}};f.cancelled.push(task.id);}return;}
+ if(command==='export_result_image'){f.images.push(args.png);return true;}
+ if(command==='export_result'){f.exports.push(JSON.parse(args.content));return true;}return null;
+});createApp(App).mount('#app');
+</script></body></html>

@@ -39,6 +39,17 @@ export async function resultImage(source: HTMLElement, english: boolean): Promis
   clone.querySelectorAll<HTMLElement>('.table-scroll').forEach(node => {
     node.style.height = 'auto'; node.style.maxHeight = 'none'; node.style.overflow = 'visible'
   })
+  // PMTU evidence has a wide live table. Fit all columns into its exported
+  // card, including reported MTU, instead of clipping the horizontal viewport.
+  clone.querySelectorAll<HTMLElement>('.pmtu-table').forEach(table => {
+    const result = table.closest<HTMLElement>('.pmtu-results')
+    if (result) { result.style.height = 'auto'; result.style.maxHeight = 'none' }
+    table.style.minWidth = '0'; table.style.width = '100%'; table.style.tableLayout = 'fixed'
+    table.querySelectorAll<HTMLElement>('th,td').forEach(cell => {
+      cell.style.width = 'auto'; cell.style.minWidth = '0'; cell.style.whiteSpace = 'normal'
+      cell.style.overflowWrap = 'anywhere'
+    })
+  })
   clone.style.width = `${width}px`
   clone.style.minWidth = '0'
   clone.style.maxWidth = 'none'

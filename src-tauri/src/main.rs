@@ -41,7 +41,10 @@ struct Task {
 }
 impl Task {
     fn record_event(&mut self, body: Value) {
-        if body["event_type"] == "mtr_snapshot" || body["event_type"] == "snmp_snapshot" {
+        if body["event_type"] == "pmtu_snapshot"
+            || body["event_type"] == "mtr_snapshot"
+            || body["event_type"] == "snmp_snapshot"
+        {
             self.latest_stats = Some(body["snapshot"].clone());
             self.seq += 1;
             return;
@@ -205,6 +208,9 @@ fn start_task(mut request: Request, tasks: tauri::State<'_, Tasks>) -> Result<St
             .map_err(|e| e.to_string())?;
         request.target = config.target.clone();
         request.port = config.port;
+    }
+    if let Some(config) = &request.pmtu {
+        hopkit_core::pmtu::validate(config).map_err(|e| e.to_string())?;
     }
     if let Some(config) = &request.mtr {
         hopkit_core::mtr::validate(config).map_err(|e| e.to_string())?;
@@ -744,7 +750,9 @@ fn shutdown(handle: tauri::AppHandle, state: Tasks) {
 #[cfg(feature = "native-test")]
 #[tauri::command]
 fn native_test_report(value: Value, app: tauri::AppHandle) -> Result<(), String> {
-    let relative = if value["scenario"] == "m6" {
+    let relative = if value["scenario"] == "m7" {
+        "../test-output/m7/native.json"
+    } else if value["scenario"] == "m6" {
         "../test-output/m6/native.json"
     } else if value["scenario"] == "m5" {
         "../test-output/m5/native.json"
@@ -786,7 +794,9 @@ fn main() {
                     if let Ok(value) = std::fs::read_to_string(config).and_then(|s| {
                         serde_json::from_str::<Value>(&s).map_err(std::io::Error::other)
                     }) {
-                        let driver = if value["scenario"] == "m6" {
+                        let driver = if value["scenario"] == "m7" {
+                            include_str!("../../scripts/m7-native-driver.js")
+                        } else if value["scenario"] == "m6" {
                             include_str!("../../scripts/m6-native-driver.js")
                         } else if value["scenario"] == "m5" {
                             include_str!("../../scripts/m5-native-driver.js")
@@ -969,6 +979,11 @@ mod trust_tests {
         let snapshot = serde_json::to_value(snap(&task, task.seq)).unwrap();
         assert_eq!(snapshot["latest_stats"]["stats"]["sent"], 10000);
         assert_eq!(snapshot["latest_stats"]["hops"][0]["responses"], 9999);
+        task.tool = "pmtu".into();
+        task.record_event(json!({"event_type":"pmtu_snapshot","snapshot":{"confirmed_lower":1400,"confirmed_upper":1401,"stats":{"attempts":40},"probes":[{"seq":40,"status":"timeout"}]}}));
+        let snapshot = serde_json::to_value(snap(&task, task.seq)).unwrap();
+        assert_eq!(snapshot["latest_stats"]["confirmed_lower"], 1400);
+        assert_eq!(snapshot["latest_stats"]["confirmed_upper"], 1401);
         assert_eq!(task.events.len(), 150);
     }
 }

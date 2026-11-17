@@ -311,3 +311,14 @@ hk snmp interfaces 192.0.2.10 --snmp-version 3 --username operator --samples 0 -
 ```
 
 按版本在受控进程环境中设置 `HOPKIT_SNMP_COMMUNITY`、`HOPKIT_SNMP_AUTH_PASSWORD`、`HOPKIT_SNMP_PRIVACY_PASSWORD`，不把明文写进 CLI 参数。v3 默认 SHA-256/AES-128 authPriv，可显式选择 SHA-1 兼容或其他安全级别。Counter64 以十进制字符串返回；缺口、重启和断点使速率为空。范围、限制及平台/真实设备/长时验收见 [M6 记录](M6-开发与验收记录.md)。
+
+## 路径 MTU（M7 源码开发版）
+
+专家工具选择 Path MTU，或执行 `hk mtu`。min/max 是 IP 包总字节数，包含 IPv4 20 / IPv6 40 字节头及 ICMP 8 字节头；IPv6 的 min 至少 1280。Windows IPv4 使用 DF；Windows IPv6 的禁止源端分片尚未验证，明确返回不支持。Unix 双栈适配待原生报文验收。
+
+```sh
+hk mtu 192.0.2.10 -4 --min 576 --max 1500 --retries 1 --format json
+hk mtu 2001:db8::10 -6 --min 1280 --max 1500 --total-timeout-ms 30000
+```
+
+`confirmed_lower` 是最大重复成功 IP 长度，`confirmed_upper` 是最小明确拒绝长度，不是可用 MTU。设备报告 MTU 独立展示，不能直接当作已验证成功。超时保持未知，全部候选成功仅说明“至少支持已测上限”。结果为 ICMP 观测，不保证 TCP/UDP 载荷上限。源 IP 明确绑定，但不固定出口接口。退出 0 表示相邻边界或测试上限已验证；1 未知/部分；2 参数错误；3 本机权限/能力；130 取消并保留证据。CLI text/JSON/JSONL 与 GUI JSON/PNG 共用核心，范围和待验收项见 [M7 记录](M7-开发与验收记录.md)。

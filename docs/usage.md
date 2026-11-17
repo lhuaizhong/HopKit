@@ -309,3 +309,14 @@ hk snmp interfaces 192.0.2.10 --snmp-version 3 --username operator --samples 0 -
 ```
 
 Set `HOPKIT_SNMP_COMMUNITY`, `HOPKIT_SNMP_AUTH_PASSWORD` and `HOPKIT_SNMP_PRIVACY_PASSWORD` in the controlled process environment as applicable. v3 defaults to SHA-256/AES-128 authPriv; SHA-1 compatibility, authNoPriv and noAuthNoPriv require explicit selection. Counter64 values are decimal strings; missing samples and discontinuities clear rates. See [M6 scope, limits and validation](M6-开发与验收记录.md) for remaining platform/device/long-run gates.
+
+## Path MTU (source development M7)
+
+Use Expert → Path MTU, or `hk mtu`. Min/max count the entire IP packet, including the 20/40-byte IP header and 8-byte ICMP header. IPv6 requires min ≥1280. Windows IPv4 sets DF; Windows IPv6 explicitly returns unsupported until source fragmentation control is verified. Unix no-fragment adapters require native wire acceptance.
+
+```sh
+hk mtu 192.0.2.10 -4 --min 576 --max 1500 --retries 1 --format json
+hk mtu 2001:db8::10 -6 --min 1280 --max 1500 --total-timeout-ms 30000
+```
+
+`confirmed_lower` is the largest repeatedly successful IP length. `confirmed_upper` is the smallest explicitly rejected IP length (not a supported MTU). A reported MTU is a separate hint, never a confirmed success. Timeouts leave bounds unchanged; all candidates succeeding means only “at least the tested maximum”. ICMP results do not guarantee TCP/UDP payload limits. Source IP is explicitly bound, without fixing an interface. 0 means a verified adjacent interval or tested maximum; 1 unknown/partial; 2 invalid input; 3 local capability/permission; 130 cancelled with retained evidence. Text/JSON/JSONL and GUI JSON/PNG use the same core. See [M7 limits and validation](M7-开发与验收记录.md).
