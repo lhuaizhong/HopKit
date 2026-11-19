@@ -15,6 +15,15 @@ assert d['local_endpoint']=='127.0.0.1'
 d=run('mtu','127.0.0.1','--source','127.0.0.1')['data'];assert d['local_endpoint']=='127.0.0.1'
 if os.name=='nt':
  d=run('mtu','::1','-6','--min','1280',code=3);assert d['error']['code']=='UNSUPPORTED_CAPABILITY' and not d['data']['probes']
+elif platform.system()=='Darwin':
+ p=subprocess.run([str(EXE),'mtu','::1','-6','--min','1280','--format','json'],capture_output=True,text=True,encoding='utf-8',timeout=20)
+ d=json.loads(p.stdout);checks.append({'args':['mtu','::1','-6','--min','1280'],'exit_code':p.returncode,'result':d})
+ if p.returncode==3:
+  assert d['error']['code']=='UNSUPPORTED_CAPABILITY' and not d['data']['probes'] and d['data']['fragmentation_control']=='unavailable'
+ else:
+  assert p.returncode==0,(p.returncode,p.stdout,p.stderr)
+  data=d['data'];assert data['confirmed_lower']==1500 and data['confirmed_upper'] is None
+  assert all(probe['ip_bytes']==probe['payload_bytes']+48 for probe in data['probes'])
 else:
  d=run('mtu','::1','-6','--min','1280')['data'];assert d['confirmed_lower']==1500 and d['confirmed_upper'] is None
  assert all(p['ip_bytes']==p['payload_bytes']+48 for p in d['probes'])
