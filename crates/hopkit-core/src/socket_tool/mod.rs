@@ -685,7 +685,13 @@ pub fn run(config: &Config, c: &Cancel, emit: &Sink<'_>, control: &Control) -> T
                 };
                 let result = if let Some(socket) = &udp {
                     match dest {
-                        Some(d) if permits(d) => socket.send_to(&p.bytes, d),
+                        Some(d) if permits(d) => {
+                            if remote.is_some() {
+                                socket.send(&p.bytes)
+                            } else {
+                                socket.send_to(&p.bytes, d)
+                            }
+                        }
                         _ => Err(std::io::Error::new(
                             std::io::ErrorKind::PermissionDenied,
                             "Destination outside allowed CIDRs",
