@@ -27,7 +27,6 @@
       "../CHANGELOG.md": "CHANGELOG.md",
       "../RELEASING.md": "RELEASING.md",
       "../DISTRIBUTION_LICENSES.md": "DISTRIBUTION_LICENSES.md",
-      "../WORMHOLE_IMPLEMENTATION.md": "WORMHOLE_IMPLEMENTATION.md",
       "../release/metadata/HopKit-corresponding-source.tar.gz": "HopKit-corresponding-source.tar.gz"
     }
   }
