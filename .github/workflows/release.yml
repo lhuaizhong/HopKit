@@ -20,7 +20,7 @@ jobs:
             config: src-tauri/tauri.release-windows.conf.json
             bundles: nsis
             build-config: src-tauri/tauri.conf.json
-          - os: macos-14
+          - os: macos-15
             platform: macos-arm64
             target: aarch64-apple-darwin
             config: src-tauri/tauri.release-macos.conf.json
