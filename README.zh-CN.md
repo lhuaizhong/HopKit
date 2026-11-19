@@ -6,7 +6,7 @@
 
 HopKit 将网络排障、持续监测、吞吐量测试、文件共享和日志采集集成在一个桌面应用中，同时提供独立 CLI。图形界面与命令行共享 Rust 核心，适用于日常运维和脚本自动化。
 
-**项目状态：** 当前源码为 `0.2.0-dev.8`。M7 新增路径 MTU 核心、`hk mtu` 和专属 GUI，超时保留未知、取消保留证据；Windows IPv4 使用 DF，Windows IPv6 明确不支持，Unix 适配器待原生报文验收，见 [M7 开发与验收记录](docs/M7-开发与验收记录.md)。M6 新增 SNMP v2c/v3 只读查询、受限 WALK、设备概览与 IF-MIB 接口观察；独立 Net-SNMP/macOS 原生证据和真实设备/平台/长时待验收清单见 [M6 开发与验收记录](docs/M6-开发与验收记录.md)。M5 新增 ICMP MTR：逐 TTL/响应者累计统计、路径变化与采样缺口、共享限速、取消和独立可选 PTR，见 [M5 开发与验收记录](docs/M5-开发与验收记录.md)。此前新增 M4 TCP/UDP 调试、本机端口与连接、Wake-on-LAN，GUI/CLI 共用核心；Windows 验证及 macOS/真实设备待验收范围见 [M4 开发与验收记录](docs/M4-开发与验收记录.md)。已实现 M3 设备发现：有界 ARP/ICMP/TCP、独立邻居/PTR 来源、MAC 变化线索、手动跨工具联动，见 [M3 开发与验收记录](docs/M3-开发与验收记录.md)。M2 已交付：小工具中的离线 IPv4/IPv6 子网计算器、专家工具中的 TCP connect 扫描，支持 CLI、取消和导出。导航分为常用工具、文件传输、专家工具和小工具；TFTP、FTP、HTTP 文件服务及 Wormhole 归文件传输。详见 [M2 开发与验收记录](docs/M2-开发与验收记录.md)、[M1 基础功能](docs/M1-开发与验收记录.md)和 [0.2.0 技术开发计划书](docs/HopKit-0.2.0-技术开发计划书.md)。下方下载仍指向已发布候选版 `0.1.0-rc.2`，见其[实现与验收记录](WORMHOLE_IMPLEMENTATION.md)。
+**项目状态：** 当前候选版为 [0.2.0-rc.1](https://github.com/lhuaizhong/HopKit/releases/tag/v0.2.0-rc.1)。新增设备发现、TCP 端口扫描、子网计算、TCP/UDP 调试、本机连接、Wake-on-LAN、MTR、SNMP、路径 MTU 和 DHCPv4 诊断；Ping 与 TCPing 支持可开关的声音提示。功能范围与平台限制见[使用指南](docs/usage.zh-CN.md)及各功能验收记录。
 
 ## 软件界面示例
 
@@ -14,19 +14,21 @@ HopKit 将网络排障、持续监测、吞吐量测试、文件共享和日志�
 
 ## 快速开始
 
-前往 [GitHub Releases](https://github.com/lhuaizhong/HopKit/releases) 下载。RC.2 安装包见[发布页面](https://github.com/lhuaizhong/HopKit/releases/tag/v0.1.0-rc.2)，文件校验见 [SHA-256 清单](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/SHA256SUMS.txt)。
+前往 [GitHub Releases](https://github.com/lhuaizhong/HopKit/releases) 下载。RC.1 安装包见[发布页面](https://github.com/lhuaizhong/HopKit/releases/tag/v0.2.0-rc.1)，文件校验见 [SHA-256 清单](https://github.com/lhuaizhong/HopKit/releases/download/v0.2.0-rc.1/SHA256SUMS.txt)。
 
 | 平台 | 安装包 | 启动方式 |
 | --- | --- | --- |
-| Windows x64 | [安装版](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-windows-x64-setup.exe) · [ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-windows-x64-portable.zip) · [EXE](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-windows-x64-portable.exe) | 安装或解压后运行 `HopKit.exe` |
-| macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-arm64.dmg) · [ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-arm64.zip) · [CLI ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-arm64-cli.zip) | 将 `HopKit.app` 拖入 Applications，或解压 ZIP |
-| macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-x86_64.dmg) · [ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-x86_64.zip) · [CLI ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.1.0-rc.2/hopkit-0.1.0-rc.2-macos-x86_64-cli.zip) | 将 `HopKit.app` 拖入 Applications，或解压 ZIP |
+| Windows x64 | [安装版](https://github.com/lhuaizhong/HopKit/releases/download/v0.2.0-rc.1/hopkit-0.2.0-rc.1-windows-x64-setup.exe) · [ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.2.0-rc.1/hopkit-0.2.0-rc.1-windows-x64-portable.zip) · [EXE](https://github.com/lhuaizhong/HopKit/releases/download/v0.2.0-rc.1/hopkit-0.2.0-rc.1-windows-x64-portable.exe) | 安装或解压后运行 `HopKit.exe` |
+| macOS Apple Silicon | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.2.0-rc.1/hopkit-0.2.0-rc.1-macos-arm64.dmg) · [ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.2.0-rc.1/hopkit-0.2.0-rc.1-macos-arm64.zip) · [CLI ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.2.0-rc.1/hopkit-0.2.0-rc.1-macos-arm64-cli.zip) | 将 `HopKit.app` 拖入 Applications，或解压 ZIP |
+| macOS Intel | [DMG](https://github.com/lhuaizhong/HopKit/releases/download/v0.2.0-rc.1/hopkit-0.2.0-rc.1-macos-x86_64.dmg) · [ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.2.0-rc.1/hopkit-0.2.0-rc.1-macos-x86_64.zip) · [CLI ZIP](https://github.com/lhuaizhong/HopKit/releases/download/v0.2.0-rc.1/hopkit-0.2.0-rc.1-macos-x86_64-cli.zip) | 将 `HopKit.app` 拖入 Applications，或解压 ZIP |
 
 Windows 安装版和免安装 ZIP 包含 CLI，独立 EXE 仅包含 GUI。macOS 应用 ZIP 包含 CLI，DMG 内的 CLI 位于 `HopKit.app/Contents/Resources/`；另有独立 CLI ZIP。
 
 Windows 图形界面依赖 [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)，安装版会在缺失时下载。macOS 使用系统自带的 WKWebView，详见 [macOS 指南](README-macOS.md)。CLI 无需 WebView 或开发工具链。
 
 Windows 程序尚未签名；macOS 使用 ad-hoc 签名，未经 Apple 公证。最低系统版本及旧版 Windows LTSC 仍需验证。
+
+可单独下载文档：[English README](https://github.com/lhuaizhong/HopKit/releases/download/v0.2.0-rc.1/README.md) · [简体中文 README](https://github.com/lhuaizhong/HopKit/releases/download/v0.2.0-rc.1/README.zh-CN.md) · [macOS 指南](https://github.com/lhuaizhong/HopKit/releases/download/v0.2.0-rc.1/README-macOS.md)。源码包见[发布页面](https://github.com/lhuaizhong/HopKit/releases/tag/v0.2.0-rc.1)。
 
 ## 功能概览
 
