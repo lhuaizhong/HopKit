@@ -100,7 +100,19 @@ with tempfile.TemporaryDirectory(prefix='hopkit-wormhole-') as temp:
    if directory:(source/'inside.txt').write_text('archive')
    # A deterministic test code is supplied only to the independent Python peer.
    pair='42-'+('alpha-bravo' if words==2 else 'alpha-bravo-charlie-delta')
-   sender=start([*python,'send','--code',pair,'--no-listen','--hide-progress',source]);time.sleep(.5)
+   sender=start([*python,'send','--code',pair,'--no-listen','--hide-progress',source])
+   # Wait for the independent sender to claim the nameplate. A fixed sleep is
+   # unreliable on cold, loaded CI hosts and can start the receiver too early.
+   deadline=time.monotonic()+20
+   while True:
+    service_logs[0].flush()
+    log_text=Path(service_logs[0].name).read_text(encoding='utf-8')
+    if log_text.count('creating nameplate#42 ') > python_hop.claims:
+     python_hop.claims+=1
+     break
+    if sender.poll() is not None:raise AssertionError(('Python sender exited',sender.returncode,sender.stderr.read()))
+    if time.monotonic()>=deadline:raise AssertionError('Python sender did not claim nameplate #42')
+    time.sleep(.1)
    dest=t/f'python-recv-{words}-{directory}';dest.mkdir(exist_ok=True)
    receiver=start([cli,'wormhole','receive',pair,'--dir',dest,'--yes',*options,'--format','json']);rc,stdout,stderr=finish(receiver);assert rc==0,(stdout,stderr)
    assert sender.wait(timeout=30)==0,sender.stderr.read()
@@ -109,6 +121,7 @@ with tempfile.TemporaryDirectory(prefix='hopkit-wormhole-') as temp:
     import zipfile
     assert zipfile.is_zipfile(saved)
    else:assert saved.read_bytes()==source.read_bytes()
+  python_hop.claims=0
   for words in [2,4]:check(f'Python {words}-word to HopKit',lambda words=words:python_hop(words))
   check('Python directory saved as ZIP',lambda:python_hop(2,True))
   def cancellation():
