@@ -1,0 +1,49 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>HopKit Ping sound fixture</title></head><body><div id="app"></div>
+<script type="module">
+import {mockIPC} from '@tauri-apps/api/mocks'
+import {createApp} from 'vue'
+import App from '../src/App.vue'
+import '../src/style.css'
+import '../src/appearance.css'
+const tasks=[],requests=[],tones=[]
+const oscillator=AudioContext.prototype.createOscillator
+AudioContext.prototype.createOscillator=function(){
+ const node=oscillator.call(this),start=node.start.bind(node)
+ const setFrequency=node.frequency.setValueAtTime.bind(node.frequency)
+ let frequency=node.frequency.value
+ node.frequency.setValueAtTime=(value,time)=>{frequency=value;return setFrequency(value,time)}
+ node.start=(...args)=>{tones.push({frequency,time:performance.now()});return start(...args)}
+ return node
+}
+let analyser
+const gain=AudioContext.prototype.createGain
+AudioContext.prototype.createGain=function(){
+ const node=gain.call(this)
+ analyser=this.createAnalyser();analyser.fftSize=2048;node.connect(analyser)
+ return node
+}
+function sample(id,ok,status){
+ const task=tasks.find(t=>t.id===id)
+ status??=ok?(task.tool==='tcping'?'connected':'reply'):'timeout'
+ const event={cursor:++task.seq,seq:task.seq,event_type:'sample',status,ok,rtt_ms:ok?5:null,address:task.target}
+ task.events.push(event)
+ return task.seq
+}
+function task(request,id,status='running'){
+ return {id,tool:request.tool,action:request.action??'',target:request.target,status,started_at:String(Date.now()).padStart(20,'0'),seq:0,events:[],result:null,request}
+}
+tasks.push(task({tool:'ping',target:'192.0.2.99'},'historical','succeeded'));sample('historical',true)
+tasks.push(task({tool:'tcping',target:'192.0.2.98'},'historical-tcping','succeeded'));sample('historical-tcping',true)
+window.pingSoundFixture={tasks,requests,tones,sample,finish:(id,status='succeeded')=>{tasks.find(t=>t.id===id).status=status},amplitude:()=>{const pcm=new Float32Array(2048);analyser?.getFloatTimeDomainData(pcm);return Math.max(...pcm.map(Math.abs))}}
+mockIPC((command,args)=>{
+ if(command==='app_info')return {version:'ping-sound-fixture',platform:'Windows',os:'Windows'}
+ if(command==='list_tasks')return tasks.map(({events,...rest})=>({...rest,events:[],result:null}))
+ if(command==='task_poll'){const t=tasks.find(t=>t.id===args.id);return {...t,events:t.events.filter(e=>e.cursor>args.after)}}
+ if(command==='start_task'){requests.push(args.request);const t=task(args.request,`task-${requests.length}`);tasks.push(t);return t.id}
+ if(command==='cancel_task'){tasks.find(t=>t.id===args.id).status='cancelled';return}
+ if(command==='stop_all'){tasks.filter(t=>t.status==='running').forEach(t=>t.status='cancelled');return}
+ throw Error('Unhandled fixture command: '+command)
+})
+createApp(App).mount('#app')
+</script></body></html>

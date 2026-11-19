@@ -20,6 +20,8 @@ FTP passwords, Wormhole pairing codes, Syslog message bodies and URL queries/fra
 
 Ping/TCPing statistics cover the entire task independently of the recent preview. Interrupted calls are counted separately and excluded from latency and failure rates. Charts show the latest 20/80/200 available samples; filters do not change cumulative metrics. Traceroute reports each hop separately: TTL expiry is a hop response, and an intermediate timeout alone does not establish a broken route.
 
+Ping and TCPing include optional Sound alerts, off by default, with independent settings for each tool. Choose Ping fails / Ping succeeds or TCP connection fails / TCP connection succeeds. TCP refusals and timeouts count as failures. Use Test sound to preview, and change settings during a test; they are saved locally and in site profiles. Alerts follow tasks started in the current window even when switching tools, with at most one tone per second per tool. Stopping, cancellation, interruptions and viewing history do not trigger alerts. Check system volume if muted; unavailable audio does not interrupt probing.
+
 Windows TCPing prefers the TCP stack's RTT from `SIO_TCP_INFO`, excluding application scheduling and first-use overhead. Unsupported or invalid statistics and SYN retransmissions fall back to measured connection time. Successful samples export `rtt_source` (`tcp_info` or `connect_elapsed`) and preserve the full connection call duration in `connect_elapsed_ms`. Each probe opens its own connection; the first sample is retained.
 
 ## Multi-target monitoring

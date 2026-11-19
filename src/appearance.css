@@ -198,6 +198,8 @@ footer { flex-wrap: wrap; align-items: center; }
 :root[data-theme="readable"] .throughput-chart { color: var(--read-secondary); font-size: 16px; }
 :root[data-theme="readable"] .throughput-bars span { background: var(--read-accent); }
 
+:root[data-theme="readable"] .sound-preview { color:var(--read-accent);border-color:var(--read-border);min-height:40px; }
+
 /* HTTP file sharing result cards. */
 :root[data-theme="readable"] .file-service-results { font-size:16px; }
 :root[data-theme="readable"] .file-service-results :is(p,small,.file-url>span) { color:var(--read-secondary); }

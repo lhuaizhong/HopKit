@@ -38,7 +38,7 @@ export function sanitizeSnapshot(input:unknown):ToolSnapshot{
   if(typeof value==='number'&&(!Number.isInteger(value)||bounds[key]&&(value<bounds[key][0]||value>bounds[key][1])))throw Error('Configuration number out of range: '+key)
   Object.assign(values,{[key]:key==='target'?safeTarget(String(value)):value})
  }
- if(values.ipv4&&values.ipv6||values.iperf_protocol!==undefined&&!['tcp','udp'].includes(values.iperf_protocol)||values.record_type!==undefined&&!['A','AAAA','CNAME','MX','TXT','NS','PTR','SOA'].includes(values.record_type))throw Error('Invalid configuration option / 配置选项无效')
+ if(values.ipv4&&values.ipv6||values.ping_sound_when!==undefined&&!['success','failure'].includes(values.ping_sound_when)||values.iperf_protocol!==undefined&&!['tcp','udp'].includes(values.iperf_protocol)||values.record_type!==undefined&&!['A','AAAA','CNAME','MX','TXT','NS','PTR','SOA'].includes(values.record_type))throw Error('Invalid configuration option / 配置选项无效')
  const snapshot:ToolSnapshot={schema_version:1,tool:data.tool,mode:data.mode,values}
  if(data.tool==='dhcp'&&data.dhcp){snapshot.dhcp=cleanDhcp(data.dhcp);if(snapshot.dhcp.operation!==data.mode)throw Error('DHCP operation mismatch')}
  if(data.tool==='pmtu'&&data.pmtu)snapshot.pmtu=cleanPmtu(data.pmtu)

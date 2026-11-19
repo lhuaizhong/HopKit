@@ -12,6 +12,8 @@
     "desktop": "tauri dev",
     "desktop:build": "tauri build --no-bundle",
     "test:preferences": "node scripts/preferences-test.mjs",
+    "test:ping-sound-ui": "node scripts/ping-sound-ui-test.mjs",
+    "test:tcping-sound-ui": "node scripts/ping-sound-ui-test.mjs tcping",
     "test:monitor-range": "node scripts/monitor-range-test.mjs",
     "test:monitor-ui": "node scripts/monitor-ui-test.mjs",
     "test:ui": "node scripts/gui-test.mjs",

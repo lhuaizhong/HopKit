@@ -641,7 +641,7 @@ fn run_with(
         "The OS may omit or redact neighbor entries. Placeholder MACs are unknown; an empty cache is not an empty LAN. / 系统可能隐藏邻居，占位 MAC 为未知，空缓存不代表空网络。".into(),
         "Neighbor MAC/state is a cache observation for that exact address and link, never the routed target's next-hop MAC; cache age may be unknown. / 邻居缓存不代表本次响应。".into(),
         "Interface selection binds a source IP and scopes IPv6; fixed-interface routing is not enforced. PTR uses the system route to the explicit resolver. / 接口选择用于源 IP 与 scope，不强制固定接口路由。".into(),
-        "ARP is IPv4 only: both a directly connected interface subnet and an on-link route are required. Routed/VPN targets are skipped. macOS requires BPF access; Windows uses SendARP. No active ND or RFC5227 probes. / ARP 仅限 IPv4 直连网段且实际路由不经网关；macOS 需要 BPF 权限。".into(),
+        "ARP is IPv4 only: both a directly connected interface subnet and an on-link route are required. Routed/VPN targets are skipped. macOS requires BPF access; Windows uses ResolveIpNetEntry2. No active ND or RFC5227 probes. / ARP 仅限 IPv4 直连网段且实际路由不经网关；macOS 需要 BPF 权限。".into(),
         "MAC change is only a clue: Proxy ARP, VRRP and interface changes are possible. / MAC 变化仅为线索。".into(),
         "No bundled OUI dataset; vendor unknown, including local/random MACs. / 无离线 OUI 数据，厂商未知。".into()]};
     let value = serde_json::to_value(result).unwrap();

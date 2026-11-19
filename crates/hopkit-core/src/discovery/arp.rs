@@ -34,6 +34,21 @@ fn eligible(i: &interfaces::Interface, dest: Ipv4Addr, source: &str, cfg: &Confi
     host & mask == network && (i.prefix >= 31 || host != network && host != (network | !mask))
 }
 impl Prober {
+    fn prepare(
+        &self,
+        c: &Cancel,
+        timeout_ms: u64,
+    ) -> Result<(&[interfaces::Interface], Instant), ToolError> {
+        let ifaces = self
+            .interfaces
+            .get_or_init(|| interfaces::list(c))
+            .as_ref()
+            .map_err(Clone::clone)?;
+        // Include neither enumeration nor waiting for its OnceLock in the packet budget.
+        cancelled(c)?;
+        Ok((ifaces, Instant::now() + Duration::from_millis(timeout_ms)))
+    }
+
     pub fn probe(
         &self,
         addr: SocketAddr,
@@ -43,7 +58,6 @@ impl Prober {
         _permit: Arc<crate::budget::Permit>,
     ) -> Observation {
         let began = Instant::now();
-        let deadline = began + Duration::from_millis(cfg.timeout_ms);
         let mut local = source.to_string();
         let result = (|| -> Result<Option<neighbors::Neighbor>, ToolError> {
             cancelled(c)?;
@@ -53,11 +67,7 @@ impl Prober {
             if ip.is_loopback() {
                 return Ok(None);
             }
-            let ifaces = self
-                .interfaces
-                .get_or_init(|| interfaces::list(c))
-                .as_ref()
-                .map_err(Clone::clone)?;
+            let (ifaces, deadline) = self.prepare(c, cfg.timeout_ms)?;
             let candidates: Vec<_> = ifaces
                 .iter()
                 .filter(|i| eligible(i, ip, source, cfg))
@@ -220,10 +230,10 @@ fn windows_probe(
     c: &Cancel,
     shared_permit: Arc<crate::budget::Permit>,
 ) -> Result<neighbors::Neighbor, ToolError> {
-    // SendARP is synchronous. Bound outstanding native calls globally, retain their permit
+    // ResolveIpNetEntry2 is synchronous. Bound outstanding native calls globally, retain their permit
     // until return, and let the task cancel without waiting on a stuck OS resolver.
     use std::sync::mpsc;
-    use windows_sys::Win32::NetworkManagement::IpHelper::SendARP;
+    use windows_sys::Win32::NetworkManagement::IpHelper::{MIB_IPNET_ROW2, ResolveIpNetEntry2};
     static BUDGET: OnceLock<crate::budget::ConnectionBudget> = OnceLock::new();
     let budget = BUDGET.get_or_init(|| crate::budget::ConnectionBudget::new(32));
     let permit = loop {
@@ -247,31 +257,13 @@ fn windows_probe(
         .spawn(move || {
             let _permit = permit;
             let _shared_permit = shared_permit;
-            let mut mac = [0u32; 2];
-            let mut len = 8;
-            let code = unsafe {
-                SendARP(
-                    u32::from_ne_bytes(ip.octets()),
-                    u32::from_ne_bytes(src.octets()),
-                    mac.as_mut_ptr().cast(),
-                    &mut len,
-                )
-            };
-            let result = if code == 0 && len == 6 {
-                let raw = unsafe { std::slice::from_raw_parts(mac.as_ptr().cast::<u8>(), 6) };
-                reply(ip, &iface, raw, "windows-sendarp")
-            } else {
-                Err(ToolError::new(
-                    if code == 5 {
-                        "PERMISSION_DENIED"
-                    } else if [31, 67, 1168].contains(&code) {
-                        "TIMEOUT"
-                    } else {
-                        "LOCAL_PROBE_FAILED"
-                    },
-                    format!("SendARP: {code}"),
-                ))
-            };
+            let mut row = MIB_IPNET_ROW2::default();
+            row.Address = sockaddr(ip);
+            row.InterfaceIndex = iface.index;
+            // SendARP can return cached entries. This API explicitly re-resolves the
+            // exact neighbor on the selected link, so success is active evidence.
+            let code = unsafe { ResolveIpNetEntry2(&mut row, &sockaddr(src)) };
+            let result = windows_reply(ip, &iface, code, &row);
             let _ = tx.send(result);
         })
         .map_err(|e| ToolError::new("RESOURCE_EXHAUSTED", e.to_string()))?;
@@ -290,9 +282,111 @@ fn windows_probe(
         }
     }
 }
+#[cfg(windows)]
+fn windows_reply(
+    ip: Ipv4Addr,
+    iface: &interfaces::Interface,
+    code: u32,
+    row: &windows_sys::Win32::NetworkManagement::IpHelper::MIB_IPNET_ROW2,
+) -> Result<neighbors::Neighbor, ToolError> {
+    use windows_sys::Win32::Networking::WinSock::AF_INET;
+    if code != 0 {
+        return Err(ToolError::new(
+            match code {
+                5 => "PERMISSION_DENIED",
+                31 | 67 | 1460 => "TIMEOUT",
+                50 => "UNSUPPORTED_CAPABILITY",
+                // ERROR_NOT_FOUND identifies a missing interface, not packet loss.
+                _ => "LOCAL_PROBE_FAILED",
+            },
+            format!("ResolveIpNetEntry2: {code}"),
+        ));
+    }
+    if row.InterfaceIndex != iface.index
+        || row.PhysicalAddressLength != 6
+        || unsafe {
+            row.Address.si_family != AF_INET
+                || row.Address.Ipv4.sin_addr.S_un.S_addr != u32::from_ne_bytes(ip.octets())
+        }
+    {
+        return Err(ToolError::new(
+            "LOCAL_PROBE_FAILED",
+            "ARP reply address/link mismatch or invalid MAC length",
+        ));
+    }
+    reply(
+        ip,
+        iface,
+        &row.PhysicalAddress[..6],
+        "windows-resolveipnetentry2",
+    )
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cold_interface_query_does_not_consume_packet_timeout() {
+        let prober = Prober::default();
+        let c = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let (started, ready) = std::sync::mpsc::channel();
+        let (finished, completion) = std::sync::mpsc::channel();
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                prober.interfaces.get_or_init(|| {
+                    started.send(()).unwrap();
+                    std::thread::sleep(Duration::from_millis(200));
+                    finished.send(Instant::now()).unwrap();
+                    Ok(vec![])
+                });
+            });
+            ready.recv().unwrap();
+            let (_, deadline) = prober.prepare(&c, 100).unwrap();
+            assert!(deadline >= completion.recv().unwrap() + Duration::from_millis(100));
+        });
+        c.store(true, std::sync::atomic::Ordering::Relaxed);
+        assert_eq!(prober.prepare(&c, 100).unwrap_err().code, "CANCELLED");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn native_reply_requires_exact_address_link_and_mac_and_classifies_local_errors() {
+        use windows_sys::Win32::NetworkManagement::IpHelper::MIB_IPNET_ROW2;
+        let ip = "192.0.2.1".parse().unwrap();
+        let iface = interfaces::Interface {
+            name: "Ethernet".into(),
+            index: 8,
+            address: "192.0.2.20".into(),
+            prefix: 24,
+        };
+        let mut row = MIB_IPNET_ROW2::default();
+        row.Address = sockaddr(ip);
+        row.InterfaceIndex = 8;
+        row.PhysicalAddressLength = 6;
+        row.PhysicalAddress[..6].copy_from_slice(&[0x02, 0, 0, 0, 0, 1]);
+        let reply = windows_reply(ip, &iface, 0, &row).unwrap();
+        assert_eq!(reply.address, "192.0.2.1");
+        assert_eq!(reply.mac.as_deref(), Some("02:00:00:00:00:01"));
+        assert_eq!(reply.phase, "active");
+        for (code, expected) in [
+            (67, "TIMEOUT"),
+            (5, "PERMISSION_DENIED"),
+            (1168, "LOCAL_PROBE_FAILED"),
+        ] {
+            assert_eq!(
+                windows_reply(ip, &iface, code, &row).unwrap_err().code,
+                expected
+            );
+        }
+        row.InterfaceIndex = 9;
+        assert!(windows_reply(ip, &iface, 0, &row).is_err());
+        row.InterfaceIndex = 8;
+        row.Address = sockaddr("192.0.2.2".parse().unwrap());
+        assert!(windows_reply(ip, &iface, 0, &row).is_err());
+        row.Address = sockaddr(ip);
+        row.PhysicalAddressLength = 32;
+        assert!(windows_reply(ip, &iface, 0, &row).is_err());
+    }
+
     #[test]
     fn only_directed_local_ipv4_hosts_are_eligible() {
         let i = interfaces::Interface {

@@ -235,7 +235,7 @@ pub fn capabilities() -> Capabilities {
                     CapabilityStatus::Unsupported
                 },
                 adapter: if cfg!(windows) {
-                    "windows-sendarp"
+                    "windows-resolveipnetentry2"
                 } else if cfg!(target_os = "macos") {
                     "macos-bpf-arp"
                 } else {

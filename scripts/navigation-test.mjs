@@ -48,6 +48,11 @@ for(const tool of ['tftp','ftp','http','wormhole','monitor','syslog']){
 }
 storage.set('hopkit-navigation',JSON.stringify({schema_version:1,tool:'ftp',category:'unknown',scroll:{}}));assert.equal(nav.readNavigation().category,'files');assert.equal(nav.readNavigation().scroll.files,0)
 const snapshot=library.sanitizeSnapshot({schema_version:1,tool:'check',mode:'',values:{target:'https://example.com/a?token=private#secret',ftp_password:'PASSWORD',message:'BODY',timeout_ms:1500,future_secret:'FUTURE'}})
+const pingSound=library.sanitizeSnapshot({schema_version:1,tool:'ping',mode:'',values:{ping_sound_enabled:true,ping_sound_when:'success'}})
+assert.equal(pingSound.values.ping_sound_enabled,true);assert.equal(pingSound.values.ping_sound_when,'success')
+const tcpingSound=library.sanitizeSnapshot({schema_version:1,tool:'tcping',mode:'',values:{ping_sound_enabled:true,ping_sound_when:'failure'}})
+assert.equal(tcpingSound.values.ping_sound_enabled,true);assert.equal(tcpingSound.values.ping_sound_when,'failure')
+for(const values of [{ping_sound_enabled:'yes'},{ping_sound_when:'invalid'}])assert.throws(()=>library.sanitizeSnapshot({schema_version:1,tool:'ping',mode:'',values}))
 assert.equal(snapshot.values.target,'https://example.com/a')
 for(const secret of ['PASSWORD','BODY','FUTURE','private','secret'])assert.ok(!JSON.stringify(snapshot).includes(secret))
 const wormhole=library.sanitizeSnapshot({schema_version:1,tool:'wormhole',mode:'receive',values:{},wormhole:{code:'PAIRING',mailbox_url:'wss://a.test/?token=SECRET'}})

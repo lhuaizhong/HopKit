@@ -1,4 +1,6 @@
 use super::*;
+#[cfg(windows)]
+mod windows;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Interface {
     pub name: String,
@@ -78,28 +80,7 @@ pub fn list(c: &Cancel) -> Result<Vec<Interface>, ToolError> {
     }
     #[cfg(windows)]
     {
-        let data = crate::network::overview(c)?;
-        let mut rows = Vec::new();
-        for iface in data["interfaces"].as_array().into_iter().flatten() {
-            for addr in iface["addresses"].as_array().into_iter().flatten() {
-                let Some(address) = addr["address"].as_str() else {
-                    continue;
-                };
-                let index = iface["index"].as_u64().unwrap_or(0) as u32;
-                let address = if address.starts_with("fe80:") && !address.contains('%') {
-                    format!("{address}%{index}")
-                } else {
-                    address.into()
-                };
-                rows.push(Interface {
-                    name: iface["name"].as_str().unwrap_or("").into(),
-                    index,
-                    address,
-                    prefix: addr["prefix"].as_u64().unwrap_or(0) as u32,
-                });
-            }
-        }
-        Ok(rows)
+        windows::list(c)
     }
     #[cfg(not(any(unix, windows)))]
     Err(ToolError::new(

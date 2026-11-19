@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { appearance } from './appearance'
 import { resultImage } from './result-image'
 import { preference, savePreference } from './preferences'
+import { PingSound } from './ping-sound'
 import AddressFamilySelect from './components/AddressFamilySelect.vue'
 import CheckSetup from './components/CheckSetup.vue'
 import CheckResults from './components/CheckResults.vue'
@@ -88,6 +89,22 @@ const configurations=new Map<string,ReturnType<typeof defaults>>()
 const monitorConfigurations=new Map<string,ToolSnapshot['monitor']>()
 const wormholeConfigurations=new Map<string,ToolSnapshot['wormhole']>()
 const modes=new Map<string,string>()
+type SoundTool='ping'|'tcping'
+const soundErrors=reactive({ping:false,tcping:false})
+const soundSettings=(tool:SoundTool)=>selected.value===tool?form:configurations.get(`${tool}:`)??defaults()
+const sounds={
+ ping:new PingSound(()=>soundSettings('ping'),()=>{soundErrors.ping=true}),
+ tcping:new PingSound(()=>soundSettings('tcping'),()=>{soundErrors.tcping=true}),
+}
+const soundFor=(tool:string)=>tool==='ping'||tool==='tcping'?sounds[tool]:undefined
+const currentSoundError=computed(()=>selected.value==='ping'||selected.value==='tcping'?soundErrors[selected.value]:false)
+async function prepareProbeSound(preview=false){
+ const tool=selected.value
+ if(tool!=='ping'&&tool!=='tcping'||!soundSettings(tool).ping_sound_enabled)return
+ try{await sounds[tool].prepare();soundErrors[tool]=false;if(preview&&soundSettings(tool).ping_sound_enabled)sounds[tool].play(true)}catch{soundErrors[tool]=true}
+}
+function changeProbeSound(){const tool=selected.value;if(tool!=='ping'&&tool!=='tcping')return;soundErrors[tool]=false;if(form.ping_sound_enabled)void prepareProbeSound();else sounds[tool].silence()}
+function stopSound(id:string){for(const sound of Object.values(sounds)){if(sound.cursor(id)!==undefined){sound.forget(id);sound.silence()}}}
 const configKey=()=>`${selected.value}:${selected.value==='dhcp'?dhcpConfig.operation:selected.value==='dns'?form.dns_mode:selected.value==='wormhole'?wormholeConfig.operation:form.action}`
 // Source binding depends on the current network. On startup use OS routing;
 // explicit profile loads and manual edits can still opt into source binding.
@@ -200,7 +217,7 @@ async function rerun(item:Task){try{
  error.value=detail.tool==='ftp'?t('已载入请求快照，请重新填写 FTP 凭据后启动。','Request loaded. Re-enter FTP credentials and run.'):detail.tool==='syslog'&&detail.action==='send'?t('消息正文未保存，请重新填写后发送。','Message bodies are not saved. Enter the message before sending.'):''
  }catch(e){error.value=String(e)}
 }
-async function stopItem(id:string){try{await invoke('cancel_task',{id});await poll()}catch(e){error.value=String(e)}}
+async function stopItem(id:string){stopSound(id);try{await invoke('cancel_task',{id});await poll()}catch(e){error.value=String(e)}}
 
 function persistNavigation(){writeNavigation(navigation)}
 function persistLibrary(){storageError.value=saveLibrary(library)?'':t('配置无法写入本机；本次会话仍可使用。','Settings could not be saved; this session remains usable.')}
@@ -228,6 +245,7 @@ function inspectPort(port:number){pickTool('connections');connectionsConfig.port
 async function sendSocket(command:SendCommand){try{if(!task.value||task.value.tool!=='socket')return;await invoke('socket_send',{id:task.value.id,command});error.value=''}catch(e){error.value=String(e)}}
 async function start(){
  if(startDisabled.value)return
+ if(soundFor(selected.value))void prepareProbeSound()
  error.value='';loading.value=true
  try{
   const request={source_address:selected.value==='check'?form.source_address:'',tls_ca_file:selected.value==='check'?form.tls_ca_file:'',insecure_tls:form.insecure_tls,include_trace:form.include_trace,tool:selected.value,target:form.target.trim(),port:selected.value==='dns'?0:Number(form.port),count:form.continuous&&['ping','tcping'].includes(selected.value)?0:Number(form.count),timeout_ms:Number(form.timeout_ms),interval_ms:Number(form.interval_ms),payload_size_bytes:selected.value==='ping'?Number(form.payload_size_bytes):32,ipv4:form.ipv4,ipv6:form.ipv6,max_hops:Number(form.max_hops),record_type:form.dns_mode==='system'?'A':form.record_type,dns_server:selected.value==='check'||selected.value==='dns'&&form.dns_mode==='direct'?form.dns_server.trim():'',path:form.path,remote_name:selected.value==='ftp'&&form.action==='list'?form.ftp_remote_path:form.remote_name,action:form.action,listen:form.listen.trim(),allow:form.allow.trim(),writable:form.writable,overwrite:form.overwrite,message:form.message,ntp_stratum:Number(form.ntp_stratum),duration_secs:selected.value==='iperf3'||['ntp','ftp','http'].includes(selected.value)&&service.value?Number(form.duration_secs):0,iperf_protocol:form.iperf_protocol,iperf_parallel:selected.value==='iperf3'&&form.iperf_protocol==='udp'?1:Number(form.iperf_parallel),iperf_reverse:form.iperf_reverse,iperf_bitrate_mbps:Number(form.iperf_bitrate_mbps),ftp_username:selected.value==='ftp'?form.ftp_username:'anonymous',ftp_password:selected.value==='ftp'?form.ftp_password:''}
@@ -247,6 +265,7 @@ async function start(){
   const normalized=selected.value==='check'?await invoke<Row>('parse_target',{input:request.target}):null
   if(normalized)request.port=normalized.port??0
   const id=await invoke<string>('start_task',{request:selected.value==='snmp'?{...request,snmp_credentials:{...snmpCredentials}}:request})
+  soundFor(request.tool)?.track(id)
   if(selected.value==='snmp')Object.assign(snmpCredentials,{auth_password:'',privacy_password:''})
   const safeRequest={...request,target:normalized?.normalized??request.target}
   if(selected.value==='wormhole'){wormholeConfig.code='';(safeRequest as Row).wormhole={...(safeRequest as Row).wormhole};delete (safeRequest as Row).wormhole.code}
@@ -258,8 +277,8 @@ async function start(){
   if(selected.value===request.tool){active.value=id;activeDetail.value=started;rows.value=[];reusableTarget.value=normalized?.host??request.target}await poll()
  }catch(e){error.value=String(e)}finally{loading.value=false}
 }
-async function stop(){const id=stopTask.value?.id;if(!id)return;try{if(active.value!==id){active.value=id;rows.value=[]}await invoke('cancel_task',{id});await poll()}catch(e){error.value=String(e)}}
-async function stopAll(){try{await invoke('stop_all');await poll()}catch(e){error.value=String(e)}}
+async function stop(){const id=stopTask.value?.id;if(!id)return;stopSound(id);try{if(active.value!==id){active.value=id;rows.value=[]}await invoke('cancel_task',{id});await poll()}catch(e){error.value=String(e)}}
+async function stopAll(){for(const sound of Object.values(sounds))sound.stopAll();try{await invoke('stop_all');await poll()}catch(e){error.value=String(e)}}
 async function openTask(item:Task){pickTool(item.tool);active.value=item.id;activeDetail.value=null;rows.value=[];await poll()}
 let polling=false
 async function poll(){if(polling)return;polling=true;try{
@@ -271,13 +290,24 @@ async function poll(){if(polling)return;polling=true;try{
   return old&&old.status===item.status&&old.seq===item.seq&&old.started_at===item.started_at?old:item
  })
  if(summaries.length!==tasks.value.length||summaries.some((item,i)=>item!==tasks.value[i]))tasks.value=summaries
+ const soundDetails=new Map<string,{after:number;detail:Task}>()
+ for(const item of summaries){
+  const sound=soundFor(item.tool),after=sound?.cursor(item.id)
+  if(!sound||after===undefined||item.seq<=after&&item.status==='running')continue
+  if(['cancelling','cancelled'].includes(item.status)){sound.forget(item.id);continue}
+  const detail=await invoke<Task>('task_poll',{id:item.id,after})
+  if(!['cancelling','cancelled'].includes(detail.status))sound.consume(item.id,detail.events)
+  soundDetails.set(item.id,{after,detail})
+  if(!['running','cancelling'].includes(detail.status))sound.forget(item.id)
+ }
  const id=active.value
  if(id){
   const cached=activeDetail.value,summary=tasks.value.find(item=>item.id===id)
   if(cached?.tool==='monitor'&&cached.seq===summary?.seq&&cached.status===summary?.status)return
   if(cached?.id===id&&cached.result&&!['running','cancelling'].includes(cached.status)&&(!summary||summary.status===cached.status&&summary.seq===cached.seq))return
   const preview=rows.value,after=cached?.tool==='monitor'?cached.seq:preview.length?Number(preview[preview.length-1]?.cursor||0):0
-  const detail=await invoke<Task>('task_poll',{id,after})
+  const soundDetail=soundDetails.get(id)
+  const detail=soundDetail?.after===after?soundDetail.detail:await invoke<Task>('task_poll',{id,after})
   if(active.value!==id||rows.value!==preview)return
   if(detail.events.length){if(after&&detail.events[0].cursor>after+1&&!['mtr','discovery','socket'].includes(detail.tool))error.value=t('部分实时预览已淘汰；全程统计独立保留。','Some preview events expired; cumulative statistics are retained independently.');rows.value=[...preview,...detail.events].slice(-300)}
   activeDetail.value=detail
@@ -308,7 +338,7 @@ async function exportImage(destination:'file'|'clipboard'='file'){
 async function copy(){try{await navigator.clipboard.writeText(JSON.stringify(task.value?.result||rows.value,null,2));copied.value=true;setTimeout(()=>copied.value=false,1500)}catch(e){error.value=String(e)}}
 let timer:ReturnType<typeof setInterval>
 onMounted(async()=>{poll();timer=setInterval(poll,350);try{appInfo.value=await invoke('app_info')}catch(e){error.value=String(e)}})
-onUnmounted(()=>clearInterval(timer))
+onUnmounted(()=>{clearInterval(timer);for(const sound of Object.values(sounds))sound.dispose()})
 </script>
 
 <template>
@@ -373,6 +403,11 @@ onUnmounted(()=>clearInterval(timer))
        <small v-if="selected==='tcping'" class="field-help">{{t('Windows 优先显示系统测得的 TCP 往返延迟；无法获取或发生握手重传时显示建连耗时。导出数据保留建连总耗时与测量来源。','Windows uses the TCP round-trip time when available; connection time is used if unavailable or the handshake is retransmitted. Exports retain connection time and measurement source.')}}</small>
        <template v-if="!service&&['ping','tcping','ntp'].includes(selected)"><div class="field-pair"><div><label for="count">{{t('探测次数','Count')}}</label><input id="count" v-model.number="form.count" type="number" min="1" :max="selected==='ntp'?20:10000" :disabled="form.continuous&&selected!=='ntp'" required></div><div><label for="interval">{{t('间隔 / ms','Interval / ms')}}</label><input id="interval" v-model.number="form.interval_ms" type="number" min="50" max="60000" step="50" required></div></div><label v-if="selected!=='ntp'" class="check"><input v-model="form.continuous" type="checkbox">{{t('持续探测，直至手动停止','Continue until stopped')}}</label></template>
        <template v-if="selected==='ping'"><label for="payload-size">{{t('测试包大小 / 字节','Packet size / bytes')}}</label><input id="payload-size" v-model.number="form.payload_size_bytes" type="number" min="0" max="65500" step="1" required aria-describedby="payload-help"><small id="payload-help" class="field-help">{{t('0–65500 字节，默认 32；仅 ICMP 数据部分，不含 IP 和 ICMP 头。','0–65500 bytes, default 32. ICMP data only; excludes IP and ICMP headers.')}}</small></template>
+       <template v-if="selected==='ping'||selected==='tcping'">
+        <label class="check" :for="`${selected}-sound-enabled`"><input :id="`${selected}-sound-enabled`" v-model="form.ping_sound_enabled" type="checkbox" @change="changeProbeSound">{{t('声音提示','Sound alerts')}}</label>
+        <template v-if="form.ping_sound_enabled"><label :for="`${selected}-sound-when`">{{t('发声条件','Play sound when')}}</label><select :id="`${selected}-sound-when`" v-model="form.ping_sound_when"><option value="failure">{{selected==='tcping'?t('TCP 连接失败时','TCP connection fails'):t('Ping 不通时','Ping fails')}}</option><option value="success">{{selected==='tcping'?t('TCP 连接成功时','TCP connection succeeds'):t('Ping 连通时','Ping succeeds')}}</option></select><button class="sound-preview" type="button" @click="prepareProbeSound(true)">{{t('试听','Test sound')}}</button><small class="field-help">{{t('符合条件时提示，最快每秒一次；测试中可随时开关。','Alerts play at most once per second. You can toggle them during a test.')}}</small></template>
+        <small v-if="currentSoundError" class="error" role="status">{{t('声音暂不可用，请点击“试听”重试，并检查系统音量。','Sound is unavailable. Click Test sound to retry and check the system volume.')}}</small>
+       </template>
        <template v-if="selected==='trace'"><label for="hops">{{t('最大跳数','Maximum hops')}}</label><input id="hops" v-model.number="form.max_hops" type="number" min="1" max="64" required></template>
        <template v-if="!service&&['ping','trace','tcping','dns','ntp','ftp','iperf3'].includes(selected)"><div class="field-pair"><div><label for="timeout">{{t('单次超时 / ms','Timeout / ms')}}</label><input id="timeout" v-model.number="form.timeout_ms" type="number" min="100" max="10000" step="100" required></div><div><AddressFamilySelect id="family" :en="en" :config="form"/></div></div></template>
        <AddressFamilySelect v-if="!service&&['tftp','syslog'].includes(selected)" id="family" :en="en" :config="form"/>
@@ -460,4 +495,7 @@ onUnmounted(()=>clearInterval(timer))
  </div>
 </template>
 
+<style scoped>
+.sound-preview{margin-top:8px;padding:6px 12px;border:1px solid #dde4ed;border-radius:6px;background:#f8fafc;color:#3478da;font-size:12px}
+</style>
 
